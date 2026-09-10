@@ -1,45 +1,154 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { ChevronDown, Heart, Menu, Search, ShoppingBag, SlidersHorizontal, User, X } from 'lucide-react'
+import React from 'react'
+import Link from 'next/link'
+import { ProductCard } from '@/components/ProductCard'
+import { getNewArrivals, getBestsellers } from '@/lib/catalog'
 
-type Product = { id:number; name:string; category:string; price:number; image:string; hover:string; collection:string; sizes:string[]; color:string; soldOut?:boolean; tag?:string }
-const img = (id:number) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&q=85`
-const products:Product[] = [
-  {id:1,name:'Seno Raw Denim Jacket',category:'Outerwear',price:12900,image:img('photo-1551028719-00167b16eac5'),hover:img('photo-1529139574466-a303027c1d8b'),collection:'New arrivals',sizes:['S','M','L','XL'],color:'Indigo',tag:'New'},
-  {id:2,name:'Contour Rib Tank',category:'Topwear',price:3900,image:img('photo-1523381210434-271e8be1f52b'),hover:img('photo-1503342217505-b0a15ec3261c'),collection:'Topwear',sizes:['XS','S','M','L'],color:'White'},
-  {id:3,name:'Transit Wide Trousers',category:'Bottomwear',price:8900,image:img('photo-1515886657613-9f3515b0c78f'),hover:img('photo-1548883354-7622d03aca27'),collection:'Bottomwear',sizes:['S','M','L','XL'],color:'Charcoal'},
-  {id:4,name:'No. 07 Mesh Long Sleeve',category:'Topwear',price:5900,image:img('photo-1483985988355-763728e1935b'),hover:img('photo-1490481651871-ab68de25d43d'),collection:'New arrivals',sizes:['S','M','L'],color:'Black',tag:'New'},
-  {id:5,name:'Uniform Pleated Skirt',category:'Bottomwear',price:7900,image:img('photo-1551488831-00ddcb6c6bd3'),hover:img('photo-1551488831-00ddcb6c6bd3'),collection:'Collections',sizes:['XS','S','M','L'],color:'Stone'},
-  {id:6,name:'Archive Work Shirt',category:'Topwear',price:6900,image:img('photo-1603252110481-7ba873bf42ab'),hover:img('photo-1602810318383-e386cc2a3ccf'),collection:'Topwear',sizes:['M','L','XL'],color:'Blue',soldOut:true},
-  {id:7,name:'Everyday Canvas Tote',category:'Accessories',price:3200,image:img('photo-1594223274512-ad4803739b7c'),hover:img('photo-1548036328-c9fa89d128fa'),collection:'Accessories',sizes:['One size'],color:'Black'},
-  {id:8,name:'Form 02 Tailored Blazer',category:'Outerwear',price:14900,image:img('photo-1507679799987-c73779587ccf'),hover:img('photo-1551488831-00ddcb6c6bd3'),collection:'Collections',sizes:['S','M','L'],color:'Black'},
-  {id:9,name:'Daily Cotton Shirt',category:'Topwear',price:6200,image:img('photo-1596755389378-c31d21fd1273'),hover:img('photo-1605763240000-7e93b172d754'),collection:'New arrivals',sizes:['S','M','L','XL'],color:'Cream'},
-  {id:10,name:'Utility Cargo Pant',category:'Bottomwear',price:9800,image:img('photo-1515886657613-9f3515b0c78f'),hover:img('photo-1541099649105-f69ad21f3246'),collection:'Bottomwear',sizes:['S','M','L'],color:'Olive'},
-  {id:11,name:'Studio Cap',category:'Accessories',price:2400,image:img('photo-1521369909029-2afed882baee'),hover:img('photo-1534215754734-18e55d13e346'),collection:'Accessories',sizes:['One size'],color:'Black'},
-  {id:12,name:'Soft Form Cardigan',category:'Topwear',price:7400,image:img('photo-1434389677669-e08b4cac3105'),hover:img('photo-1485968579580-b6d095142e6e'),collection:'Collections',sizes:['S','M','L'],color:'Oat'}
-]
-const money=(n:number)=>`₹${n.toLocaleString('en-IN')}`
+export default function HomePage() {
+  const newArrivals = getNewArrivals(4)
+  const bestsellers = getBestsellers(4)
 
-export default function Page(){
-  const [collection,setCollection]=useState('All products'),[category,setCategory]=useState('All'),[availability,setAvailability]=useState('All'),[size,setSize]=useState('All'),[sort,setSort]=useState('Featured'),[grid,setGrid]=useState(4),[query,setQuery]=useState(''),[searchOpen,setSearchOpen]=useState(false),[filtersOpen,setFiltersOpen]=useState(false),[menuOpen,setMenuOpen]=useState(false),[liked,setLiked]=useState<number[]>([]),[bag,setBag]=useState<{id:number;qty:number;size:string}[]>([]),[bagOpen,setBagOpen]=useState(false)
-  const visible=useMemo(()=>{let list=products.filter(p=>(collection==='All products'||p.collection===collection)&&(category==='All'||p.category===category)&&(availability==='All'||(availability==='In stock'?!p.soldOut:p.soldOut))&&(size==='All'||p.sizes.includes(size))&&p.name.toLowerCase().includes(query.toLowerCase())); if(sort==='Newest')list=[...list].sort((a,b)=>b.id-a.id); if(sort==='Price: low to high')list=[...list].sort((a,b)=>a.price-b.price); if(sort==='Price: high to low')list=[...list].sort((a,b)=>b.price-a.price); return list},[collection,category,availability,size,sort,query])
-  const add=(id:number)=>{const p=products.find(x=>x.id===id);if(!p||p.soldOut)return;setBag(c=>c.some(x=>x.id===id)?c.map(x=>x.id===id?{...x,qty:x.qty+1}:x):[...c,{id,qty:1,size:p.sizes[0]}]);setBagOpen(true)}
-  const updateQty=(id:number,delta:number)=>setBag(c=>c.map(x=>x.id===id?{...x,qty:Math.max(0,x.qty+delta)}:x).filter(x=>x.qty))
-  const bagCount=bag.reduce((n,x)=>n+x.qty,0), subtotal=bag.reduce((n,x)=>n+(products.find(p=>p.id===x.id)?.price||0)*x.qty,0)
-  const nav=(name:string)=>{setCollection(name);setMenuOpen(false);document.getElementById('catalog')?.scrollIntoView({behavior:'smooth'})}
-  return <div className="storefront">
-    <div className="announcement">FREE SHIPPING ACROSS INDIA ON ORDERS OVER ₹1,999</div>
-    <header className="store-header"><div className="header-main"><button className="mobile-menu" aria-label="Open menu" onClick={()=>setMenuOpen(!menuOpen)}><Menu size={20}/></button><button className="header-search" aria-label="Search" onClick={()=>setSearchOpen(true)}><Search size={19}/><span>Search</span></button><button className="wordmark" onClick={()=>nav('All products')}>SENO<small>STUDIO / 01</small></button><nav className={menuOpen?'nav nav-open':'nav'}>{['All products','New arrivals','Topwear','Bottomwear','Accessories','Collections'].map(item=><button key={item} className={(collection===item||(item==='Topwear'&&category==='Topwear'))?'active':''} onClick={()=>item==='Topwear'||item==='Bottomwear'||item==='Accessories'? (setCategory(item),setCollection('All products'),setMenuOpen(false)):nav(item)}>{item}</button>)}</nav><div className="header-actions"><button aria-label="Account"><User size={18}/><span>Account</span></button><button aria-label="Wishlist" onClick={()=>setLiked(liked)}><Heart size={18}/><span>Wishlist</span></button><button aria-label="Open cart" onClick={()=>setBagOpen(true)}><ShoppingBag size={18}/><span>Cart <b>{bagCount}</b></span></button></div></div></header>
-    <main>
-      <section className="promo"><img src={img('photo-1490481651871-ab68de25d43d')} alt="SENO new season tailoring"/><div className="promo-copy"><p>SPRING / SUMMER 26</p><h1>New forms<br/>for everyday.</h1><button onClick={()=>nav('New arrivals')}>Shop now <span>→</span></button></div></section>
-      <section className="catalog-section" id="catalog"><div className="catalog-title"><div><p className="kicker">SENO COLLECTION</p><h2>{collection}</h2></div><p>{visible.length} products</p></div><div className="catalog-toolbar"><button className="filter-button" onClick={()=>setFiltersOpen(!filtersOpen)}><SlidersHorizontal size={15}/> Filter</button><div className="toolbar-center"><label>Sort by <select value={sort} onChange={e=>setSort(e.target.value)}><option>Featured</option><option>Newest</option><option>Price: low to high</option><option>Price: high to low</option><option>Best selling</option></select><ChevronDown size={14}/></label></div><div className="density"><span>View</span>{[2,3,4].map(n=><button key={n} className={grid===n?'selected':''} onClick={()=>setGrid(n)}>{n}</button>)}</div></div><div className="catalog-layout"><aside className={filtersOpen?'filters filter-mobile-open':'filters'}><div className="filter-heading">Filter <button className="filter-close" onClick={()=>setFiltersOpen(false)}><X size={18}/></button></div><FilterGroup title="Category" values={['All','Topwear','Bottomwear','Outerwear','Accessories']} value={category} onChange={v=>{setCategory(v);setFiltersOpen(false)}}/><FilterGroup title="Availability" values={['All','In stock','Sold out']} value={availability} onChange={setAvailability}/><FilterGroup title="Size" values={['All','XS','S','M','L','XL','XXL']} value={size} onChange={setSize}/><p className="filter-footnote">Limited quantities. Thoughtfully made.</p></aside><div className={`product-grid columns-${grid}`}>{visible.map(p=><article className="product-card" key={p.id} onClick={e=>{if(!(e.target as HTMLElement).closest('button'))window.location.href=`/products/${p.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')}`}} onKeyDown={e=>{if(e.key==='Enter')window.location.href=`/products/${p.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')}`}} tabIndex={0}><div className="product-visual"><img src={p.image} alt={p.name} onError={e=>{e.currentTarget.src='/placeholder.svg'}}/><img className="product-hover" src={p.hover} alt="" onError={e=>{e.currentTarget.style.display='none'}}/><button className={liked.includes(p.id)?'wishlist liked':'wishlist'} aria-label={`Wishlist ${p.name}`} onClick={()=>setLiked(c=>c.includes(p.id)?c.filter(x=>x!==p.id):[...c,p.id])}><Heart size={16} fill={liked.includes(p.id)?'currentColor':'none'}/></button>{p.tag&&<span className="badge">{p.tag}</span>}{p.soldOut?<span className="sold-label">Sold out</span>:<button className="quick-add" onClick={()=>add(p.id)}>Quick add <span>+</span></button>}</div><div className="product-info"><p>{p.category}</p><h3>{p.name}</h3><strong>{money(p.price)}</strong></div></article>)}</div></div></section>
-      <section className="category-strip"><div className="strip-heading"><p className="kicker">EXPLORE SENO</p><h2>Shop by category</h2></div><div className="category-links">{['Topwear','Bottomwear','Accessories','New arrivals'].map((item,i)=><button key={item} onClick={()=>item==='New arrivals'?nav(item):(setCategory(item),document.getElementById('catalog')?.scrollIntoView({behavior:'smooth'}))}><span>0{i+1}</span>{item}<b>↗</b></button>)}</div></section>
-    </main>
-    <footer><div><div className="footer-brand">SENO</div><p>Clothing and objects for a life in motion.</p></div><div><h3>Shop</h3><button onClick={()=>nav('New arrivals')}>New arrivals</button><button onClick={()=>setCategory('Topwear')}>Topwear</button><button onClick={()=>setCategory('Bottomwear')}>Bottomwear</button><button>Accessories</button></div><div><h3>Help</h3><button>Contact</button><button>Shipping & returns</button><button>Track order</button></div><div className="newsletter"><h3>Keep in touch</h3><p>News, launches and good things.</p><div><input placeholder="Email address"/><button>→</button></div></div></footer>
-    {searchOpen&&<div className="modal" onClick={()=>setSearchOpen(false)}><div className="search-modal" onClick={e=>e.stopPropagation()}><button className="modal-close" onClick={()=>setSearchOpen(false)}><X size={18}/></button><p className="kicker">SEARCH SENO</p><input autoFocus value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){setSearchOpen(false);document.getElementById('catalog')?.scrollIntoView({behavior:'smooth'})}}} placeholder="Search products"/></div></div>}
-    {bagOpen&&<div className="modal cart-modal" onClick={()=>setBagOpen(false)}><aside className="cart-drawer" onClick={e=>e.stopPropagation()}><div className="cart-heading"><div><p className="kicker">YOUR CART</p><h2>{bagCount} {bagCount===1?'item':'items'}</h2></div><button onClick={()=>setBagOpen(false)}><X size={19}/></button></div>{bag.length===0?<div className="empty-cart"><ShoppingBag size={25}/><p>Your cart is empty.</p><button onClick={()=>setBagOpen(false)}>Continue shopping</button></div>:<><div className="cart-items">{bag.map(item=>{const p=products.find(x=>x.id===item.id)!;return <div className="cart-item" key={item.id}><img src={p.image} alt=""/><div><h3>{p.name}</h3><p>Size {item.size}</p><div className="qty"><button onClick={()=>updateQty(item.id,-1)}>−</button><span>{item.qty}</span><button onClick={()=>updateQty(item.id,1)}>+</button></div></div><strong>{money(p.price*item.qty)}</strong></div>})}</div><div className="shipping-progress"><span style={{width:`${Math.min(100,subtotal/1999*100)}%`}}/></div><p className="shipping-copy">{subtotal>=1999?'You have unlocked free shipping.':`Add ${money(1999-subtotal)} for free shipping.`}</p><div className="cart-subtotal"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><button className="checkout">Checkout <span>→</span></button></>}</aside></div>}
-  </div>
+  const categoryTiles = [
+    {
+      title: 'Topwear',
+      subtitle: 'Shirts, Tanks & Cardigans',
+      image: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=800&q=80',
+      href: '/collections/topwear'
+    },
+    {
+      title: 'Bottomwear',
+      subtitle: 'Pleated Trousers & Cargo Pants',
+      image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80',
+      href: '/collections/bottomwear'
+    },
+    {
+      title: 'Outerwear',
+      subtitle: 'Selvedge Denim & Wool Blazers',
+      image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80',
+      href: '/collections/outerwear'
+    },
+    {
+      title: 'Accessories',
+      subtitle: 'Canvas Totes & Brushed Wool',
+      image: 'https://images.unsplash.com/photo-1594223274512-ad4803739b7c?auto=format&fit=crop&w=800&q=80',
+      href: '/collections/accessories'
+    }
+  ]
+
+  return (
+    <div className="homepage-storefront">
+      {/* 1. HERO */}
+      <section className="hero-section">
+        <div className="hero-image-wrapper">
+          <img
+            src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1800&q=85"
+            alt="SENO Spring / Summer 26 Campaign"
+          />
+        </div>
+        <div className="hero-content-overlay">
+          <span className="hero-season-kicker">SPRING / SUMMER 26</span>
+          <h1 className="hero-headline">
+            New forms
+            <br />
+            for everyday.
+          </h1>
+          <Link href="/collections/new-arrivals" className="hero-cta-btn">
+            SHOP NOW <span>→</span>
+          </Link>
+        </div>
+      </section>
+
+      {/* 2. NEW ARRIVALS */}
+      <section className="section-padding">
+        <div className="section-header-flex">
+          <div>
+            <span className="section-kicker">CURATED RELEASES</span>
+            <h2 className="section-title">New Arrivals</h2>
+          </div>
+          <Link href="/collections/new-arrivals" className="view-all-link">
+            VIEW ALL
+          </Link>
+        </div>
+
+        <div className="product-grid columns-4">
+          {newArrivals.map(product => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      </section>
+
+      {/* 3. SHOP BY CATEGORY */}
+      <section className="section-padding" style={{ background: '#f5f4f0' }}>
+        <div className="section-header-flex">
+          <div>
+            <span className="section-kicker">EXPLORE SILHOUETTES</span>
+            <h2 className="section-title">Shop by Category</h2>
+          </div>
+        </div>
+
+        <div className="category-tiles-grid">
+          {categoryTiles.map((cat, idx) => (
+            <Link href={cat.href} key={idx} className="category-tile-card">
+              <img src={cat.image} alt={cat.title} className="category-tile-img" />
+              <div className="category-tile-overlay">
+                <h3 className="category-tile-title">{cat.title}</h3>
+                <span className="category-tile-subtitle">{cat.subtitle}</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* 4. FEATURED EDIT */}
+      <section className="featured-edit-banner">
+        <div className="featured-edit-content">
+          <span className="section-kicker">EDITORIAL EDIT</span>
+          <h2>THE SENO EDIT</h2>
+          <p>
+            Considered tactile layers engineered for seamless daily transitions. High density ribbing, unwashed Japanese raw denim, and fluid tropical wools designed to age with personality.
+          </p>
+          <Link href="/collections/all" className="dark-btn" style={{ display: 'inline-flex', padding: '14px 28px' }}>
+            EXPLORE THE EDIT <span>→</span>
+          </Link>
+        </div>
+        <div className="featured-edit-image">
+          <img
+            src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1000&q=80"
+            alt="The SENO Edit"
+          />
+        </div>
+      </section>
+
+      {/* 5. BESTSELLERS */}
+      <section className="section-padding">
+        <div className="section-header-flex">
+          <div>
+            <span className="section-kicker">ESSENTIAL STAPLES</span>
+            <h2 className="section-title">Bestsellers</h2>
+          </div>
+          <Link href="/collections/all" className="view-all-link">
+            VIEW ALL
+          </Link>
+        </div>
+
+        <div className="product-grid columns-4">
+          {bestsellers.map(product => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      </section>
+
+      {/* 6. BRAND STATEMENT */}
+      <section className="brand-statement-section">
+        <span className="section-kicker">OUR PHILOSOPHY</span>
+        <h2 className="brand-statement-heading">
+          CONSIDERED CLOTHING FOR EVERYDAY LIFE.
+        </h2>
+        <p className="brand-statement-copy">
+          Designed in Mumbai for a life in perpetual motion. We balance precise architectural drape with durable natural textiles meant for continuous daily wear.
+        </p>
+      </section>
+    </div>
+  )
 }
-function FilterGroup({title,values,value,onChange}:{title:string;values:string[];value:string;onChange:(v:string)=>void}){return <div className="filter-group"><div className="filter-group-title">{title}<span>⌃</span></div><button className="reset" onClick={()=>onChange('All')}>Reset</button>{values.map(v=><button key={v} className={value===v?'filter-option selected':''} onClick={()=>onChange(v)}><i/>{v}{v==='All'?null:<small>{v==='In stock'?'7':v==='Sold out'?'5':''}</small>}</button>)}</div>}
-

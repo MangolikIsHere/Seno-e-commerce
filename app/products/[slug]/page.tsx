@@ -1,13 +1,263 @@
 'use client'
 
+import React, { use, useState } from 'react'
 import Link from 'next/link'
-import { use, useState } from 'react'
-import { ArrowLeft, Heart, Minus, Plus, ShoppingBag } from 'lucide-react'
-import { catalog, getProduct, money } from '@/lib/catalog'
+import { useRouter } from 'next/navigation'
+import { ArrowLeft, Heart, Minus, Plus, ShoppingBag, Check } from 'lucide-react'
+import { getProduct, getRelatedProducts, money } from '@/lib/catalog'
+import { useStore } from '@/context/StoreContext'
+import { ProductCard } from '@/components/ProductCard'
+import { SizeGuideModal } from '@/components/SizeGuideModal'
 
-export default function ProductPage({params}:{params:Promise<{slug:string}>}){
- const {slug}=use(params); const product=getProduct(slug); if(!product) return <main className="simple-page not-found-page"><p className="kicker">404 / SENO STUDIO</p><h1>That piece<br/><em>isn't here.</em></h1><Link href="/" className="dark-button">Return to shop</Link></main>
- const [size,setSize]=useState(''); const [quantity,setQuantity]=useState(1); const [added,setAdded]=useState(false); const [open,setOpen]=useState('Details')
- const related=catalog.filter(item=>item.category===product.category&&item.slug!==product.slug).slice(0,3)
- return <main className="product-route"><Link className="back-link" href="/"><ArrowLeft size={13}/> Back to shop</Link><div className="product-detail"><div className="detail-gallery"><div className="detail-image"><img src={product.image} alt={product.name}/><span>{product.soldOut?'Sold out':'Available now'}</span></div><div className="detail-thumbs"><button className="active"><img src={product.image} alt=""/></button><button><img src={product.image} alt=""/></button></div></div><div className="detail-copy"><p className="kicker">{product.category} / SENO STUDIO</p><h1>{product.name}</h1><p className="detail-price">{money(product.price)}</p><p className="detail-description">A considered everyday layer, made in limited quantities with a focus on movement, texture and long-term wear.</p><div className="detail-rule"/><div className="detail-label">Colour <strong>{product.color}</strong></div><div className="size-row"><div className="detail-label">Select size</div><div className="size-options">{product.sizes.map(item=><button key={item} className={size===item?'selected':''} onClick={()=>setSize(item)}>{item}</button>)}</div></div><div className="quantity-row"><div className="detail-label">Quantity</div><div className="quantity-control"><button onClick={()=>setQuantity(Math.max(1,quantity-1))}><Minus size={14}/></button><span>{quantity}</span><button onClick={()=>setQuantity(quantity+1)}><Plus size={14}/></button></div></div><button className="detail-add" disabled={product.soldOut||!size} onClick={()=>setAdded(true)}>{added?'Added to bag':product.soldOut?'Sold out':size?`Add to bag — ${money(product.price*quantity)}`:'Select a size'}</button><div className="detail-links"><button><Heart size={16}/> Add to wishlist</button><button><ShoppingBag size={16}/> Shipping & returns</button></div><div className="accordions">{['Details','Sizing','Shipping & returns'].map(label=><div className="accordion" key={label}><button onClick={()=>setOpen(open===label?'':label)}><span>{label}</span><span>{open===label?'−':'+'}</span></button>{open===label&&<p>{label==='Sizing'?'Designed for a relaxed, true-to-size fit. See the size guide for measurements.':label==='Shipping & returns'?'Ships across India in 2–4 working days. Returns accepted within 7 days.':'Thoughtfully made in limited quantities with durable, comfortable materials.'}</p>}</div>)}</div></div></div><section className="related-section"><p className="kicker">YOU MAY ALSO LIKE</p><div className="related-grid">{related.map(item=><Link href={`/products/${item.slug}`} key={item.slug}><img src={item.image} alt={item.name}/><span>{item.name}</span><small>{money(item.price)}</small></Link>)}</div></section><section className="detail-footer"><p className="kicker">THE SENO STANDARD</p><h2>Designed for the<br/><em>in-between.</em></h2><p>Every piece is made to live beyond a single season. Explore the full collection for considered layers, soft structure and useful objects.</p></section></main>
+interface ProductPageProps {
+  params: Promise<{ slug: string }>
+}
+
+export default function ProductPage({ params }: ProductPageProps) {
+  const { slug } = use(params)
+  const product = getProduct(slug)
+  const router = useRouter()
+  const { addToCart, toggleWishlist, isWishlisted } = useStore()
+
+  const [activeImgIndex, setActiveImgIndex] = useState(0)
+  const [selectedSize, setSelectedSize] = useState<string>('')
+  const [quantity, setQuantity] = useState(1)
+  const [openAccordion, setOpenAccordion] = useState<string>('Details')
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false)
+  const [addedNotice, setAddedNotice] = useState(false)
+
+  if (!product) {
+    return (
+      <main className="static-page-container" style={{ minHeight: '60vh', textAlign: 'center' }}>
+        <span className="section-kicker">404 / SENO STUDIO</span>
+        <h1 className="static-page-title">
+          THIS PIECE
+          <br />
+          <em>ISN&apos;T HERE.</em>
+        </h1>
+        <p style={{ marginBottom: '30px' }}>The requested product piece could not be found in our current catalog.</p>
+        <Link href="/collections/all" className="dark-btn" style={{ padding: '14px 28px' }}>
+          RETURN TO SHOP
+        </Link>
+      </main>
+    )
+  }
+
+  const wishlisted = isWishlisted(product.slug)
+  const galleryImages = product.images.length > 0 ? product.images : [product.image]
+  const relatedProducts = getRelatedProducts(product, 4)
+
+  const handleAddToCart = () => {
+    if (!selectedSize) return
+    addToCart(product, selectedSize, quantity)
+    setAddedNotice(true)
+    setTimeout(() => setAddedNotice(false), 2500)
+  }
+
+  const handleBuyNow = () => {
+    if (!selectedSize) return
+    addToCart(product, selectedSize, quantity)
+    router.push('/cart')
+  }
+
+  return (
+    <div className="product-detail-container">
+      <Link href="/collections/all" className="breadcrumb-back-link">
+        <ArrowLeft size={13} /> BACK TO SHOP
+      </Link>
+
+      <div className="product-detail-grid">
+        {/* Gallery */}
+        <div className="product-gallery-view">
+          <div className="main-gallery-image">
+            <img src={galleryImages[activeImgIndex]} alt={product.name} />
+          </div>
+
+          {galleryImages.length > 1 && (
+            <div className="gallery-thumbnails-row">
+              {galleryImages.map((imgUrl, idx) => (
+                <button
+                  key={idx}
+                  className={`thumb-btn ${activeImgIndex === idx ? 'active' : ''}`}
+                  onClick={() => setActiveImgIndex(idx)}
+                >
+                  <img src={imgUrl} alt="" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Product Info */}
+        <div className="product-info-panel">
+          <span className="section-kicker">{product.category} / SENO STUDIO</span>
+          <h1 className="product-detail-title">{product.name}</h1>
+
+          <div className="product-detail-price">
+            <span>{money(product.price)}</span>
+            {product.compareAtPrice && product.compareAtPrice > product.price && (
+              <span className="compare-price">{money(product.compareAtPrice)}</span>
+            )}
+          </div>
+
+          <p className="product-detail-desc">{product.description}</p>
+
+          <div className="detail-section-divider" />
+
+          {/* Color */}
+          <div className="option-label-row">
+            <span>COLOUR</span>
+            <strong style={{ fontWeight: 500, color: 'var(--ink)' }}>{product.color}</strong>
+          </div>
+
+          {/* Size Selector */}
+          <div className="option-label-row" style={{ marginTop: '20px' }}>
+            <span>SELECT SIZE</span>
+            <button className="size-guide-trigger" onClick={() => setSizeGuideOpen(true)}>
+              SIZE GUIDE
+            </button>
+          </div>
+
+          <div className="size-selector-grid">
+            {product.sizes.map(sz => (
+              <button
+                key={sz}
+                className={`size-option-pill ${selectedSize === sz ? 'selected' : ''}`}
+                onClick={() => setSelectedSize(sz)}
+              >
+                {sz}
+              </button>
+            ))}
+          </div>
+
+          {/* Quantity */}
+          <div className="quantity-picker-row">
+            <span className="option-label-row" style={{ margin: 0 }}>QUANTITY</span>
+            <div className="quantity-stepper-box">
+              <button onClick={() => setQuantity(Math.max(1, quantity - 1))}>
+                <Minus size={13} />
+              </button>
+              <span>{quantity}</span>
+              <button onClick={() => setQuantity(quantity + 1)}>
+                <Plus size={13} />
+              </button>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="detail-actions-stack">
+            <button
+              className="add-to-bag-btn dark-btn"
+              disabled={product.soldOut || !selectedSize}
+              onClick={handleAddToCart}
+            >
+              {addedNotice ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <Check size={16} /> ADDED TO BAG
+                </span>
+              ) : product.soldOut ? (
+                'SOLD OUT'
+              ) : selectedSize ? (
+                `ADD TO BAG — ${money(product.price * quantity)}`
+              ) : (
+                'SELECT A SIZE'
+              )}
+            </button>
+
+            <button
+              className="buy-now-btn outline-btn"
+              disabled={product.soldOut || !selectedSize}
+              onClick={handleBuyNow}
+            >
+              BUY NOW
+            </button>
+
+            <button
+              className="wishlist-detail-btn"
+              onClick={() => toggleWishlist(product.slug)}
+            >
+              <Heart size={16} fill={wishlisted ? 'currentColor' : 'none'} color={wishlisted ? 'var(--clay)' : 'currentColor'} />
+              {wishlisted ? 'Saved in wishlist' : 'Add to wishlist'}
+            </button>
+          </div>
+
+          {/* Accordions */}
+          <div className="accordions-container">
+            {/* Description Accordion */}
+            <div className="accordion-item">
+              <button
+                className="accordion-header-btn"
+                onClick={() => setOpenAccordion(openAccordion === 'Description' ? '' : 'Description')}
+              >
+                <span>DESCRIPTION</span>
+                <span>{openAccordion === 'Description' ? '−' : '+'}</span>
+              </button>
+              {openAccordion === 'Description' && (
+                <p className="accordion-body-text">{product.description}</p>
+              )}
+            </div>
+
+            {/* Details Accordion */}
+            <div className="accordion-item">
+              <button
+                className="accordion-header-btn"
+                onClick={() => setOpenAccordion(openAccordion === 'Details' ? '' : 'Details')}
+              >
+                <span>DETAILS & SPECIFICATIONS</span>
+                <span>{openAccordion === 'Details' ? '−' : '+'}</span>
+              </button>
+              {openAccordion === 'Details' && (
+                <div className="accordion-body-text">
+                  {product.details && product.details.length > 0 ? (
+                    <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                      {product.details.map((item, idx) => (
+                        <li key={idx} style={{ marginBottom: '6px' }}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p style={{ margin: 0 }}>Designed in Mumbai. Crafted with durable natural materials.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Shipping & Returns Accordion */}
+            <div className="accordion-item">
+              <button
+                className="accordion-header-btn"
+                onClick={() => setOpenAccordion(openAccordion === 'Shipping' ? '' : 'Shipping')}
+              >
+                <span>SHIPPING & RETURNS</span>
+                <span>{openAccordion === 'Shipping' ? '−' : '+'}</span>
+              </button>
+              {openAccordion === 'Shipping' && (
+                <p className="accordion-body-text">
+                  Complimentary India shipping on orders over ₹1,999. Standard delivery takes 2–4 business days. Returns and size exchanges are accepted within 7 days of delivery.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* YOU MAY ALSO LIKE */}
+      <section className="related-products-section">
+        <div className="section-header-flex">
+          <div>
+            <span className="section-kicker">CURATED RECOMMENDATIONS</span>
+            <h2 className="section-title">YOU MAY ALSO LIKE</h2>
+          </div>
+        </div>
+
+        <div className="product-grid columns-4">
+          {relatedProducts.map(item => (
+            <ProductCard key={item.id} product={item} />
+          ))}
+        </div>
+      </section>
+
+      {/* Size Guide Modal */}
+      <SizeGuideModal isOpen={sizeGuideOpen} onClose={() => setSizeGuideOpen(false)} />
+    </div>
+  )
 }

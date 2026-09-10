@@ -1,1 +1,28 @@
-export default function PrivacyPage(){return <main className="policy-page"><p className="kicker">SENO STUDIO</p><h1>Privacy</h1><section><h2>Your information</h2><p>We only use information needed to respond to enquiries and process orders. We do not sell personal data.</p><h2>Questions</h2><p>For privacy requests, contact hello@seno.studio.</p></section></main>}
+import React from 'react'
+
+export default function PrivacyPage() {
+  return (
+    <main className="static-page-container">
+      <span className="section-kicker">LEGAL</span>
+      <h1 className="static-page-title">Privacy Policy</h1>
+
+      <p className="static-intro-lead">
+        This Privacy Policy outlines how SENO Studio collects, uses, and safeguards personal information provided when visiting or making a purchase from our website.
+      </p>
+
+      <section className="static-section-block">
+        <h2>DATA COLLECTION & USAGE</h2>
+        <p>
+          We collect personal details essential for fulfilling orders, including name, shipping address, contact number, and email address. We do not store full payment card numbers.
+        </p>
+      </section>
+
+      <section className="static-section-block">
+        <h2>COOKIE PREFERENCES</h2>
+        <p>
+          Our website uses standard cookies to preserve active session details, cart selections, and analyze site navigation performance.
+        </p>
+      </section>
+    </main>
+  )
+}

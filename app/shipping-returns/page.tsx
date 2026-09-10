@@ -1,1 +1,24 @@
-export default function ShippingPage(){return <main className="policy-page"><p className="kicker">HELP</p><h1>Shipping & returns</h1><section><h2>Shipping</h2><p>Orders ship across India within 2–4 working days. Complimentary delivery applies to orders over ₹1,999.</p><h2>Returns</h2><p>Eligible unworn pieces may be returned within 7 days of delivery. Contact hello@seno.studio to start a return.</p></section></main>}
+import React from 'react'
+import Link from 'next/link'
+
+export default function ShippingReturnsPage() {
+  return (
+    <main className="static-page-container">
+      <span className="section-kicker">STUDIO POLICIES</span>
+      <h1 className="static-page-title">Shipping & Returns</h1>
+
+      <p className="static-intro-lead">
+        Detailed information on standard shipping across India, delivery timelines, and our 7-day returns policy.
+      </p>
+
+      <div style={{ display: 'flex', gap: '20px', marginTop: '32px' }}>
+        <Link href="/shipping" className="dark-btn" style={{ padding: '14px 24px' }}>
+          VIEW SHIPPING POLICY
+        </Link>
+        <Link href="/returns" className="outline-btn" style={{ padding: '14px 24px' }}>
+          VIEW RETURNS POLICY
+        </Link>
+      </div>
+    </main>
+  )
+}
