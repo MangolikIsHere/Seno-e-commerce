@@ -1,0 +1,1 @@
+export default function TrackPage(){return <main className="simple-page"><p className="kicker">ORDER SUPPORT</p><h1>Track your order</h1><p>Enter your order number to view the latest delivery update.</p><div className="form-card"><input placeholder="Order number"/><input placeholder="Email address" type="email"/><button className="dark-button">Track order</button></div></main>}

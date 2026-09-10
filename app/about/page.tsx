@@ -1,0 +1,2 @@
+import Link from 'next/link'
+export default function AboutPage(){return <main className="story-page"><p className="kicker">ABOUT SENO</p><h1>Made for the<br/><em>in-between.</em></h1><p>Clothing and objects for a life in motion. SENO is an independent studio making considered pieces in limited quantities, designed in Mumbai and made to live beyond a single season.</p><Link href="/" className="back-link">← Back to shop</Link></main>}

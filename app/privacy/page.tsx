@@ -1,0 +1,1 @@
+export default function PrivacyPage(){return <main className="policy-page"><p className="kicker">SENO STUDIO</p><h1>Privacy</h1><section><h2>Your information</h2><p>We only use information needed to respond to enquiries and process orders. We do not sell personal data.</p><h2>Questions</h2><p>For privacy requests, contact hello@seno.studio.</p></section></main>}

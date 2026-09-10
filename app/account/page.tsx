@@ -1,0 +1,2 @@
+import Link from 'next/link'
+export default function AccountPage(){return <main className="simple-page"><p className="kicker">SENO ACCOUNT</p><h1>Your account</h1><p>Sign in to view orders, saved details and your wishlist.</p><div className="form-card"><input placeholder="Email address" type="email"/><input placeholder="Password" type="password"/><button className="dark-button">Sign in</button><button className="text-link-button">Create an account</button></div><Link href="/" className="back-link">← Back to shop</Link></main>}
