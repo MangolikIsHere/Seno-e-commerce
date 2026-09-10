@@ -1,5 +1,11 @@
-import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
+import { Analytics } from '@vercel/analytics/next'
+import { StoreProvider } from '@/context/StoreContext'
+import { AnnouncementBar } from '@/components/AnnouncementBar'
+import { Header } from '@/components/Header'
+import { Footer } from '@/components/Footer'
+import { CartDrawer } from '@/components/CartDrawer'
+import { SearchModal } from '@/components/SearchModal'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -27,7 +33,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   colorScheme: 'light',
-  themeColor: '#f5f4f0',
+  themeColor: '#fbfbfa',
 }
 
 export default function RootLayout({
@@ -38,7 +44,16 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-background">
       <body className="antialiased">
-        {children}
+        <StoreProvider>
+          <div className="app-viewport-wrapper">
+            <AnnouncementBar />
+            <Header />
+            <main className="main-content">{children}</main>
+            <Footer />
+            <CartDrawer />
+            <SearchModal />
+          </div>
+        </StoreProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

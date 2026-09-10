@@ -1,1 +1,28 @@
-export default function TermsPage(){return <main className="policy-page"><p className="kicker">SENO STUDIO</p><h1>Terms</h1><section><h2>Use of site</h2><p>By using this site you agree to shop responsibly and provide accurate information for orders.</p><h2>Orders</h2><p>All orders are subject to availability and confirmation. Prices are shown in Indian rupees.</p></section></main>}
+import React from 'react'
+
+export default function TermsPage() {
+  return (
+    <main className="static-page-container">
+      <span className="section-kicker">LEGAL</span>
+      <h1 className="static-page-title">Terms of Service</h1>
+
+      <p className="static-intro-lead">
+        Welcome to SENO. By accessing our platform and placing orders, you agree to comply with the terms and conditions outlined below.
+      </p>
+
+      <section className="static-section-block">
+        <h2>USE OF WEBSITE</h2>
+        <p>
+          All imagery, brand marks, and product copy are the property of SENO Studio. Reproduction without prior written consent is strictly prohibited.
+        </p>
+      </section>
+
+      <section className="static-section-block">
+        <h2>PRODUCT PRICING & AVAILABILITY</h2>
+        <p>
+          Prices and stock availability are subject to change without notice. SENO reserves the right to cancel orders in the event of pricing errors or inventory unavailability.
+        </p>
+      </section>
+    </main>
+  )
+}
