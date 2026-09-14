@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react'
 import { SlidersHorizontal, ChevronDown, X } from 'lucide-react'
 import { ProductCard } from '@/components/ProductCard'
-import { getCollectionProducts } from '@/lib/catalog'
+import { getCollectionProducts, Product } from '@/lib/catalog'
 
 interface CollectionViewProps {
   categoryTitle: string
@@ -23,13 +23,26 @@ export function CollectionView({ categoryTitle, categorySlug }: CollectionViewPr
 
   const activeCategoryForQuery = categorySlug === 'new-arrivals' ? 'New arrivals' : selectedCategory
 
-  const products = useMemo(() => {
-    return getCollectionProducts(activeCategoryForQuery, {
-      availability,
-      size: selectedSize,
-      color: selectedColor,
-      sort: sortOption
-    })
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+
+  React.useEffect(() => {
+    let active = true
+    const fetchProducts = async () => {
+      setLoading(true)
+      const data = await getCollectionProducts(activeCategoryForQuery, {
+        availability,
+        size: selectedSize,
+        color: selectedColor,
+        sort: sortOption
+      })
+      if (active) {
+        setProducts(data)
+        setLoading(false)
+      }
+    }
+    fetchProducts()
+    return () => { active = false }
   }, [activeCategoryForQuery, availability, selectedSize, selectedColor, sortOption])
 
   const handleResetFilters = () => {
@@ -171,7 +184,11 @@ export function CollectionView({ categoryTitle, categorySlug }: CollectionViewPr
 
         {/* Product Grid */}
         <main className={`product-grid columns-${gridDensity}`}>
-          {products.length > 0 ? (
+          {loading ? (
+            <div style={{ gridColumn: '1 / -1', padding: '60px 0', textAlign: 'center', color: 'var(--muted)' }}>
+              Loading products...
+            </div>
+          ) : products.length > 0 ? (
             products.map(product => <ProductCard key={product.id} product={product} />)
           ) : (
             <div style={{ gridColumn: '1 / -1', padding: '60px 0', textAlign: 'center', color: 'var(--muted)' }}>

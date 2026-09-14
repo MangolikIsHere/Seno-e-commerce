@@ -4,20 +4,44 @@ import React from 'react'
 import Link from 'next/link'
 import { Heart } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
-import { catalog } from '@/lib/catalog'
+import { getProductsBySlugs, Product } from '@/lib/catalog'
 import { ProductCard } from '@/components/ProductCard'
 
 export default function WishlistPage() {
   const { wishlist } = useStore()
 
-  const wishlistedProducts = catalog.filter(p => wishlist.includes(p.slug))
+  const [wishlistedProducts, setWishlistedProducts] = React.useState<Product[]>([])
+  const [loading, setLoading] = React.useState(true)
+
+  React.useEffect(() => {
+    let active = true
+    const fetchWishlist = async () => {
+      if (wishlist.length === 0) {
+        setWishlistedProducts([])
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+      const data = await getProductsBySlugs(wishlist)
+      if (active) {
+        setWishlistedProducts(data)
+        setLoading(false)
+      }
+    }
+    fetchWishlist()
+    return () => { active = false }
+  }, [wishlist])
 
   return (
     <main className="static-page-container">
       <span className="section-kicker">SAVED SILHOUETTES</span>
       <h1 className="static-page-title">Your Wishlist</h1>
 
-      {wishlistedProducts.length === 0 ? (
+      {loading ? (
+        <div style={{ padding: '80px 0', textAlign: 'center', color: 'var(--muted)' }}>
+          Loading wishlist...
+        </div>
+      ) : wishlistedProducts.length === 0 ? (
         <div style={{ borderTop: '1px solid var(--line)', padding: '80px 0', textAlign: 'center' }}>
           <Heart size={44} strokeWidth={1.2} color="var(--clay)" style={{ margin: '0 auto 16px' }} />
           <h2 style={{ fontFamily: 'Georgia, serif', fontSize: '24px', fontWeight: 400, margin: '0 0 8px' }}>

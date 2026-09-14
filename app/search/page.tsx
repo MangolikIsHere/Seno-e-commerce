@@ -4,26 +4,40 @@ import React, { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Search } from 'lucide-react'
-import { catalog } from '@/lib/catalog'
+import { searchProducts, Product } from '@/lib/catalog'
 import { ProductCard } from '@/components/ProductCard'
 
 function SearchContent() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get('q') || ''
   const [query, setQuery] = useState(initialQuery)
+  const [results, setResults] = useState<Product[]>([])
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     setQuery(initialQuery)
   }, [initialQuery])
 
-  const results = query.trim()
-    ? catalog.filter(
-        p =>
-          p.name.toLowerCase().includes(query.toLowerCase()) ||
-          p.category.toLowerCase().includes(query.toLowerCase()) ||
-          p.description.toLowerCase().includes(query.toLowerCase())
-      )
-    : []
+  useEffect(() => {
+    let active = true
+    const fetchSearch = async () => {
+      if (!query.trim()) {
+        if (active) setResults([])
+        return
+      }
+      setLoading(true)
+      const data = await searchProducts(query)
+      if (active) {
+        setResults(data)
+        setLoading(false)
+      }
+    }
+    const timeoutId = setTimeout(fetchSearch, 300)
+    return () => {
+      active = false
+      clearTimeout(timeoutId)
+    }
+  }, [query])
 
   return (
     <main className="static-page-container">
@@ -43,6 +57,10 @@ function SearchContent() {
       {query.trim() === '' ? (
         <p style={{ color: 'var(--muted)', fontSize: '14px' }}>
           Enter a term above to search through our contemporary fashion catalog.
+        </p>
+      ) : loading ? (
+        <p style={{ color: 'var(--muted)', fontSize: '14px', textAlign: 'center' }}>
+          Searching...
         </p>
       ) : results.length > 0 ? (
         <div>

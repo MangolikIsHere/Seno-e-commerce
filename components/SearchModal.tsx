@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { X, Search } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
-import { catalog, money } from '@/lib/catalog'
+import { searchProducts, money, Product } from '@/lib/catalog'
 
 export function SearchModal() {
   const { searchOpen, setSearchOpen } = useStore()
@@ -26,12 +26,29 @@ export function SearchModal() {
     }
   }
 
-  const results = query.trim()
-    ? catalog.filter(p =>
-        p.name.toLowerCase().includes(query.toLowerCase()) ||
-        p.category.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 4)
-    : []
+  const [results, setResults] = useState<Product[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    const fetchSearch = async () => {
+      if (!query.trim()) {
+        if (active) setResults([])
+        return
+      }
+      setLoading(true)
+      const data = await searchProducts(query, 4)
+      if (active) {
+        setResults(data)
+        setLoading(false)
+      }
+    }
+    const timeoutId = setTimeout(fetchSearch, 250)
+    return () => {
+      active = false
+      clearTimeout(timeoutId)
+    }
+  }, [query])
 
   return (
     <div className="modal-backdrop search-modal-backdrop" onClick={() => setSearchOpen(false)}>
@@ -59,7 +76,9 @@ export function SearchModal() {
 
         {query.trim() !== '' && (
           <div className="search-quick-results">
-            {results.length > 0 ? (
+            {loading ? (
+              <p className="no-quick-results">Searching...</p>
+            ) : results.length > 0 ? (
               <>
                 <span className="results-label">Quick Suggestions ({results.length})</span>
                 <div className="quick-results-grid">

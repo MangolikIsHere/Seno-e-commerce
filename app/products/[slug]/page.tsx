@@ -4,7 +4,7 @@ import React, { use, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Heart, Minus, Plus, ShoppingBag, Check } from 'lucide-react'
-import { getProduct, getRelatedProducts, money } from '@/lib/catalog'
+import { getProduct, getRelatedProducts, money, Product } from '@/lib/catalog'
 import { useStore } from '@/context/StoreContext'
 import { ProductCard } from '@/components/ProductCard'
 import { SizeGuideModal } from '@/components/SizeGuideModal'
@@ -15,9 +15,12 @@ interface ProductPageProps {
 
 export default function ProductPage({ params }: ProductPageProps) {
   const { slug } = use(params)
-  const product = getProduct(slug)
   const router = useRouter()
   const { addToCart, toggleWishlist, isWishlisted } = useStore()
+
+  const [product, setProduct] = useState<Product | null>(null)
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
 
   const [activeImgIndex, setActiveImgIndex] = useState(0)
   const [selectedSize, setSelectedSize] = useState<string>('')
@@ -25,6 +28,26 @@ export default function ProductPage({ params }: ProductPageProps) {
   const [openAccordion, setOpenAccordion] = useState<string>('Details')
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false)
   const [addedNotice, setAddedNotice] = useState(false)
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      const p = await getProduct(slug)
+      if (p) {
+        setProduct(p)
+        const rp = await getRelatedProducts(p, 4)
+        setRelatedProducts(rp)
+      } else {
+        setProduct(null)
+      }
+      setLoading(false)
+    }
+    fetchData()
+  }, [slug])
+
+  if (loading) {
+    return <div className="static-page-container" style={{ minHeight: '60vh', padding: '100px 20px', textAlign: 'center' }}>Loading product details...</div>
+  }
 
   if (!product) {
     return (
@@ -45,7 +68,6 @@ export default function ProductPage({ params }: ProductPageProps) {
 
   const wishlisted = isWishlisted(product.slug)
   const galleryImages = product.images.length > 0 ? product.images : [product.image]
-  const relatedProducts = getRelatedProducts(product, 4)
 
   const handleAddToCart = () => {
     if (!selectedSize) return

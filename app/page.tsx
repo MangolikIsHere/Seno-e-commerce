@@ -1,13 +1,11 @@
-'use client'
-
 import React from 'react'
 import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
 import { getNewArrivals, getBestsellers } from '@/lib/catalog'
 
-export default function HomePage() {
-  const newArrivals = getNewArrivals(4)
-  const bestsellers = getBestsellers(4)
+export default async function HomePage() {
+  const newArrivals = await getNewArrivals(4)
+  const bestsellers = await getBestsellers(4)
 
   const categoryTiles = [
     {
