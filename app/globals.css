@@ -1582,9 +1582,36 @@ a {
 
 /* Related Products */
 .related-products-section {
-  margin-top: 100px;
+  margin-top: 110px;
   border-top: 1px solid var(--line);
-  padding-top: 40px;
+  padding-top: 56px;
+}
+
+.related-products-section .section-header-flex {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 36px;
+}
+
+.related-products-section .section-title {
+  font-family: Georgia, serif;
+  font-size: clamp(22px, 3vw, 28px);
+  font-weight: 400;
+  letter-spacing: -0.5px;
+  text-transform: uppercase;
+  margin: 0;
+  line-height: 1.15;
+}
+
+.related-products-section .section-kicker {
+  font-size: 10px;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: block;
 }
 
 /* ==========================================================================

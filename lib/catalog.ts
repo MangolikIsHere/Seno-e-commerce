@@ -15,6 +15,7 @@ export interface Variant {
 export interface Product {
   id: string
   seller_id: string
+  category_id?: string
   slug: string
   name: string
   category: Category
@@ -80,6 +81,7 @@ function mapProductRow(row: any): Product {
   return {
     id: row.id,
     seller_id: row.seller_id,
+    category_id: row.category_id,
     slug: row.slug,
     name: row.name,
     category: row.categories?.name || 'Uncategorized',
@@ -124,17 +126,51 @@ export const getProduct = async (slug: string): Promise<Product | undefined> => 
 }
 
 export const getRelatedProducts = async (product: Product, limit = 4): Promise<Product[]> => {
-  const { data, error } = await supabase
-    .from('products')
-    .select(selectQuery)
-    .eq('is_active', true)
-    .eq('approval_status', 'approved')
-    .neq('slug', product.slug)
-    .order('created_at', { ascending: false })
-    .limit(limit)
+  let matchedRows: any[] = []
 
-  if (error || !data) return []
-  return data.map(mapProductRow)
+  // If product has a category_id, fetch related products from the same category first
+  if (product.category_id) {
+    const { data: catData } = await supabase
+      .from('products')
+      .select(selectQuery)
+      .eq('is_active', true)
+      .eq('approval_status', 'approved')
+      .eq('category_id', product.category_id)
+      .neq('slug', product.slug)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (catData) {
+      matchedRows = [...catData]
+    }
+  }
+
+  // If fewer than limit, backfill with other approved active products
+  if (matchedRows.length < limit) {
+    const remaining = limit - matchedRows.length
+    const existingIds = [product.id, ...matchedRows.map((p: any) => p.id)]
+
+    let fallbackQuery = supabase
+      .from('products')
+      .select(selectQuery)
+      .eq('is_active', true)
+      .eq('approval_status', 'approved')
+      .neq('slug', product.slug)
+
+    if (existingIds.length > 0) {
+      fallbackQuery = fallbackQuery.not('id', 'in', `(${existingIds.join(',')})`)
+    }
+
+    const { data: fallbackData } = await fallbackQuery
+      .order('created_at', { ascending: false })
+      .limit(remaining)
+
+    if (fallbackData) {
+      matchedRows = [...matchedRows, ...fallbackData]
+    }
+  }
+
+  return matchedRows.map(mapProductRow)
 }
 
 export const getNewArrivals = async (limit = 4): Promise<Product[]> => {

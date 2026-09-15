@@ -276,12 +276,20 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
         </div>
       </div>
 
-      {/* Related Products */}
+      {/* Related Products / Curated Selection */}
       {relatedProducts.length > 0 && (
-        <section className="related-products-section" style={{ marginTop: '80px' }}>
-          <span className="section-kicker">CURATED SELECTION</span>
-          <h2 className="related-section-title">YOU MAY ALSO APPRECIATE</h2>
-          <div className="products-grid">
+        <section className="related-products-section">
+          <div className="section-header-flex">
+            <div>
+              <span className="section-kicker">CURATED SELECTION</span>
+              <h2 className="section-title">YOU MAY ALSO APPRECIATE</h2>
+            </div>
+            <Link href="/collections/all" className="view-all-link">
+              EXPLORE ALL <span>→</span>
+            </Link>
+          </div>
+
+          <div className="product-grid columns-4">
             {relatedProducts.map(rp => (
               <ProductCard key={rp.id} product={rp} />
             ))}
