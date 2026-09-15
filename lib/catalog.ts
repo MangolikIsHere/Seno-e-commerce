@@ -68,7 +68,20 @@ function mapProductRow(row: any): Product {
       sku: v.sku,
       priceOverride: v.price_override ? Number(v.price_override) : undefined,
       weightGramsOverride: v.weight_grams_override ? Number(v.weight_grams_override) : undefined,
-      inventoryQuantity: v.inventory ? Number(v.inventory.quantity) : 10,
+      inventoryQuantity: (() => {
+        if (v.inventory) {
+          if (Array.isArray(v.inventory)) {
+            if (v.inventory.length > 0 && v.inventory[0]?.quantity !== undefined && v.inventory[0]?.quantity !== null) {
+              const q = Number(v.inventory[0].quantity)
+              return isNaN(q) ? 10 : q
+            }
+          } else if (v.inventory.quantity !== undefined && v.inventory.quantity !== null) {
+            const q = Number(v.inventory.quantity)
+            return isNaN(q) ? 10 : q
+          }
+        }
+        return 10
+      })(),
     }))
 
   const sizes = Array.from(new Set(variants.map(v => v.size).filter(Boolean))) as string[]

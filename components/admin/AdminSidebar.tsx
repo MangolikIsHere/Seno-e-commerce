@@ -24,7 +24,7 @@ export function AdminSidebar({ adminEmail }: AdminSidebarProps) {
       icon: Store
     },
     {
-      label: 'Products Review',
+      label: 'Catalog & Products',
       href: '/admin/products',
       icon: PackageCheck
     },
