@@ -68,7 +68,7 @@ function mapProductRow(row: any): Product {
       sku: v.sku,
       priceOverride: v.price_override ? Number(v.price_override) : undefined,
       weightGramsOverride: v.weight_grams_override ? Number(v.weight_grams_override) : undefined,
-      inventoryQuantity: v.inventory ? Number(v.inventory.quantity) : 0,
+      inventoryQuantity: v.inventory ? Number(v.inventory.quantity) : 10,
     }))
 
   const sizes = Array.from(new Set(variants.map(v => v.size).filter(Boolean))) as string[]
