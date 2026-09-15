@@ -69,7 +69,7 @@ export async function getPendingProducts() {
 
   const { data, error } = await supabase
     .from('products')
-    .select('*, sellers(store_name)')
+    .select('*, sellers(store_name), product_images(url, display_order)')
     .in('approval_status', ['submitted', 'draft', 'rejected', 'approved']) // Fetch all for admin view
     .order('created_at', { ascending: false })
 

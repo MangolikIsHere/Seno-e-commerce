@@ -1,7 +1,6 @@
 import { getPendingProducts } from '@/lib/admin'
 import { ProductApprovalForm } from './ProductApprovalForm'
-import { money } from '@/lib/catalog'
-import Image from 'next/image'
+import { getPrimaryProductImage, money } from '@/lib/catalog'
 import Link from 'next/link'
 import { Package, Clock, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react'
 
@@ -78,9 +77,7 @@ export default async function AdminProductsPage() {
               </thead>
               <tbody>
                 {products.map((product: any) => {
-                  const coverImage = Array.isArray(product.images) && product.images.length > 0 
-                    ? product.images[0] 
-                    : '/placeholder-product.jpg'
+                  const coverImage = getPrimaryProductImage(product)
 
                   return (
                     <tr key={product.id}>
@@ -95,12 +92,12 @@ export default async function AdminProductsPage() {
                             overflow: 'hidden',
                             flexShrink: 0
                           }}>
-                            <Image
+                            <img
                               src={coverImage}
                               alt={product.name}
-                              fill
-                              sizes="44px"
-                              style={{ objectFit: 'cover' }}
+                              width={44}
+                              height={56}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
                           </div>
                           <div>

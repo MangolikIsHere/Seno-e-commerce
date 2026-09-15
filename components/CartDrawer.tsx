@@ -19,8 +19,8 @@ export function CartDrawer() {
       <aside className="cart-drawer-panel" onClick={e => e.stopPropagation()}>
         <div className="cart-drawer-header">
           <div>
-            <span className="section-kicker">YOUR CART</span>
-            <h2>{cartCount} {cartCount === 1 ? 'item' : 'items'}</h2>
+            <span className="section-kicker">YOUR BAG</span>
+            <h2><span className="cart-count-number">{cartCount}</span> {cartCount === 1 ? 'ITEM' : 'ITEMS'}</h2>
           </div>
           <button className="close-btn" onClick={() => setCartOpen(false)} aria-label="Close cart">
             <X size={20} />
@@ -30,7 +30,10 @@ export function CartDrawer() {
         {cart.length === 0 ? (
           <div className="cart-empty-state">
             <ShoppingBag size={32} strokeWidth={1.5} />
-            <p>Your bag is currently empty.</p>
+            <div>
+              <strong>Your bag is empty.</strong>
+              <p>Discover the latest SENO pieces.</p>
+            </div>
             <button className="dark-btn" onClick={() => setCartOpen(false)}>
               CONTINUE SHOPPING
             </button>

@@ -42,11 +42,19 @@ export const money = (n: number) => `₹${n.toLocaleString('en-IN')}`
 const img = (path: string) => `https://images.unsplash.com/${path}?auto=format&fit=crop&w=1000&q=85`
 const fallbackImg = img('photo-1551028719-00167b16eac5')
 
+export function getPrimaryProductImage(row: any): string {
+  const images = Array.isArray(row?.product_images)
+    ? [...row.product_images].sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
+    : []
+  const imageUrl = images.map((image: any) => image.url || image.image_url).find(Boolean)
+  return imageUrl || row?.image || row?.images?.[0] || fallbackImg
+}
+
 function mapProductRow(row: any): Product {
   const pImages = row.product_images || []
   const sortedImages = [...pImages].sort((a: any, b: any) => a.display_order - b.display_order)
-  const imageUrls = sortedImages.map((img: any) => img.url || img.image_url)
-  const image = imageUrls.length > 0 ? imageUrls[0] : fallbackImg
+  const imageUrls = sortedImages.map((image: any) => image.url || image.image_url).filter(Boolean)
+  const image = getPrimaryProductImage(row)
   const hoverImage = imageUrls.length > 1 ? imageUrls[1] : image
 
   const rawVariants = row.product_variants || []

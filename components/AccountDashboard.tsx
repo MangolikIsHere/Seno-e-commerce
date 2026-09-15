@@ -78,7 +78,7 @@ export function AccountDashboard() {
             letterSpacing: '-0.5px',
             margin: '6px 0 8px'
           }}>
-            {profile?.full_name ? `Welcome, ${profile.full_name}` : 'My Account'}
+            {profile?.full_name ? `Welcome back, ${profile.full_name}` : 'Welcome back'}
           </h1>
           <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>
             {profile?.email}
@@ -132,6 +132,19 @@ export function AccountDashboard() {
           </button>
         </div>
       </div>
+
+      <nav className="account-section-nav" aria-label="Account navigation">
+        <span className="account-section-nav-label">ACCOUNT</span>
+        <button className={activeTab === 'overview' ? 'active' : ''} onClick={() => setActiveTab('overview')}>
+          Overview
+        </button>
+        <button className={activeTab === 'orders' ? 'active' : ''} onClick={() => setActiveTab('orders')}>
+          Orders <span>{orders.length}</span>
+        </button>
+        <Link href="/wishlist">Wishlist <span>{wishlist.length}</span></Link>
+        <Link href="/account/addresses">Addresses</Link>
+        {profile?.role === 'customer' && <Link href="/seller/register">Sell with SENO</Link>}
+      </nav>
 
       {/* Navigation Quick Cards */}
       <div className="admin-grid admin-grid-3" style={{ marginBottom: '40px', gap: '16px' }}>
@@ -257,8 +270,8 @@ export function AccountDashboard() {
       ) : orders.length === 0 ? (
         <div style={{ border: '1px solid var(--border)', padding: '64px 24px', textAlign: 'center', background: 'var(--surface-subtle)' }}>
           <ShoppingBag size={40} color="var(--muted)" strokeWidth={1.2} style={{ margin: '0 auto 16px' }} />
-          <h2 style={{ fontFamily: 'Georgia, serif', fontSize: '20px', fontWeight: 400, margin: '0 0 8px' }}>
-            No purchase records found
+              <h2 style={{ fontFamily: 'Georgia, serif', fontSize: '20px', fontWeight: 400, margin: '0 0 8px' }}>
+            Your order history is waiting
           </h2>
           <p style={{ color: 'var(--muted)', fontSize: '13px', maxWidth: '420px', margin: '0 auto 24px', lineHeight: 1.6 }}>
             Your completed wardrobe purchases and luxury shipments will be archived here with detailed tracking.

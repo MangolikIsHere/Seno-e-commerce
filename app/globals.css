@@ -1366,8 +1366,8 @@ a {
 
 .cart-drawer-panel {
   background: var(--bg);
-  width: min(450px, 100%);
-  padding: 32px;
+  width: min(480px, 100%);
+  padding: 28px clamp(20px, 3vw, 36px);
   display: flex;
   flex-direction: column;
   box-shadow: -10px 0 40px rgba(0, 0, 0, 0.15);
@@ -1386,6 +1386,12 @@ a {
   font-size: 28px;
   font-weight: 400;
   margin: 0;
+  letter-spacing: -0.4px;
+}
+
+.cart-count-number {
+  font-family: Georgia, serif;
+  font-variant-numeric: tabular-nums;
 }
 
 .cart-empty-state {
@@ -1397,6 +1403,20 @@ a {
   color: var(--muted);
   gap: 16px;
   text-align: center;
+}
+
+.cart-empty-state strong {
+  display: block;
+  color: var(--ink);
+  font-family: Georgia, serif;
+  font-size: 24px;
+  font-weight: 400;
+  margin-bottom: 6px;
+}
+
+.cart-empty-state p {
+  margin: 0;
+  font-size: 13px;
 }
 
 .free-shipping-bar-container {
@@ -1872,7 +1892,7 @@ a {
 /* ADMIN SHELL */
 .admin-layout-container {
   display: flex;
-  min-height: calc(100vh - 76px);
+  min-height: calc(100vh - 108px);
   background: var(--bg);
 }
 
@@ -1950,7 +1970,38 @@ a {
   flex: 1;
   padding: 40px 48px 80px;
   overflow-y: auto;
-  max-width: 1400px;
+  min-width: 0;
+}
+
+.admin-content-area {
+  flex: 1;
+  min-width: 0;
+  padding: 40px clamp(24px, 4vw, 64px) 80px;
+}
+
+.admin-top-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.admin-page-title {
+  margin: 6px 0 8px;
+  font-family: Georgia, serif;
+  font-size: clamp(30px, 3vw, 44px);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -1.2px;
+}
+
+.admin-page-subtitle {
+  max-width: 620px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 /* KPI CARDS */
@@ -1969,6 +2020,7 @@ a {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-height: 132px;
 }
 
 .kpi-label {
@@ -2037,6 +2089,10 @@ a {
   border-bottom: 1px solid var(--border);
   color: var(--ink);
   vertical-align: middle;
+}
+
+.admin-table td:first-child {
+  min-width: 280px;
 }
 
 .admin-table tr:last-child td {
@@ -2126,6 +2182,60 @@ a {
   border-bottom-color: var(--ink);
 }
 
+.account-section-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 36px;
+  padding-bottom: 1px;
+}
+
+.account-section-nav-label,
+.account-section-nav button,
+.account-section-nav a {
+  flex: 0 0 auto;
+  padding: 12px 0;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.account-section-nav-label {
+  color: var(--ink);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.account-section-nav button,
+.account-section-nav a {
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.account-section-nav button:hover,
+.account-section-nav a:hover,
+.account-section-nav button.active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.account-section-nav span:not(.account-section-nav-label) {
+  display: inline-grid;
+  min-width: 16px;
+  height: 16px;
+  place-items: center;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--soft);
+  color: var(--ink);
+  font-size: 9px;
+  letter-spacing: 0;
+}
+
 /* RESPONSIVE HELPERS */
 @media (max-width: 900px) {
   .admin-layout-container {
@@ -2138,6 +2248,79 @@ a {
   }
   .admin-main-viewport {
     padding: 24px 20px 60px;
+  }
+  .admin-content-area {
+    padding: 28px 20px 60px;
+  }
+  .admin-top-bar {
+    margin-bottom: 24px;
+  }
+  .admin-sidebar-header {
+    padding: 18px 20px 14px;
+  }
+  .admin-sidebar-header p {
+    display: none;
+  }
+  .admin-sidebar-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    padding: 12px 14px 16px;
+  }
+  .admin-nav-section-title {
+    grid-column: 1 / -1;
+    padding: 8px 8px 4px;
+  }
+  .admin-sidebar-nav > div[style*="height"] {
+    display: none;
+  }
+  .admin-nav-link {
+    padding: 10px 9px;
+    font-size: 12px;
+  }
+  .admin-sidebar-footer {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .cart-drawer-panel {
+    width: 100%;
+    padding: 22px 18px;
+  }
+  .cart-drawer-header h2 {
+    font-size: 25px;
+  }
+  .cart-item-img {
+    width: 64px;
+  }
+  .account-section-nav {
+    gap: 18px;
+    margin-bottom: 28px;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-page-title {
+    font-size: 32px;
+  }
+  .admin-page-subtitle {
+    font-size: 12px;
+  }
+  .kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .kpi-card {
+    min-height: 112px;
+  }
+  .admin-table-header-row {
+    padding: 18px;
+  }
+  .admin-table th,
+  .admin-table td {
+    padding: 14px 16px;
   }
 }
 
