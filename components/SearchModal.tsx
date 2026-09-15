@@ -10,13 +10,69 @@ import { searchProducts, money, Product } from '@/lib/catalog'
 export function SearchModal() {
   const { searchOpen, setSearchOpen } = useStore()
   const [query, setQuery] = useState('')
+  const [results, setResults] = useState<Product[]>([])
+  const [loading, setLoading] = useState(false)
   const router = useRouter()
 
+  // Reset query when closed
   useEffect(() => {
-    if (!searchOpen) setQuery('')
+    if (!searchOpen) {
+      setQuery('')
+      setResults([])
+    }
   }, [searchOpen])
 
-  if (!searchOpen) return null
+  // Close on Escape key press & prevent background scroll
+  useEffect(() => {
+    if (!searchOpen) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSearchOpen(false)
+      }
+    }
+
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [searchOpen, setSearchOpen])
+
+  // Live search debounced
+  useEffect(() => {
+    if (!searchOpen) return
+
+    let active = true
+    const fetchSearch = async () => {
+      const trimmed = query.trim()
+      if (!trimmed) {
+        if (active) setResults([])
+        return
+      }
+      setLoading(true)
+      try {
+        const data = await searchProducts(trimmed, 4)
+        if (active) {
+          setResults(data)
+          setLoading(false)
+        }
+      } catch {
+        if (active) {
+          setResults([])
+          setLoading(false)
+        }
+      }
+    }
+
+    const timeoutId = setTimeout(fetchSearch, 200)
+    return () => {
+      active = false
+      clearTimeout(timeoutId)
+    }
+  }, [query, searchOpen])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,29 +82,8 @@ export function SearchModal() {
     }
   }
 
-  const [results, setResults] = useState<Product[]>([])
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    let active = true
-    const fetchSearch = async () => {
-      if (!query.trim()) {
-        if (active) setResults([])
-        return
-      }
-      setLoading(true)
-      const data = await searchProducts(query, 4)
-      if (active) {
-        setResults(data)
-        setLoading(false)
-      }
-    }
-    const timeoutId = setTimeout(fetchSearch, 250)
-    return () => {
-      active = false
-      clearTimeout(timeoutId)
-    }
-  }, [query])
+  // Render check strictly after all hooks
+  if (!searchOpen) return null
 
   return (
     <div className="modal-backdrop search-modal-backdrop" onClick={() => setSearchOpen(false)}>
@@ -99,6 +134,7 @@ export function SearchModal() {
                   ))}
                 </div>
                 <button
+                  type="button"
                   className="view-all-results-btn"
                   onClick={handleSearchSubmit}
                 >

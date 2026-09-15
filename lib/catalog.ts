@@ -2,8 +2,19 @@ import { supabase } from './supabase'
 
 export type Category = 'Topwear' | 'Bottomwear' | 'Outerwear' | 'Accessories' | string
 
+export interface Variant {
+  id: string
+  size: string
+  colour: string
+  sku: string
+  priceOverride?: number
+  weightGramsOverride?: number
+  inventoryQuantity: number
+}
+
 export interface Product {
   id: string
+  seller_id: string
   slug: string
   name: string
   category: Category
@@ -11,12 +22,14 @@ export interface Product {
   details?: string[]
   price: number
   compareAtPrice?: number
+  defaultWeightGrams: number
   image: string
   hoverImage: string
   images: string[]
   sizes: string[]
   colors: string[]
   color: string
+  variants: Variant[]
   soldOut?: boolean
   isNew?: boolean
   isBestseller?: boolean
@@ -32,20 +45,33 @@ const fallbackImg = img('photo-1551028719-00167b16eac5')
 function mapProductRow(row: any): Product {
   const pImages = row.product_images || []
   const sortedImages = [...pImages].sort((a: any, b: any) => a.display_order - b.display_order)
-  const imageUrls = sortedImages.map((img: any) => img.image_url)
+  const imageUrls = sortedImages.map((img: any) => img.url || img.image_url)
   const image = imageUrls.length > 0 ? imageUrls[0] : fallbackImg
   const hoverImage = imageUrls.length > 1 ? imageUrls[1] : image
 
-  const variants = row.product_variants || []
-  const sizes = Array.from(new Set(variants.map((v: any) => v.size).filter(Boolean))) as string[]
-  const colors = Array.from(new Set(variants.map((v: any) => v.color).filter(Boolean))) as string[]
+  const rawVariants = row.product_variants || []
+  const variants: Variant[] = rawVariants
+    .filter((v: any) => v.is_active)
+    .map((v: any) => ({
+      id: v.id,
+      size: v.size || '',
+      colour: v.colour || '',
+      sku: v.sku,
+      priceOverride: v.price_override ? Number(v.price_override) : undefined,
+      weightGramsOverride: v.weight_grams_override ? Number(v.weight_grams_override) : undefined,
+      inventoryQuantity: v.inventory ? Number(v.inventory.quantity) : 0,
+    }))
+
+  const sizes = Array.from(new Set(variants.map(v => v.size).filter(Boolean))) as string[]
+  const colors = Array.from(new Set(variants.map(v => v.colour).filter(Boolean))) as string[]
   const color = colors.length > 0 ? colors[0] : 'Default'
   
-  const totalInventory = variants.reduce((sum: number, v: any) => sum + (v.inventory_count || 0), 0)
+  const totalInventory = variants.reduce((sum: number, v: Variant) => sum + v.inventoryQuantity, 0)
   const soldOut = totalInventory === 0 && variants.length > 0
 
   return {
     id: row.id,
+    seller_id: row.seller_id,
     slug: row.slug,
     name: row.name,
     category: row.categories?.name || 'Uncategorized',
@@ -53,12 +79,14 @@ function mapProductRow(row: any): Product {
     details: row.details || [],
     price: Number(row.price),
     compareAtPrice: row.compare_at_price ? Number(row.compare_at_price) : undefined,
+    defaultWeightGrams: Number(row.default_weight_grams),
     image,
     hoverImage,
     images: imageUrls.length > 0 ? imageUrls : [fallbackImg],
     sizes: sizes.length > 0 ? sizes : ['One size'],
     colors,
     color,
+    variants,
     soldOut,
     isNew: row.is_new,
     isBestseller: row.is_bestseller,
@@ -70,8 +98,8 @@ function mapProductRow(row: any): Product {
 const selectQuery = `
   *,
   categories(name),
-  product_images(image_url, is_primary, display_order),
-  product_variants(size, color, inventory_count)
+  product_images(url, is_primary, display_order),
+  product_variants(id, size, colour, sku, price_override, weight_grams_override, is_active, inventory(quantity))
 `
 
 export const getProduct = async (slug: string): Promise<Product | undefined> => {
@@ -197,21 +225,50 @@ export const getCollectionProducts = async (
 }
 
 export const searchProducts = async (queryStr: string, limit?: number): Promise<Product[]> => {
-  if (!queryStr.trim()) return []
-  
+  const cleanQuery = queryStr.trim().toLowerCase()
+  if (!cleanQuery) return []
+
   const { data, error } = await supabase
     .from('products')
     .select(selectQuery)
     .eq('is_active', true)
     .eq('approval_status', 'approved')
-    .or(`name.ilike.%${queryStr}%,description.ilike.%${queryStr}%`)
-    
+
   if (error || !data) return []
-  let list = data.map(mapProductRow)
-  if (limit) {
-    list = list.slice(0, limit)
-  }
-  return list
+  const allProducts = data.map(mapProductRow)
+  const terms = cleanQuery.split(/\s+/).filter(Boolean)
+
+  const matches = allProducts.filter(p => {
+    const searchableText = [
+      p.name,
+      p.description,
+      p.category,
+      ...(p.colors || []),
+      ...(p.sizes || []),
+      ...(p.variants?.map(v => `${v.sku} ${v.colour} ${v.size}`) || []),
+      ...(p.details || [])
+    ].join(' ').toLowerCase()
+
+    return terms.every(term => {
+      if (searchableText.includes(term)) return true
+
+      // Singular/plural stemming
+      if (term.endsWith('s') && searchableText.includes(term.slice(0, -1))) return true
+      if (term.endsWith('es') && searchableText.includes(term.slice(0, -2))) return true
+      if (!term.endsWith('s') && (searchableText.includes(`${term}s`) || searchableText.includes(`${term}es`))) return true
+
+      // Common apparel synonym mappings
+      if (term === 'pants' && searchableText.includes('pant')) return true
+      if (term === 'pant' && searchableText.includes('pants')) return true
+      if (term === 'trousers' && searchableText.includes('trouser')) return true
+      if (term === 'trouser' && searchableText.includes('trousers')) return true
+      if (term === 'tee' && (searchableText.includes('t-shirt') || searchableText.includes('shirt') || searchableText.includes('tank'))) return true
+
+      return false
+    })
+  })
+
+  return limit ? matches.slice(0, limit) : matches
 }
 
 export const getProductsBySlugs = async (slugs: string[]): Promise<Product[]> => {

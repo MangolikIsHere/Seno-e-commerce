@@ -1,16 +1,27 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ShoppingBag, Plus, Minus, Trash2, ArrowLeft } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
 import { money } from '@/lib/catalog'
+import { fetchActiveShippingConfig, calculateShippingFee, DEFAULT_SHIPPING_SETTINGS, ShippingSettings, ShippingWeightRule } from '@/lib/shipping'
 
 export default function CartPage() {
-  const { cart, updateCartQty, removeFromCart, subtotal, cartCount } = useStore()
+  const { cart, updateCartQty, removeFromCart, subtotal, cartCount, totalWeightGrams } = useStore()
+  const [shippingConfig, setShippingConfig] = useState<{ settings: ShippingSettings; rules: ShippingWeightRule[] }>({
+    settings: DEFAULT_SHIPPING_SETTINGS,
+    rules: []
+  })
 
-  const freeShippingThreshold = 1999
+  useEffect(() => {
+    fetchActiveShippingConfig().then(setShippingConfig)
+  }, [])
+
+  const freeShippingThreshold = shippingConfig.settings.free_shipping_threshold ?? 1999
   const progressPercent = Math.min(100, (subtotal / freeShippingThreshold) * 100)
+  const shippingFee = calculateShippingFee(subtotal, totalWeightGrams, shippingConfig.settings, shippingConfig.rules)
+  const estimatedTotal = subtotal + shippingFee
 
   return (
     <main className="static-page-container">
@@ -46,7 +57,7 @@ export default function CartPage() {
 
             {cart.map(item => (
               <div
-                key={`${item.product.slug}-${item.size}`}
+                key={item.variant_id}
                 style={{
                   display: 'flex',
                   gap: '20px',
@@ -67,25 +78,25 @@ export default function CartPage() {
                     {item.product.name}
                   </Link>
                   <span style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '6px' }}>
-                    Category: {item.product.category} | Size: {item.size}
+                    Category: {item.product.category} | Size: {item.size} {item.colour && item.colour !== 'Default' ? `| Colour: ${item.colour}` : ''}
                   </span>
                   <span style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px' }}>
-                    {money(item.product.price)}
+                    {money(item.unit_price)}
                   </span>
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
                     <div className="quantity-stepper-box">
-                      <button onClick={() => updateCartQty(item.product.slug, item.size, -1)}>
+                      <button onClick={() => updateCartQty(item.variant_id, -1)}>
                         <Minus size={13} />
                       </button>
                       <span>{item.qty}</span>
-                      <button onClick={() => updateCartQty(item.product.slug, item.size, 1)}>
+                      <button onClick={() => updateCartQty(item.variant_id, 1)}>
                         <Plus size={13} />
                       </button>
                     </div>
 
                     <button
-                      onClick={() => removeFromCart(item.product.slug, item.size)}
+                      onClick={() => removeFromCart(item.variant_id)}
                       style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
                     >
                       <Trash2 size={15} /> Remove
@@ -107,9 +118,14 @@ export default function CartPage() {
               <span>{money(subtotal)}</span>
             </div>
 
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '12px' }}>
+              <span>Total Weight</span>
+              <span>{(totalWeightGrams / 1000).toFixed(2)} kg</span>
+            </div>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '20px' }}>
-              <span>Shipping</span>
-              <span>{subtotal >= freeShippingThreshold ? 'FREE' : money(150)}</span>
+              <span>Estimated Shipping</span>
+              <span>{shippingFee === 0 ? 'FREE' : money(shippingFee)}</span>
             </div>
 
             <div
@@ -123,17 +139,17 @@ export default function CartPage() {
                 marginBottom: '24px'
               }}
             >
-              <span>Total</span>
-              <span>{money(subtotal >= freeShippingThreshold ? subtotal : subtotal + 150)}</span>
+              <span>Estimated Total</span>
+              <span>{money(estimatedTotal)}</span>
             </div>
 
-            <button
+            <Link
+              href="/checkout"
               className="dark-btn"
-              style={{ width: '100%', padding: '16px', fontSize: '10px', letterSpacing: '2px' }}
-              onClick={() => alert('Proceeding to checkout. (Backend checkout integration phase ahead)')}
+              style={{ display: 'block', width: '100%', padding: '16px', fontSize: '10px', letterSpacing: '2px', textAlign: 'center' }}
             >
               PROCEED TO CHECKOUT <span>→</span>
-            </button>
+            </Link>
           </div>
         </div>
       )}

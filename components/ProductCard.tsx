@@ -27,7 +27,10 @@ export function ProductCard({ product }: ProductCardProps) {
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    addToCart(product)
+    const availableVariant = product.variants.find(v => v.inventoryQuantity > 0)
+    if (availableVariant) {
+      addToCart(product, availableVariant)
+    }
   }
 
   const fallbackPlaceholder = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80'

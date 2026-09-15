@@ -7,7 +7,7 @@ import { useStore } from '@/context/StoreContext'
 import { money } from '@/lib/catalog'
 
 export function CartDrawer() {
-  const { cart, cartOpen, setCartOpen, updateCartQty, removeFromCart, subtotal, cartCount } = useStore()
+  const { cart, cartOpen, setCartOpen, updateCartQty, removeFromCart, subtotal, cartCount, totalWeightGrams } = useStore()
 
   if (!cartOpen) return null
 
@@ -52,7 +52,7 @@ export function CartDrawer() {
             {/* Cart Items List */}
             <div className="cart-drawer-items">
               {cart.map(item => (
-                <div className="cart-item-row" key={`${item.product.slug}-${item.size}`}>
+                <div className="cart-item-row" key={item.variant_id}>
                   <img src={item.product.image} alt={item.product.name} className="cart-item-img" />
                   <div className="cart-item-info">
                     <Link
@@ -62,20 +62,22 @@ export function CartDrawer() {
                     >
                       {item.product.name}
                     </Link>
-                    <span className="cart-item-size">Size: {item.size}</span>
-                    <span className="cart-item-price">{money(item.product.price)}</span>
+                    <span className="cart-item-size">
+                      {item.size} {item.colour && item.colour !== 'Default' ? `/ ${item.colour}` : ''}
+                    </span>
+                    <span className="cart-item-price">{money(item.unit_price)}</span>
 
                     <div className="cart-item-controls">
                       <div className="quantity-stepper">
                         <button
-                          onClick={() => updateCartQty(item.product.slug, item.size, -1)}
+                          onClick={() => updateCartQty(item.variant_id, -1)}
                           aria-label="Decrease quantity"
                         >
                           <Minus size={12} />
                         </button>
                         <span>{item.qty}</span>
                         <button
-                          onClick={() => updateCartQty(item.product.slug, item.size, 1)}
+                          onClick={() => updateCartQty(item.variant_id, 1)}
                           aria-label="Increase quantity"
                         >
                           <Plus size={12} />
@@ -84,7 +86,7 @@ export function CartDrawer() {
 
                       <button
                         className="cart-item-remove"
-                        onClick={() => removeFromCart(item.product.slug, item.size)}
+                        onClick={() => removeFromCart(item.variant_id)}
                         aria-label="Remove item"
                       >
                         <Trash2 size={14} />
@@ -97,6 +99,10 @@ export function CartDrawer() {
 
             {/* Drawer Footer */}
             <div className="cart-drawer-footer">
+              <div className="subtotal-row" style={{ marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Total Weight</span>
+                <span style={{ fontSize: '12px' }}>{(totalWeightGrams / 1000).toFixed(2)} kg</span>
+              </div>
               <div className="subtotal-row">
                 <span>Subtotal</span>
                 <strong>{money(subtotal)}</strong>

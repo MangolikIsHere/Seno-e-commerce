@@ -1,11 +1,19 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { Product } from '@/lib/catalog'
+import { Product, Variant } from '@/lib/catalog'
+import { fetchUserWishlistIds, addProductToWishlist, removeProductFromWishlist } from '@/lib/wishlist'
+import { useAuth } from './AuthContext'
 
 export interface CartItem {
   product: Product
+  variant_id: string
+  seller_id: string
+  sku: string
+  unit_price: number
+  unit_weight_grams: number
   size: string
+  colour: string
   qty: number
 }
 
@@ -18,14 +26,17 @@ interface StoreContextType {
   setMobileMenuOpen: (open: boolean) => void
   searchOpen: boolean
   setSearchOpen: (open: boolean) => void
-  addToCart: (product: Product, size?: string, qty?: number) => void
-  removeFromCart: (slug: string, size: string) => void
-  updateCartQty: (slug: string, size: string, delta: number) => void
+  addToCart: (product: Product, variant: Variant, qty?: number) => void
+  removeFromCart: (variant_id: string) => void
+  updateCartQty: (variant_id: string, delta: number) => void
+  clearCart: () => void
+  clearOrderedItems: (variant_ids: string[]) => void
   toggleWishlist: (slug: string) => void
   isWishlisted: (slug: string) => boolean
   cartCount: number
   wishlistCount: number
   subtotal: number
+  totalWeightGrams: number
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
@@ -36,6 +47,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [cartOpen, setCartOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const { user } = useAuth()
 
   // Hydrate from localStorage
   useEffect(() => {
@@ -45,15 +57,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const parsed = JSON.parse(savedCart)
         if (Array.isArray(parsed)) setCart(parsed)
       }
-      const savedWishlist = localStorage.getItem('seno_wishlist')
-      if (savedWishlist) {
-        const parsed = JSON.parse(savedWishlist)
-        if (Array.isArray(parsed)) setWishlist(parsed)
+      
+      if (!user) {
+        const savedWishlist = localStorage.getItem('seno_wishlist')
+        if (savedWishlist) {
+          const parsed = JSON.parse(savedWishlist)
+          if (Array.isArray(parsed)) setWishlist(parsed)
+        }
       }
     } catch {
       // Ignore localStorage read errors
     }
-  }, [])
+  }, [user])
+
+  // Sync wishlist from DB if authenticated
+  useEffect(() => {
+    if (user) {
+      fetchUserWishlistIds(user.id).then(ids => {
+        setWishlist(ids)
+      })
+    }
+  }, [user])
 
   // Persist to localStorage
   useEffect(() => {
@@ -65,43 +89,59 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [cart])
 
   useEffect(() => {
-    try {
-      localStorage.setItem('seno_wishlist', JSON.stringify(wishlist))
-    } catch {
-      // Ignore localStorage write errors
+    if (!user) {
+      try {
+        localStorage.setItem('seno_wishlist', JSON.stringify(wishlist))
+      } catch {
+        // Ignore localStorage write errors
+      }
     }
-  }, [wishlist])
+  }, [wishlist, user])
 
-  const addToCart = (product: Product, size?: string, qty = 1) => {
-    if (product.soldOut) return
-    const chosenSize = size || product.sizes[0] || 'M'
+  const addToCart = (product: Product, variant: Variant, qty = 1) => {
+    if (variant.inventoryQuantity < qty) return
 
     setCart(prev => {
-      const existingIndex = prev.findIndex(
-        item => item.product.slug === product.slug && item.size === chosenSize
-      )
+      const existingIndex = prev.findIndex(item => item.variant_id === variant.id)
+      
       if (existingIndex > -1) {
         const updated = [...prev]
+        const newQty = updated[existingIndex].qty + qty
+        if (newQty > variant.inventoryQuantity) return prev // block adding beyond stock
         updated[existingIndex] = {
           ...updated[existingIndex],
-          qty: updated[existingIndex].qty + qty
+          qty: newQty
         }
         return updated
       }
-      return [...prev, { product, size: chosenSize, qty }]
+      
+      const price = variant.priceOverride ?? product.price
+      const weight = variant.weightGramsOverride ?? product.defaultWeightGrams
+      
+      return [...prev, {
+        product,
+        variant_id: variant.id,
+        seller_id: product.seller_id,
+        sku: variant.sku,
+        unit_price: price,
+        unit_weight_grams: weight,
+        size: variant.size,
+        colour: variant.colour,
+        qty
+      }]
     })
     setCartOpen(true)
   }
 
-  const removeFromCart = (slug: string, size: string) => {
-    setCart(prev => prev.filter(item => !(item.product.slug === slug && item.size === size)))
+  const removeFromCart = (variant_id: string) => {
+    setCart(prev => prev.filter(item => item.variant_id !== variant_id))
   }
 
-  const updateCartQty = (slug: string, size: string, delta: number) => {
+  const updateCartQty = (variant_id: string, delta: number) => {
     setCart(prev =>
       prev
         .map(item => {
-          if (item.product.slug === slug && item.size === size) {
+          if (item.variant_id === variant_id) {
             const newQty = item.qty + delta
             return newQty > 0 ? { ...item, qty: newQty } : null
           }
@@ -111,17 +151,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     )
   }
 
-  const toggleWishlist = (slug: string) => {
-    setWishlist(prev =>
-      prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]
-    )
+  const clearCart = () => {
+    setCart([])
+  }
+
+  const clearOrderedItems = (variant_ids: string[]) => {
+    setCart(prev => prev.filter(item => !variant_ids.includes(item.variant_id)))
+  }
+
+  const toggleWishlist = async (slug: string) => {
+    setWishlist(prev => {
+      const isCurrentlyWishlisted = prev.includes(slug)
+      
+      if (user) {
+        // Background DB sync
+        if (isCurrentlyWishlisted) {
+          removeProductFromWishlist(user.id, slug)
+        } else {
+          addProductToWishlist(user.id, slug)
+        }
+      }
+      
+      return isCurrentlyWishlisted ? prev.filter(s => s !== slug) : [...prev, slug]
+    })
   }
 
   const isWishlisted = (slug: string) => wishlist.includes(slug)
 
   const cartCount = cart.reduce((total, item) => total + item.qty, 0)
   const wishlistCount = wishlist.length
-  const subtotal = cart.reduce((total, item) => total + item.product.price * item.qty, 0)
+  const subtotal = cart.reduce((total, item) => total + (item.unit_price * item.qty), 0)
+  const totalWeightGrams = cart.reduce((total, item) => total + (item.unit_weight_grams * item.qty), 0)
 
   return (
     <StoreContext.Provider
@@ -137,11 +197,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addToCart,
         removeFromCart,
         updateCartQty,
+        clearCart,
+        clearOrderedItems,
         toggleWishlist,
         isWishlisted,
         cartCount,
         wishlistCount,
-        subtotal
+        subtotal,
+        totalWeightGrams
       }}
     >
       {children}

@@ -1,8 +1,69 @@
 import React from 'react'
+import type { Metadata } from 'next'
 import { CollectionView } from '@/components/CollectionView'
 
 interface PageProps {
   params: Promise<{ category: string }>
+}
+
+function getCategoryMeta(slug: string) {
+  const metaMap: Record<string, { title: string; description: string }> = {
+    all: {
+      title: 'Complete Collection — SENO',
+      description: 'Explore the complete SENO catalog of contemporary silhouettes and considered objects.'
+    },
+    topwear: {
+      title: 'Topwear Collection — SENO',
+      description: 'Shirts, overshirts, and tees crafted from structured organic cotton and linen.'
+    },
+    bottomwear: {
+      title: 'Bottomwear Collection — SENO',
+      description: 'Pleated trousers, denim, and relaxed trousers designed for effortless everyday motion.'
+    },
+    outerwear: {
+      title: 'Outerwear Collection — SENO',
+      description: 'Sculpted coats, transitional jackets, and refined layering pieces.'
+    },
+    accessories: {
+      title: 'Accessories & Objects — SENO',
+      description: 'Full-grain leather accessories, canvas totes, and tactile everyday objects.'
+    },
+    'new-arrivals': {
+      title: 'New Arrivals — SENO',
+      description: 'Discover the latest additions to the SENO seasonal collection.'
+    },
+    bestsellers: {
+      title: 'Bestselling Pieces — SENO',
+      description: 'The most appreciated garments and objects in the SENO marketplace.'
+    }
+  }
+
+  return metaMap[slug] || {
+    title: `${slug.toUpperCase()} — SENO`,
+    description: 'Considered clothing and objects for a life in motion.'
+  }
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const resolvedParams = await params
+  const slug = resolvedParams.category.toLowerCase()
+  const meta = getCategoryMeta(slug)
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seno-luxury.com'
+
+  return {
+    title: meta.title,
+    description: meta.description,
+    alternates: {
+      canonical: `${siteUrl}/collections/${slug}`
+    },
+    openGraph: {
+      title: meta.title,
+      description: meta.description,
+      url: `${siteUrl}/collections/${slug}`,
+      siteName: 'SENO Luxury Marketplace',
+      type: 'website'
+    }
+  }
 }
 
 export default async function CategoryPage({ params }: PageProps) {

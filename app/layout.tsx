@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import { StoreProvider } from '@/context/StoreContext'
+import { AuthProvider } from '@/context/AuthContext'
 import { AnnouncementBar } from '@/components/AnnouncementBar'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
@@ -44,16 +45,18 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-background">
       <body className="antialiased">
-        <StoreProvider>
-          <div className="app-viewport-wrapper">
-            <AnnouncementBar />
-            <Header />
-            <main className="main-content">{children}</main>
-            <Footer />
-            <CartDrawer />
-            <SearchModal />
-          </div>
-        </StoreProvider>
+        <AuthProvider>
+          <StoreProvider>
+            <div className="app-viewport-wrapper">
+              <AnnouncementBar />
+              <Header />
+              <main className="main-content">{children}</main>
+              <Footer />
+              <CartDrawer />
+              <SearchModal />
+            </div>
+          </StoreProvider>
+        </AuthProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
