@@ -63,6 +63,45 @@ button {
   color: inherit;
 }
 
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+input[type="number"],
+input[type="search"],
+select,
+textarea {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  border-radius: var(--radius-xs);
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--ink);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--surface-subtle);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -1513,30 +1552,78 @@ a {
   font-weight: 600;
 }
 
+/* UNIFIED BUTTON SYSTEM */
+.button,
+.dark-btn,
+.outline-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  padding: 13px 22px;
+  border-radius: var(--radius-xs);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button-primary,
 .dark-btn {
   background: var(--dark);
   color: #ffffff;
-  transition: background-color 0.2s ease;
+  border: 1px solid var(--dark);
 }
 
+.button-primary:hover,
 .dark-btn:hover {
   background: #000000;
+  border-color: #000000;
+  transform: translateY(-1px);
 }
 
+.button-primary:active,
+.dark-btn:active {
+  transform: translateY(0);
+}
+
+.button-primary:disabled,
 .dark-btn:disabled {
   background: #c5c3bc;
+  border-color: #c5c3bc;
+  color: #7a7873;
   cursor: not-allowed;
+  transform: none;
 }
 
+.button-outline,
 .outline-btn {
-  border: 1px solid var(--ink);
+  background: transparent;
+  border: 1px solid var(--border);
   color: var(--ink);
-  transition: background 0.2s ease, color 0.2s ease;
 }
 
+.button-outline:hover,
 .outline-btn:hover {
-  background: var(--ink);
-  color: #ffffff;
+  border-color: var(--ink);
+  background: var(--surface-subtle);
+  color: var(--ink);
+}
+
+.button-ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+}
+
+.button-ghost:hover {
+  color: var(--ink);
+  background: var(--surface-subtle);
 }
 
 .wishlist-detail-btn {
@@ -2387,34 +2474,46 @@ a {
 }
 
 .status-pill.approved,
+.status-pill.active,
 .status-pill.paid,
 .status-pill.delivered {
-  background: #f0fdf4;
-  color: #166534;
-  border: 1px solid #bbf7d0;
+  background: #f4f7f4;
+  color: #1f5132;
+  border: 1px solid #d1e2d6;
 }
 
 .status-pill.pending,
 .status-pill.submitted,
-.status-pill.unpaid {
-  background: #fffbeb;
-  color: #92400e;
-  border: 1px solid #fde68a;
+.status-pill.unpaid,
+.status-pill.under_review,
+.status-pill.under-review,
+.status-pill.commission_proposed,
+.status-pill.commission_negotiation,
+.status-pill.change_requested {
+  background: #faf6ee;
+  color: #7c581e;
+  border: 1px solid #ebdcc0;
 }
 
 .status-pill.rejected,
 .status-pill.cancelled,
-.status-pill.failed {
-  background: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
+.status-pill.failed,
+.status-pill.suspended,
+.status-pill.out_of_stock,
+.status-pill.sold_out,
+.status-pill.sold-out {
+  background: #fbf2f2;
+  color: #8c2626;
+  border: 1px solid #f0cccc;
 }
 
+.status-pill.draft,
+.status-pill.inactive,
 .status-pill.shipped,
 .status-pill.processing {
-  background: #f8fafc;
-  color: #334155;
-  border: 1px solid #e2e8f0;
+  background: #f3f3f2;
+  color: #4a4a48;
+  border: 1px solid #dededb;
 }
 
 /* CUSTOMER ACCOUNT REFINEMENTS */
@@ -2590,6 +2689,146 @@ a {
   .admin-table th,
   .admin-table td {
     padding: 14px 16px;
+  }
+}
+
+/* ==========================================================================
+   SIGNATURE SENO OPENING BRAND EXPERIENCE
+   ========================================================================== */
+.seno-brand-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #0f1011;
+  color: #f6f5f2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.seno-brand-intro.intro-exiting {
+  opacity: 0;
+  transform: translateY(-16px);
+  pointer-events: none;
+}
+
+.intro-center-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  opacity: 0;
+  transform: scale(0.97) translateY(6px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.intro-center-stage.stage-revealed {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.intro-wordmark-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.intro-wordmark {
+  font-family: Georgia, serif;
+  font-size: clamp(52px, 9vw, 92px);
+  font-weight: 700;
+  letter-spacing: -2px;
+  line-height: 0.9;
+  color: #ffffff;
+  animation: introTracking 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes introTracking {
+  0% {
+    letter-spacing: -4px;
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    letter-spacing: -1.5px;
+    opacity: 1;
+  }
+}
+
+.intro-accent-line {
+  width: 32px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.3);
+  margin-top: 14px;
+  transform: scaleX(0);
+  animation: introLine 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
+}
+
+@keyframes introLine {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.intro-sub-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 500;
+  margin-top: 4px;
+  opacity: 0;
+  animation: introFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.45s forwards;
+}
+
+@keyframes introFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.intro-dot {
+  opacity: 0.4;
+}
+
+.intro-skip-hint {
+  position: absolute;
+  bottom: 28px;
+  font-size: 8px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  transition: color 0.2s ease;
+}
+
+.intro-skip-hint:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seno-brand-intro {
+    display: none !important;
   }
 }
 

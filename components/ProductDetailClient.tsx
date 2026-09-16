@@ -8,6 +8,7 @@ import { money, Product } from '@/lib/catalog'
 import { useStore } from '@/context/StoreContext'
 import { ProductCard } from '@/components/ProductCard'
 import { SizeGuideModal } from '@/components/SizeGuideModal'
+import { SenoImage } from '@/components/SenoImage'
 import Image from 'next/image'
 
 interface ProductDetailClientProps {
@@ -80,27 +81,22 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
                 className={`thumb-btn ${idx === activeImgIndex ? 'active' : ''}`}
                 onClick={() => setActiveImgIndex(idx)}
               >
-                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                  <Image 
+                <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+                  <SenoImage 
                     src={imgUrl} 
                     alt={`${product.name} view ${idx + 1}`} 
-                    fill 
-                    unoptimized
-                    style={{ objectFit: 'cover' }} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                   />
                 </div>
               </button>
             ))}
           </div>
 
-          <div className="main-gallery-image">
-            <Image 
+          <div className="main-gallery-image" style={{ position: 'relative', overflow: 'hidden', background: 'var(--card-bg)' }}>
+            <SenoImage 
               src={galleryImages[activeImgIndex] || product.image} 
               alt={product.name} 
-              fill
-              priority
-              unoptimized
-              style={{ objectFit: 'cover' }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           </div>
         </div>

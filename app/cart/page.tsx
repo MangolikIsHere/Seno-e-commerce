@@ -6,6 +6,7 @@ import { ShoppingBag, Plus, Minus, Trash2, ArrowLeft } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
 import { money } from '@/lib/catalog'
 import { fetchActiveShippingConfig, calculateShippingFee, DEFAULT_SHIPPING_SETTINGS, ShippingSettings, ShippingWeightRule } from '@/lib/shipping'
+import { SenoImage } from '@/components/SenoImage'
 
 export default function CartPage() {
   const { cart, updateCartQty, removeFromCart, subtotal, cartCount, totalWeightGrams } = useStore()
@@ -65,11 +66,13 @@ export default function CartPage() {
                   borderBottom: '1px solid var(--soft)'
                 }}
               >
-                <img
-                  src={item.product.image}
-                  alt={item.product.name}
-                  style={{ width: '90px', aspectRatio: '3/4', objectFit: 'cover' }}
-                />
+                <div style={{ width: '90px', aspectRatio: '3/4', flexShrink: 0, overflow: 'hidden', borderRadius: '2px', background: 'var(--surface-subtle)' }}>
+                  <SenoImage
+                    src={item.product.image}
+                    alt={item.product.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                   <Link
                     href={`/products/${item.product.slug}`}

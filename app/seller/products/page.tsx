@@ -3,6 +3,7 @@ import { getSellerProducts, getMySellerRecord } from '@/lib/sellers'
 import { money } from '@/lib/catalog'
 import Link from 'next/link'
 import { Plus, ArrowLeft, Package, ExternalLink } from 'lucide-react'
+import { SenoImage } from '@/components/SenoImage'
 
 export default async function SellerProductsPage() {
   const seller = await getMySellerRecord()
@@ -88,8 +89,19 @@ export default async function SellerProductsPage() {
                 {products.map(product => (
                   <tr key={product.id}>
                     <td>
-                      <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{product.name}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--muted)' }}>slug: /{product.slug}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '42px', height: '54px', flexShrink: 0, borderRadius: '2px', overflow: 'hidden', background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}>
+                          <SenoImage
+                            src={(product as any).primary_image || (product as any).primaryImage || (product as any).image}
+                            alt={product.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{product.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'monospace' }}>slug: /{product.slug}</div>
+                        </div>
+                      </div>
                     </td>
                     <td>
                       <span className={`status-pill ${product.approval_status === 'approved' ? 'approved' : product.approval_status === 'rejected' ? 'rejected' : 'pending'}`}>
@@ -109,7 +121,7 @@ export default async function SellerProductsPage() {
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <Link 
-                        href={`/seller/products/${product.id}`} 
+                        href={`/seller/products/${product.id}/edit`} 
                         className="button button-outline"
                         style={{ fontSize: '11px', padding: '5px 12px' }}
                       >

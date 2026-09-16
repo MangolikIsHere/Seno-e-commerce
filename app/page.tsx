@@ -1,6 +1,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
+import { SenoImage } from '@/components/SenoImage'
 import { getNewArrivals, getBestsellers } from '@/lib/catalog'
 
 export default async function HomePage() {
@@ -88,7 +89,7 @@ export default async function HomePage() {
         <div className="category-tiles-grid">
           {categoryTiles.map((cat, idx) => (
             <Link href={cat.href} key={idx} className="category-tile-card">
-              <img src={cat.image} alt={cat.title} className="category-tile-img" />
+              <SenoImage src={cat.image} alt={cat.title} className="category-tile-img" />
               <div className="category-tile-overlay">
                 <h3 className="category-tile-title">{cat.title}</h3>
                 <span className="category-tile-subtitle">{cat.subtitle}</span>
@@ -111,7 +112,7 @@ export default async function HomePage() {
           </Link>
         </div>
         <div className="featured-edit-image">
-          <img
+          <SenoImage
             src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1000&q=80"
             alt="The SENO Edit"
           />

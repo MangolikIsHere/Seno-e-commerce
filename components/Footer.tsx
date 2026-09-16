@@ -51,9 +51,10 @@ export function Footer() {
         <div className="footer-col">
           <h3>ACCOUNT</h3>
           <ul>
-            <li><Link href="/account">Account</Link></li>
-            <li><Link href="/wishlist">Wishlist</Link></li>
-            <li><Link href="/cart">Cart</Link></li>
+            <li><Link href="/account">Account Overview</Link></li>
+            <li><Link href="/wishlist">Saved Wishlist</Link></li>
+            <li><Link href="/cart">Shopping Bag</Link></li>
+            <li><Link href="/seller/register">Sell with SENO</Link></li>
           </ul>
         </div>
 

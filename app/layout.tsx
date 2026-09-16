@@ -7,6 +7,7 @@ import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { CartDrawer } from '@/components/CartDrawer'
 import { SearchModal } from '@/components/SearchModal'
+import { BrandIntro } from '@/components/BrandIntro'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -45,6 +46,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-background">
       <body className="antialiased">
+        <BrandIntro />
         <AuthProvider>
           <StoreProvider>
             <div className="app-viewport-wrapper">

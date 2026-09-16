@@ -21,7 +21,7 @@ export default async function RegisterSellerPage() {
       )
     }
 
-    if (seller.seller_status === 'approved') {
+    if (seller.seller_status === 'approved' || seller.seller_status === 'commission_proposed' || seller.seller_status === 'commission_negotiation') {
       redirect('/seller/dashboard')
     }
 

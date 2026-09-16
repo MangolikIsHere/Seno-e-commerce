@@ -2,9 +2,10 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { X, ShoppingBag, Plus, Minus, Trash2 } from 'lucide-react'
+import { X, Plus, Minus, Trash2 } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
 import { money } from '@/lib/catalog'
+import { SenoImage } from '@/components/SenoImage'
 
 export function CartDrawer() {
   const { cart, cartOpen, setCartOpen, updateCartQty, removeFromCart, subtotal, cartCount, totalWeightGrams } = useStore()
@@ -19,8 +20,10 @@ export function CartDrawer() {
       <aside className="cart-drawer-panel" onClick={e => e.stopPropagation()}>
         <div className="cart-drawer-header">
           <div>
-            <span className="section-kicker">YOUR BAG</span>
-            <h2><span className="cart-count-number">{cartCount}</span> {cartCount === 1 ? 'ITEM' : 'ITEMS'}</h2>
+            <span className="section-kicker" style={{ margin: 0 }}>YOUR SELECTION</span>
+            <h2 style={{ fontFamily: 'Georgia, serif', fontSize: '24px', fontWeight: 400, margin: '4px 0 0' }}>
+              CART <span style={{ fontSize: '14px', fontFamily: 'monospace', color: 'var(--muted)', fontWeight: 400 }}>({cartCount})</span>
+            </h2>
           </div>
           <button className="close-btn" onClick={() => setCartOpen(false)} aria-label="Close cart">
             <X size={20} />
@@ -28,13 +31,14 @@ export function CartDrawer() {
         </div>
 
         {cart.length === 0 ? (
-          <div className="cart-empty-state">
-            <ShoppingBag size={32} strokeWidth={1.5} />
-            <div>
-              <strong>Your bag is empty.</strong>
-              <p>Discover the latest SENO pieces.</p>
-            </div>
-            <button className="dark-btn" onClick={() => setCartOpen(false)}>
+          <div className="cart-empty-state" style={{ padding: '72px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '340px' }}>
+            <span style={{ fontSize: '10.5px', letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 600, marginBottom: '8px' }}>
+              CART
+            </span>
+            <p style={{ fontFamily: 'Georgia, serif', fontSize: '18px', color: 'var(--ink)', margin: '0 0 24px', fontWeight: 400 }}>
+              Your selection is currently empty.
+            </p>
+            <button className="dark-btn" onClick={() => setCartOpen(false)} style={{ padding: '14px 28px', fontSize: '11px', letterSpacing: '1.8px' }}>
               CONTINUE SHOPPING
             </button>
           </div>
@@ -47,8 +51,8 @@ export function CartDrawer() {
               </div>
               <p className="shipping-notice-text">
                 {subtotal >= freeShippingThreshold
-                  ? '✨ You have unlocked free shipping across India.'
-                  : `Add ${money(freeShippingThreshold - subtotal)} more to unlock free shipping.`}
+                  ? '✨ You have unlocked complimentary express delivery across India.'
+                  : `Add ${money(freeShippingThreshold - subtotal)} more for complimentary express shipping.`}
               </p>
             </div>
 
@@ -56,21 +60,30 @@ export function CartDrawer() {
             <div className="cart-drawer-items">
               {cart.map(item => (
                 <div className="cart-item-row" key={item.variant_id}>
-                  <img src={item.product.image} alt={item.product.name} className="cart-item-img" />
+                  <div style={{ width: '70px', height: '90px', flexShrink: 0, overflow: 'hidden', background: 'var(--surface-subtle)', borderRadius: '2px' }}>
+                    <SenoImage
+                      src={item.product.image}
+                      alt={item.product.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </div>
                   <div className="cart-item-info">
                     <Link
                       href={`/products/${item.product.slug}`}
                       className="cart-item-title"
                       onClick={() => setCartOpen(false)}
+                      style={{ fontSize: '13px', fontWeight: 500 }}
                     >
                       {item.product.name}
                     </Link>
-                    <span className="cart-item-size">
-                      {item.size} {item.colour && item.colour !== 'Default' ? `/ ${item.colour}` : ''}
+                    <span className="cart-item-size" style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
+                      Size: {item.size} {item.colour && item.colour !== 'Default' ? `/ ${item.colour}` : ''}
                     </span>
-                    <span className="cart-item-price">{money(item.unit_price)}</span>
+                    <span className="cart-item-price" style={{ fontSize: '12.5px', fontWeight: 600, marginTop: '4px' }}>
+                      {money(item.unit_price)}
+                    </span>
 
-                    <div className="cart-item-controls">
+                    <div className="cart-item-controls" style={{ marginTop: '10px' }}>
                       <div className="quantity-stepper">
                         <button
                           onClick={() => updateCartQty(item.variant_id, -1)}
@@ -103,20 +116,23 @@ export function CartDrawer() {
             {/* Drawer Footer */}
             <div className="cart-drawer-footer">
               <div className="subtotal-row" style={{ marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Total Weight</span>
-                <span style={{ fontSize: '12px' }}>{(totalWeightGrams / 1000).toFixed(2)} kg</span>
+                <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>Estimated Weight</span>
+                <span style={{ fontSize: '11.5px', color: 'var(--ink)' }}>{(totalWeightGrams / 1000).toFixed(2)} kg</span>
               </div>
               <div className="subtotal-row">
-                <span>Subtotal</span>
-                <strong>{money(subtotal)}</strong>
+                <span style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px' }}>Subtotal</span>
+                <strong style={{ fontSize: '15px' }}>{money(subtotal)}</strong>
               </div>
-              <p className="subtotal-note">Taxes and shipping calculated at checkout.</p>
+              <p className="subtotal-note" style={{ fontSize: '11px', color: 'var(--muted)', margin: '6px 0 16px' }}>
+                Complimentary packaging. Duties and shipping finalized at checkout.
+              </p>
               <Link
                 href="/cart"
                 className="checkout-btn dark-btn"
                 onClick={() => setCartOpen(false)}
+                style={{ width: '100%', padding: '16px', fontSize: '11px', letterSpacing: '1.8px' }}
               >
-                VIEW BAG & CHECKOUT <span>→</span>
+                PROCEED TO CHECKOUT <span>→</span>
               </Link>
             </div>
           </>

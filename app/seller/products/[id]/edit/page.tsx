@@ -1,11 +1,11 @@
-import { redirect } from 'next/navigation'
+import { redirect, notFound } from 'next/navigation'
 import { getMySellerRecord } from '@/lib/sellers'
-import { ProductForm } from '../ProductForm'
+import { ProductForm } from '../../ProductForm'
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
-export default async function NewProductPage() {
+export default async function EditProductPage({ params }: { params: { id: string } }) {
   const seller = await getMySellerRecord()
   
   if (!seller || seller.seller_status !== 'approved') {
@@ -13,6 +13,29 @@ export default async function NewProductPage() {
   }
 
   const supabase = await createClient()
+
+  const { data: product, error } = await supabase
+    .from('products')
+    .select('*, product_images(*), product_variants(*)')
+    .eq('id', params.id)
+    .eq('seller_id', seller.id)
+    .single()
+
+  if (error || !product) {
+    notFound()
+  }
+
+  // Get inventory for variants
+  const variantsWithInventory = await Promise.all(product.product_variants.map(async (v: any) => {
+    const { data: inv } = await supabase.from('inventory').select('quantity').eq('variant_id', v.id).single()
+    return { ...v, quantity: inv?.quantity || 0 }
+  }))
+
+  const initialData = {
+    ...product,
+    variants: variantsWithInventory
+  }
+
   const { data: categories } = await supabase
     .from('categories')
     .select('id, name')
@@ -41,13 +64,13 @@ export default async function NewProductPage() {
 
       <div style={{ marginBottom: '32px' }}>
         <span className="section-kicker">SELLER DASHBOARD</span>
-        <h1 className="static-page-title" style={{ margin: '4px 0 6px' }}>Add New Product</h1>
+        <h1 className="static-page-title" style={{ margin: '4px 0 6px' }}>Edit Product</h1>
         <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>
-          Create a new product listing. It will be submitted to SENO for review before becoming public.
+          Update your product listing. Major changes may require re-approval from SENO admin.
         </p>
       </div>
 
-      <ProductForm categories={categories || []} />
+      <ProductForm categories={categories || []} initialData={initialData} />
     </div>
   )
 }

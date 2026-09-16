@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
-import { getMySellerRecord } from '@/lib/sellers'
+import { getMySellerRecord, getSellerProposals } from '@/lib/sellers'
 import Link from 'next/link'
-import { Package, Truck, Store, ArrowUpRight, ShieldCheck, DollarSign } from 'lucide-react'
+import { Package, Truck, Store, ArrowUpRight, CheckCircle, Clock } from 'lucide-react'
+import { CommissionProposalCard } from './CommissionProposalCard'
 
 export default async function SellerDashboardPage() {
   const seller = await getMySellerRecord()
@@ -10,10 +11,50 @@ export default async function SellerDashboardPage() {
     redirect('/seller/register')
   }
 
-  if (seller.seller_status !== 'approved') {
-    redirect('/seller/register') // Redirects back to the pending/rejected status page
+  if (seller.seller_status === 'pending' || seller.seller_status === 'rejected') {
+    redirect('/seller/register') 
   }
 
+  // Handle commission proposal state
+  if (seller.seller_status === 'commission_proposed' || seller.seller_status === 'commission_negotiation') {
+    const proposals = await getSellerProposals()
+    const activeProposal = proposals[proposals.length - 1]
+    
+    return (
+      <div className="static-page-container" style={{ maxWidth: '800px', paddingTop: '64px' }}>
+        <div style={{ marginBottom: '40px', textAlign: 'center' }}>
+          <span className="section-kicker">PARTNERSHIP ONBOARDING</span>
+          <h1 className="static-page-title" style={{ margin: '8px 0 16px' }}>Commission Proposal</h1>
+          <p style={{ color: 'var(--muted)', fontSize: '15px', maxWidth: '600px', margin: '0 auto' }}>
+            {seller.seller_status === 'commission_proposed' 
+              ? 'SENO has reviewed your application and sent a partnership commission proposal. Please review the terms below.'
+              : 'Your commission change request has been submitted and is currently under review by our administration team.'}
+          </p>
+        </div>
+        
+        {activeProposal && (
+          <CommissionProposalCard 
+            proposal={activeProposal} 
+            status={seller.seller_status} 
+          />
+        )}
+      </div>
+    )
+  }
+
+  // Handle suspended
+  if (seller.seller_status === 'suspended') {
+    return (
+      <div className="static-page-container" style={{ maxWidth: '600px', textAlign: 'center', paddingTop: '100px' }}>
+        <h1 className="static-page-title">Account Suspended</h1>
+        <p style={{ color: 'var(--muted)', marginTop: '16px' }}>
+          Your seller account has been suspended. Please contact support.
+        </p>
+      </div>
+    )
+  }
+
+  // Render normal dashboard
   return (
     <div className="static-page-container" style={{ maxWidth: '1040px', paddingBottom: '96px' }}>
       {/* Seller Header */}
@@ -119,4 +160,3 @@ export default async function SellerDashboardPage() {
     </div>
   )
 }
-

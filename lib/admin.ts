@@ -59,10 +59,7 @@ export async function updateSellerStatus(sellerId: string, status: string, commi
 
   if (error) throw new Error(error.message)
 
-  // Also update the profile role if approved
   if (status === 'approved') {
-    // Wait, profiles.role can only be updated by admins via service_role or trigger,
-    // but the `profiles_admin_all` policy allows admins to update roles!
     const { data: seller } = await supabase.from('sellers').select('user_id').eq('id', sellerId).single()
     if (seller) {
       await supabase.from('profiles').update({ role: 'reseller' }).eq('id', seller.user_id)
@@ -71,6 +68,89 @@ export async function updateSellerStatus(sellerId: string, status: string, commi
 
   revalidatePath('/admin/sellers')
 }
+
+// -------------------------------------------------------------
+// COMMISSION NEGOTIATION (ADMIN)
+// -------------------------------------------------------------
+
+export async function getSellerWithProposals(sellerId: string) {
+  const supabase = await createClient()
+  const isAdmin = await checkIsAdmin()
+  if (!isAdmin) throw new Error('Unauthorized')
+
+  const { data: seller, error: sellerError } = await supabase
+    .from('sellers')
+    .select('*')
+    .eq('id', sellerId)
+    .single()
+
+  if (sellerError) throw new Error(sellerError.message)
+
+  const { data: proposals, error: proposalsError } = await supabase
+    .from('commission_proposals')
+    .select('*')
+    .eq('seller_id', sellerId)
+    .order('created_at', { ascending: true })
+
+  if (proposalsError) throw new Error(proposalsError.message)
+
+  return { seller, proposals }
+}
+
+export async function proposeCommission(sellerId: string, rate: number, message?: string) {
+  const supabase = await createClient()
+  const isAdmin = await checkIsAdmin()
+  if (!isAdmin) throw new Error('Unauthorized')
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { error: proposalError } = await supabase
+    .from('commission_proposals')
+    .insert({
+      seller_id: sellerId,
+      proposed_rate: rate,
+      status: 'pending',
+      admin_message: message,
+      created_by: user?.id
+    })
+
+  if (proposalError) throw new Error(proposalError.message)
+
+  // Update seller status to commission_proposed if it's currently pending or commission_negotiation
+  const { error: sellerError } = await supabase
+    .from('sellers')
+    .update({ seller_status: 'commission_proposed' })
+    .eq('id', sellerId)
+
+  if (sellerError) throw new Error(sellerError.message)
+
+  revalidatePath('/admin/sellers')
+  revalidatePath(`/admin/sellers/${sellerId}`)
+}
+
+export async function approveCommissionRequest(sellerId: string, proposalId: string, approvedRate: number) {
+  const supabase = await createClient()
+  const isAdmin = await checkIsAdmin()
+  if (!isAdmin) throw new Error('Unauthorized')
+
+  // Update proposal
+  const { error: proposalError } = await supabase
+    .from('commission_proposals')
+    .update({ status: 'accepted', responded_at: new Date().toISOString() })
+    .eq('id', proposalId)
+
+  if (proposalError) throw new Error(proposalError.message)
+
+  // Update seller
+  await updateSellerStatus(sellerId, 'approved', approvedRate)
+
+  revalidatePath('/admin/sellers')
+  revalidatePath(`/admin/sellers/${sellerId}`)
+}
+
+// -------------------------------------------------------------
+// PRODUCTS & ORDERS (ADMIN)
+// -------------------------------------------------------------
 
 export async function getPendingProducts() {
   const supabase = await createClient()
@@ -185,4 +265,3 @@ export async function getAdminOverviewStats(): Promise<AdminOverviewStats> {
     recentSellers: allSellers.slice(0, 6)
   }
 }
-

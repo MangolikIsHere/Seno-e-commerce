@@ -94,7 +94,14 @@ export default async function AdminSellersPage() {
                         {seller.commission_rate != null ? `${seller.commission_rate}%` : '15% (default)'}
                       </span>
                     </td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td style={{ textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <a 
+                        href={`/admin/sellers/${seller.id}`} 
+                        className="button button-outline"
+                        style={{ fontSize: '11px', padding: '5px 10px', textDecoration: 'none' }}
+                      >
+                        Review
+                      </a>
                       <SellerStatusForm 
                         sellerId={seller.id} 
                         currentStatus={seller.seller_status} 

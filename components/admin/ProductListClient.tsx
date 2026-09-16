@@ -19,6 +19,7 @@ import {
 import { money } from '@/lib/catalog'
 import { toggleProductActive } from '@/lib/adminCatalog'
 import { ProductApprovalForm } from '@/app/admin/products/ProductApprovalForm'
+import { SenoImage } from '@/components/SenoImage'
 
 interface ProductListClientProps {
   initialProducts: any[]
@@ -317,11 +318,9 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                             flexShrink: 0,
                             border: '1px solid var(--border)'
                           }}>
-                            <img
+                            <SenoImage
                               src={product.primaryImage}
                               alt={product.name}
-                              width={46}
-                              height={58}
                               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
                           </div>
