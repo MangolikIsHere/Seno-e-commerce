@@ -3,83 +3,68 @@
 import React, { useEffect, useState } from 'react'
 
 export function BrandIntro() {
-  const [visible, setVisible] = useState(false)
-  const [phase, setPhase] = useState<'initial' | 'reveal' | 'exit'>('initial')
+  const [phase, setPhase] = useState<'playing' | 'exiting' | 'removed'>('playing')
 
   useEffect(() => {
-    // Check if user prefers reduced motion
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (prefersReducedMotion) {
+    // Respect prefers-reduced-motion
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setPhase('removed')
       return
     }
 
-    // Check if intro has already been displayed during this browser session
-    try {
-      const hasSeen = sessionStorage.getItem('seno_brand_intro_seen')
-      if (hasSeen) {
-        return
-      }
-    } catch {
-      // Ignore sessionStorage access errors (e.g. strict privacy mode)
-    }
+    // Sequence orchestration:
+    // 0.00s - 1.60s: Brand presentation (SENO wordmark + STUDIO / 01 reveals via CSS)
+    // 1.60s: Smooth veil-lift dissolve begins
+    // 2.15s: Element cleanly unmounts from DOM
+    const exitTimer = setTimeout(() => {
+      setPhase('exiting')
+    }, 1600)
 
-    // Mark as seen immediately so navigating away won't re-trigger
-    try {
-      sessionStorage.setItem('seno_brand_intro_seen', 'true')
-    } catch {}
-
-    setVisible(true)
-
-    // Sequence timing:
-    // 0ms: Initial minimal dark frame
-    // 150ms: Reveal wordmark + Studio detail (tracking expansion, subtle scale)
-    // 1500ms: Begin unveil / lift transition
-    // 2100ms: Unmount completely from DOM
-    const t1 = setTimeout(() => {
-      setPhase('reveal')
-    }, 150)
-
-    const t2 = setTimeout(() => {
-      setPhase('exit')
-    }, 1550)
-
-    const t3 = setTimeout(() => {
-      setVisible(false)
+    const removeTimer = setTimeout(() => {
+      setPhase('removed')
     }, 2150)
 
+    // Defensive fallback: guarantees the website is never blocked even if delays occur
+    const fallbackTimer = setTimeout(() => {
+      setPhase('removed')
+    }, 2800)
+
     return () => {
-      clearTimeout(t1)
-      clearTimeout(t2)
-      clearTimeout(t3)
+      clearTimeout(exitTimer)
+      clearTimeout(removeTimer)
+      clearTimeout(fallbackTimer)
     }
   }, [])
 
-  if (!visible) return null
+  if (phase === 'removed') {
+    return null
+  }
 
   return (
     <div
-      className={`seno-brand-intro ${phase === 'exit' ? 'intro-exiting' : ''}`}
+      id="seno-brand-intro"
+      className={`seno-brand-intro ${phase === 'exiting' ? 'intro-exiting' : ''}`}
       aria-hidden="true"
-      onClick={() => setVisible(false)}
+      onClick={() => setPhase('removed')}
     >
-      <div className={`intro-center-stage ${phase === 'reveal' ? 'stage-revealed' : ''}`}>
-        <div className="intro-wordmark-container">
+      <div className="intro-stage">
+        <div className="intro-wordmark-wrap">
           <span className="intro-wordmark">SENO</span>
-          <div className="intro-accent-line" />
+          <div className="intro-divider" />
         </div>
-        <div className="intro-sub-line">
-          <span className="intro-studio-tag">STUDIO / 01</span>
-          <span className="intro-dot">·</span>
-          <span className="intro-tagline">MUMBAI</span>
+        <div className="intro-details">
+          <span className="intro-studio">STUDIO / 01</span>
+          <span className="intro-sep">·</span>
+          <span className="intro-loc">MUMBAI</span>
         </div>
       </div>
       <button 
         type="button" 
-        className="intro-skip-hint"
-        onClick={() => setVisible(false)}
-        aria-label="Skip introduction"
+        className="intro-dismiss-btn"
+        onClick={() => setPhase('removed')}
+        aria-label="Enter store immediately"
       >
-        CLICK ANYWHERE TO ENTER
+        CLICK TO ENTER
       </button>
     </div>
   )

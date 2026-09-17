@@ -2699,8 +2699,8 @@ a {
   position: fixed;
   inset: 0;
   z-index: 99999;
-  background: #0f1011;
-  color: #f6f5f2;
+  background: #0b0c0d;
+  color: #ffffff;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2709,125 +2709,147 @@ a {
   user-select: none;
   overflow: hidden;
   transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: introAutoDismiss 0.5s ease 2.7s forwards;
 }
 
 .seno-brand-intro.intro-exiting {
   opacity: 0;
-  transform: translateY(-16px);
+  transform: scale(1.015);
   pointer-events: none;
 }
 
-.intro-center-stage {
+.intro-stage {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  opacity: 0;
-  transform: scale(0.97) translateY(6px);
-  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.intro-center-stage.stage-revealed {
-  opacity: 1;
-  transform: scale(1) translateY(0);
-}
-
-.intro-wordmark-container {
+.intro-wordmark-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  position: relative;
-  margin-bottom: 12px;
 }
 
 .intro-wordmark {
   font-family: Georgia, serif;
-  font-size: clamp(52px, 9vw, 92px);
+  font-size: clamp(48px, 8.5vw, 84px);
   font-weight: 700;
   letter-spacing: -2px;
-  line-height: 0.9;
+  line-height: 0.95;
   color: #ffffff;
-  animation: introTracking 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: introWordmarkReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes introTracking {
+@keyframes introWordmarkReveal {
   0% {
-    letter-spacing: -4px;
     opacity: 0;
+    transform: translateY(10px) scale(0.975);
+    letter-spacing: -3.5px;
   }
   40% {
     opacity: 1;
   }
   100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
     letter-spacing: -1.5px;
+  }
+}
+
+.intro-divider {
+  width: 38px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.28);
+  margin: 18px auto 14px;
+  transform-origin: center;
+  animation: introLineExpand 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both;
+}
+
+@keyframes introLineExpand {
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scaleX(1);
     opacity: 1;
   }
 }
 
-.intro-accent-line {
-  width: 32px;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.3);
-  margin-top: 14px;
-  transform: scaleX(0);
-  animation: introLine 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
-}
-
-@keyframes introLine {
-  to {
-    transform: scaleX(1);
-  }
-}
-
-.intro-sub-line {
+.intro-details {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 9px;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
-  font-weight: 500;
-  margin-top: 4px;
-  opacity: 0;
-  animation: introFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.45s forwards;
+  animation: introDetailsReveal 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
 }
 
-@keyframes introFadeUp {
-  from {
+@keyframes introDetailsReveal {
+  0% {
     opacity: 0;
     transform: translateY(6px);
   }
-  to {
+  100% {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-.intro-dot {
-  opacity: 0.4;
+.intro-studio,
+.intro-loc {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 9.5px;
+  letter-spacing: 3.5px;
+  text-transform: uppercase;
+  color: #a3a29d;
+  font-weight: 500;
 }
 
-.intro-skip-hint {
-  position: absolute;
-  bottom: 28px;
-  font-size: 8px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
+.intro-sep {
   color: rgba(255, 255, 255, 0.3);
+  font-size: 10px;
+}
+
+.intro-dismiss-btn {
+  position: absolute;
+  bottom: 32px;
+  font-size: 8.5px;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 500;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 8px;
+  padding: 10px 18px;
   transition: color 0.2s ease;
+  animation: introFadeIn 0.6s ease 0.9s both;
 }
 
-.intro-skip-hint:hover {
-  color: rgba(255, 255, 255, 0.7);
+.intro-dismiss-btn:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+@keyframes introFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes introAutoDismiss {
+  to {
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .seno-brand-intro {
+  .seno-brand-intro,
+  #seno-brand-intro {
     display: none !important;
   }
 }
