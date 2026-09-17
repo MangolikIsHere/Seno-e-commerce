@@ -8,9 +8,10 @@ import { getCollectionProducts, Product } from '@/lib/catalog'
 interface CollectionViewProps {
   categoryTitle: string
   categorySlug: string
+  categoryOptions?: string[]
 }
 
-export function CollectionView({ categoryTitle, categorySlug }: CollectionViewProps) {
+export function CollectionView({ categoryTitle, categorySlug, categoryOptions = [] }: CollectionViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>(
     categorySlug === 'all' || categorySlug === 'new-arrivals' ? 'All' : categoryTitle
   )
@@ -53,7 +54,7 @@ export function CollectionView({ categoryTitle, categorySlug }: CollectionViewPr
     setSortOption('Featured')
   }
 
-  const categoryOptions = ['All', 'Topwear', 'Bottomwear', 'Outerwear', 'Accessories']
+  const categoryFilterOptions = ['All', ...categoryOptions]
   const availabilityOptions = ['All', 'In stock', 'Sold out']
   const sizeOptions = ['All', 'XS', 'S', 'M', 'L', 'XL']
   const colorOptions = ['All', 'Black', 'White', 'Indigo', 'Charcoal', 'Cream', 'Olive', 'Stone']
@@ -124,7 +125,7 @@ export function CollectionView({ categoryTitle, categorySlug }: CollectionViewPr
           {/* Category Filter */}
           <div className="filter-group-box">
             <span className="filter-group-title">Category</span>
-            {categoryOptions.map(cat => (
+            {categoryFilterOptions.map(cat => (
               <button
                 key={cat}
                 className={`filter-option-btn ${selectedCategory === cat ? 'selected' : ''}`}

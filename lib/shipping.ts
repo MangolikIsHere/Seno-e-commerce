@@ -20,6 +20,13 @@ export interface ShippingWeightRule {
   is_active: boolean
 }
 
+export interface ShippingLine {
+  quantity: number
+  unitWeightGrams: number
+  shippingMethod?: 'weight_based' | 'custom'
+  customDeliveryCharge?: number | null
+}
+
 export const DEFAULT_SHIPPING_SETTINGS: ShippingSettings = {
   calculation_mode: 'base_incremental',
   free_shipping_threshold: 1999.00,
@@ -123,4 +130,19 @@ export function calculateShippingFee(
   }
 
   return Number(settings.base_rate)
+}
+
+export function calculateShippingForLines(
+  subtotal: number,
+  lines: ShippingLine[],
+  settings: ShippingSettings = DEFAULT_SHIPPING_SETTINGS,
+  rules: ShippingWeightRule[] = []
+): number {
+  if (settings.free_shipping_threshold !== null && subtotal >= settings.free_shipping_threshold) return 0
+  const weightBasedLines = lines.filter(line => line.shippingMethod !== 'custom')
+  const customCharge = lines
+    .filter(line => line.shippingMethod === 'custom')
+    .reduce((sum, line) => sum + Math.max(0, Number(line.customDeliveryCharge || 0)), 0)
+  const weight = weightBasedLines.reduce((sum, line) => sum + line.unitWeightGrams * line.quantity, 0)
+  return Number((calculateShippingFee(weightBasedLines.length > 0 ? subtotal : 0, weight, settings, rules) + customCharge).toFixed(2))
 }

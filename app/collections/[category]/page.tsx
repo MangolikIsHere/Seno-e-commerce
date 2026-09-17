@@ -1,6 +1,7 @@
 import React from 'react'
 import type { Metadata } from 'next'
 import { CollectionView } from '@/components/CollectionView'
+import { getActiveCategories } from '@/lib/categories'
 
 interface PageProps {
   params: Promise<{ category: string }>
@@ -70,7 +71,8 @@ export default async function CategoryPage({ params }: PageProps) {
   const resolvedParams = await params
   const slug = resolvedParams.category.toLowerCase()
 
-  let title = 'ALL PRODUCTS'
+  const categories = await getActiveCategories()
+  let title = categories.find(category => category.slug === slug)?.name.toUpperCase() || 'ALL PRODUCTS'
   if (slug === 'topwear') title = 'TOPWEAR'
   else if (slug === 'bottomwear') title = 'BOTTOMWEAR'
   else if (slug === 'outerwear') title = 'OUTERWEAR'
@@ -78,5 +80,5 @@ export default async function CategoryPage({ params }: PageProps) {
   else if (slug === 'new-arrivals') title = 'NEW ARRIVALS'
   else if (slug === 'bestsellers') title = 'BESTSELLERS'
 
-  return <CollectionView categoryTitle={title} categorySlug={slug} />
+  return <CollectionView categoryTitle={title} categorySlug={slug} categoryOptions={categories.map(category => category.name)} />
 }

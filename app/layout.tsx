@@ -8,6 +8,7 @@ import { Footer } from '@/components/Footer'
 import { CartDrawer } from '@/components/CartDrawer'
 import { SearchModal } from '@/components/SearchModal'
 import { BrandIntro } from '@/components/BrandIntro'
+import { getActiveCategories } from '@/lib/categories'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -38,11 +39,13 @@ export const viewport: Viewport = {
   themeColor: '#fbfbfa',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const categories = await getActiveCategories()
+
   return (
     <html lang="en" className="bg-background">
       <body className="antialiased">
@@ -51,7 +54,7 @@ export default function RootLayout({
           <StoreProvider>
             <div className="app-viewport-wrapper">
               <AnnouncementBar />
-              <Header />
+              <Header categories={categories} />
               <main className="main-content">{children}</main>
               <Footer />
               <CartDrawer />

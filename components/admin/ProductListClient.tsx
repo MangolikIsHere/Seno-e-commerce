@@ -293,8 +293,9 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
               <thead>
                 <tr>
                   <th style={{ width: '320px' }}>Product</th>
-                  <th>Category</th>
+                  <th>Seller / Category</th>
                   <th>Price</th>
+                  <th>Delivery</th>
                   <th>Inventory</th>
                   <th>Publishing</th>
                   <th>Curation</th>
@@ -370,9 +371,13 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
 
                       {/* Category */}
                       <td>
-                        <span style={{ fontSize: '13px', color: 'var(--ink)', fontWeight: 500 }}>
-                          {product.categories?.name || 'Uncategorized'}
-                        </span>
+                        <div style={{ fontSize: '13px', color: 'var(--ink)', fontWeight: 500 }}>{product.categories?.name || 'Uncategorized'}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '3px' }}>{product.sellers?.store_name || 'SENO Official'}</div>
+                      </td>
+
+                      <td>
+                        <div style={{ fontSize: '12px', fontWeight: 600 }}>{product.shipping_method === 'custom' ? 'Custom' : 'Weight based'}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{product.shipping_method === 'custom' ? money(Number(product.custom_delivery_charge || 0)) : `${product.default_weight_grams}g`}</div>
                       </td>
 
                       {/* Price & Compare-At */}

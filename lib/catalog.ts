@@ -24,6 +24,8 @@ export interface Product {
   price: number
   compareAtPrice?: number
   defaultWeightGrams: number
+  shippingMethod: 'weight_based' | 'custom'
+  customDeliveryCharge?: number
   image: string
   hoverImage: string
   images: string[]
@@ -103,6 +105,8 @@ function mapProductRow(row: any): Product {
     price: Number(row.price),
     compareAtPrice: row.compare_at_price ? Number(row.compare_at_price) : undefined,
     defaultWeightGrams: Number(row.default_weight_grams),
+    shippingMethod: row.shipping_method === 'custom' ? 'custom' : 'weight_based',
+    customDeliveryCharge: row.custom_delivery_charge == null ? undefined : Number(row.custom_delivery_charge),
     image,
     hoverImage,
     images: imageUrls.length > 0 ? imageUrls : [fallbackImg],

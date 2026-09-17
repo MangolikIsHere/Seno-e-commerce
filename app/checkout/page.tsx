@@ -9,7 +9,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useStore } from '@/context/StoreContext'
 import { money } from '@/lib/catalog'
 import { fetchAddresses, createAddress, Address, AddressInput } from '@/lib/addresses'
-import { fetchActiveShippingConfig, calculateShippingFee, DEFAULT_SHIPPING_SETTINGS, ShippingSettings, ShippingWeightRule } from '@/lib/shipping'
+import { fetchActiveShippingConfig, calculateShippingForLines, DEFAULT_SHIPPING_SETTINGS, ShippingSettings, ShippingWeightRule } from '@/lib/shipping'
 import { placeOrderAction, OrderAddress } from '@/lib/orders'
 import {
   getPaymentConfigAction,
@@ -125,9 +125,14 @@ export default function CheckoutPage() {
   }, [user, profile, authLoading])
 
   // Shipping calculation preview
-  const shippingFee = calculateShippingFee(
+  const shippingFee = calculateShippingForLines(
     subtotal,
-    totalWeightGrams,
+    cart.map(item => ({
+      quantity: item.qty,
+      unitWeightGrams: item.unit_weight_grams,
+      shippingMethod: item.shipping_method,
+      customDeliveryCharge: item.custom_delivery_charge
+    })),
     shippingConfig.settings,
     shippingConfig.rules
   )

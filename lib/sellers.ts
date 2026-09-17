@@ -211,7 +211,7 @@ export async function getSellerProducts() {
 
   const { data, error } = await supabase
     .from('products')
-    .select('*, product_images(*)')
+    .select('*, categories(id, name, slug), product_images(*), product_variants(id, sku, size, colour, is_active, inventory(quantity, low_stock_threshold))')
     .eq('seller_id', seller.id)
     .order('created_at', { ascending: false })
 
@@ -219,7 +219,48 @@ export async function getSellerProducts() {
     console.error('Error fetching seller products:', error)
     return []
   }
-  return data
+  return (data || []).map((product: any) => ({
+    ...product,
+    primary_image: product.product_images?.find((image: any) => image.is_primary)?.url || product.product_images?.[0]?.url || '/placeholder.png',
+    total_stock: (product.product_variants || []).reduce((sum: number, variant: any) => {
+      const inventory = Array.isArray(variant.inventory) ? variant.inventory[0] : variant.inventory
+      return sum + (variant.is_active ? Number(inventory?.quantity || 0) : 0)
+    }, 0),
+    low_stock: (product.product_variants || []).some((variant: any) => {
+      const inventory = Array.isArray(variant.inventory) ? variant.inventory[0] : variant.inventory
+      const quantity = Number(inventory?.quantity || 0)
+      return variant.is_active && quantity > 0 && quantity <= Number(inventory?.low_stock_threshold || 5)
+    })
+  }))
+}
+
+export async function getSellerStudioStats() {
+  const seller = await getMySellerRecord()
+  if (!seller) return null
+  const products = await getSellerProducts()
+  const orders = await getSellerOrders()
+  const pendingProducts = products.filter((product: any) => product.approval_status === 'submitted')
+  const lowStockProducts = products.filter((product: any) => product.low_stock)
+  const outOfStockProducts = products.filter((product: any) => product.total_stock === 0)
+
+  return {
+    seller,
+    products,
+    metrics: {
+      totalProducts: products.length,
+      activeProducts: products.filter((product: any) => product.is_active && product.approval_status === 'approved').length,
+      pendingReview: pendingProducts.length,
+      lowStock: lowStockProducts.length,
+      outOfStock: outOfStockProducts.length,
+      orders: orders.length,
+      commissionRate: Number(seller.commission_rate || 0)
+    },
+    actions: [
+      ...pendingProducts.map((product: any) => ({ label: `${product.name} is awaiting review`, href: '/seller/products' })),
+      ...lowStockProducts.map((product: any) => ({ label: `${product.name} needs stock attention`, href: '/seller/products' })),
+      ...outOfStockProducts.map((product: any) => ({ label: `${product.name} is out of stock`, href: '/seller/products' }))
+    ].slice(0, 6)
+  }
 }
 
 export async function submitSellerProduct(formData: FormData, images: any[], variants: any[], productId?: string) {
@@ -234,12 +275,20 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
   const slug = formData.get('slug') as string
   const description = formData.get('description') as string
   const price = parseFloat(formData.get('price') as string)
+  const compare_at_price = formData.get('compare_at_price') ? parseFloat(formData.get('compare_at_price') as string) : null
   const default_weight_grams = parseFloat(formData.get('weight') as string) || 500
+  const shipping_method = formData.get('shipping_method') === 'custom' ? 'custom' : 'weight_based'
+  const custom_delivery_charge = formData.get('custom_delivery_charge') ? parseFloat(formData.get('custom_delivery_charge') as string) : null
   const category_id = formData.get('category_id') as string
+  const collection_ids = JSON.parse(String(formData.get('collection_ids') || '[]')) as string[]
 
-  if (!name || !slug || isNaN(price)) throw new Error('Missing basic product information')
+  if (!name || !slug || isNaN(price) || price < 0 || (compare_at_price !== null && (isNaN(compare_at_price) || compare_at_price < 0))) throw new Error('Missing or invalid product information')
+  if (shipping_method === 'custom' && (custom_delivery_charge === null || !Number.isFinite(custom_delivery_charge) || custom_delivery_charge < 0)) throw new Error('A non-negative custom delivery charge is required')
 
   let finalProductId = productId
+
+  const { data: duplicateSlug } = await supabase.from('products').select('id').eq('slug', slug).neq('id', productId || '00000000-0000-0000-0000-000000000000').maybeSingle()
+  if (duplicateSlug) throw new Error('This URL slug is already in use.')
 
   if (productId) {
     // Update Product
@@ -250,8 +299,11 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
         slug,
         description,
         price,
+        compare_at_price,
         default_weight_grams,
         category_id: category_id || null,
+        shipping_method,
+        custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null,
         // Trigger `enforce_product_rules` will automatically revert approval status 
         // to `submitted` if there are material changes to an approved product.
       })
@@ -272,6 +324,9 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
         }))
       )
     }
+
+    await supabase.from('collection_products').delete().eq('product_id', productId)
+    if (collection_ids.length) await supabase.from('collection_products').insert(collection_ids.map((collection_id, display_order) => ({ collection_id, product_id: productId, display_order })))
 
     // Handle variants
     // 1. Fetch existing variants
@@ -318,9 +373,12 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
         slug,
         description,
         price,
+        compare_at_price,
         default_weight_grams,
         category_id: category_id || null,
-        approval_status: 'submitted'
+        approval_status: 'submitted',
+        shipping_method,
+        custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null
       })
       .select()
       .single()
@@ -339,6 +397,8 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
         }))
       )
     }
+
+    if (collection_ids.length) await supabase.from('collection_products').insert(collection_ids.map((collection_id, display_order) => ({ collection_id, product_id: product.id, display_order })))
 
     // Insert Variants
     if (variants && variants.length > 0) {

@@ -18,6 +18,11 @@ export default async function NewProductPage() {
     .select('id, name')
     .eq('is_active', true)
     .order('display_order', { ascending: true })
+  const { data: collections } = await supabase
+    .from('collections')
+    .select('id, name')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
 
   return (
     <div className="static-page-container" style={{ maxWidth: '800px', paddingBottom: '96px' }}>
@@ -47,7 +52,7 @@ export default async function NewProductPage() {
         </p>
       </div>
 
-      <ProductForm categories={categories || []} />
+      <ProductForm categories={categories || []} collections={collections || []} />
     </div>
   )
 }

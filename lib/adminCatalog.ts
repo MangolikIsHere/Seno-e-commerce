@@ -35,6 +35,8 @@ export interface CreateProductInput {
   category_id?: string | null
   collection_ids?: string[]
   default_weight_grams: number
+  shipping_method?: 'weight_based' | 'custom'
+  custom_delivery_charge?: number | null
   is_featured?: boolean
   is_new?: boolean
   is_bestseller?: boolean
@@ -323,6 +325,9 @@ export async function createAdminProduct(input: CreateProductInput) {
   if (input.price === undefined || input.price === null || Number(input.price) < 0) {
     throw new Error('Valid price is required.')
   }
+  const shippingMethod = input.shipping_method === 'custom' ? 'custom' : 'weight_based'
+  const customDeliveryCharge = input.custom_delivery_charge == null ? null : Number(input.custom_delivery_charge)
+  if (shippingMethod === 'custom' && (customDeliveryCharge === null || !Number.isFinite(customDeliveryCharge) || customDeliveryCharge < 0)) throw new Error('A non-negative custom delivery charge is required.')
 
   // 1. Resolve Platform Seller ID
   let platformSellerId = 'fb09c575-2d0c-48d8-b1ff-b7a1ead8407a'
@@ -364,6 +369,8 @@ export async function createAdminProduct(input: CreateProductInput) {
     price: Number(input.price),
     compare_at_price: input.compare_at_price ? Number(input.compare_at_price) : null,
     default_weight_grams: Number(input.default_weight_grams || 500),
+    shipping_method: shippingMethod,
+    custom_delivery_charge: shippingMethod === 'custom' ? customDeliveryCharge : null,
     is_featured: !!input.is_featured,
     is_new: input.is_new !== undefined ? !!input.is_new : true,
     is_bestseller: !!input.is_bestseller,
@@ -455,6 +462,9 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
   if (input.price === undefined || input.price === null || Number(input.price) < 0) {
     throw new Error('Valid price is required.')
   }
+  const shippingMethod = input.shipping_method === 'custom' ? 'custom' : 'weight_based'
+  const customDeliveryCharge = input.custom_delivery_charge == null ? null : Number(input.custom_delivery_charge)
+  if (shippingMethod === 'custom' && (customDeliveryCharge === null || !Number.isFinite(customDeliveryCharge) || customDeliveryCharge < 0)) throw new Error('A non-negative custom delivery charge is required.')
 
   // 1. Slug check
   let finalSlug = internalSlugify(input.slug?.trim() || input.name)
@@ -479,6 +489,8 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
     price: Number(input.price),
     compare_at_price: input.compare_at_price ? Number(input.compare_at_price) : null,
     default_weight_grams: Number(input.default_weight_grams || 500),
+    shipping_method: shippingMethod,
+    custom_delivery_charge: shippingMethod === 'custom' ? customDeliveryCharge : null,
     is_featured: !!input.is_featured,
     is_new: !!input.is_new,
     is_bestseller: !!input.is_bestseller,

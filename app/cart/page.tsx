@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ShoppingBag, Plus, Minus, Trash2, ArrowLeft } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
 import { money } from '@/lib/catalog'
-import { fetchActiveShippingConfig, calculateShippingFee, DEFAULT_SHIPPING_SETTINGS, ShippingSettings, ShippingWeightRule } from '@/lib/shipping'
+import { fetchActiveShippingConfig, calculateShippingForLines, DEFAULT_SHIPPING_SETTINGS, ShippingSettings, ShippingWeightRule } from '@/lib/shipping'
 import { SenoImage } from '@/components/SenoImage'
 
 export default function CartPage() {
@@ -21,7 +21,12 @@ export default function CartPage() {
 
   const freeShippingThreshold = shippingConfig.settings.free_shipping_threshold ?? 1999
   const progressPercent = Math.min(100, (subtotal / freeShippingThreshold) * 100)
-  const shippingFee = calculateShippingFee(subtotal, totalWeightGrams, shippingConfig.settings, shippingConfig.rules)
+  const shippingFee = calculateShippingForLines(subtotal, cart.map(item => ({
+    quantity: item.qty,
+    unitWeightGrams: item.unit_weight_grams,
+    shippingMethod: item.shipping_method,
+    customDeliveryCharge: item.custom_delivery_charge
+  })), shippingConfig.settings, shippingConfig.rules)
   const estimatedTotal = subtotal + shippingFee
 
   return (

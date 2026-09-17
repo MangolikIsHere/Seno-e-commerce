@@ -2854,3 +2854,44 @@ a {
   }
 }
 
+@media (max-width: 900px) {
+  .static-page-container {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .static-page-container > div[style*="grid-template-columns: 190px"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .static-page-container > div[style*="grid-template-columns: 190px"] aside {
+    position: static !important;
+  }
+
+  .static-page-container > div[style*="grid-template-columns: 190px"] aside nav {
+    display: flex !important;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .static-page-container > div[style*="grid-template-columns: 190px"] aside nav a {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-table-card {
+    max-width: 100%;
+  }
+
+  .seller-studio-grid,
+  .product-studio-preview {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    white-space: nowrap;
+  }
+}
+

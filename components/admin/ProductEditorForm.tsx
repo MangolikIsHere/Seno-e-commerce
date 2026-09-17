@@ -54,6 +54,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [isDirty, setIsDirty] = useState(false)
   const [activeTab, setActiveTab] = useState<'details' | 'pricing' | 'media' | 'variants'>('details')
 
   // Product Basic Information
@@ -75,6 +76,8 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   const [defaultWeightGrams, setDefaultWeightGrams] = useState<number>(
     initialData?.default_weight_grams || 500
   )
+  const [shippingMethod, setShippingMethod] = useState<'weight_based' | 'custom'>(initialData?.shipping_method === 'custom' ? 'custom' : 'weight_based')
+  const [customDeliveryCharge, setCustomDeliveryCharge] = useState<number | string>(initialData?.custom_delivery_charge ?? '')
 
   // Pricing & Merchandising
   const [price, setPrice] = useState<number | string>(initialData?.price ?? '')
@@ -318,6 +321,8 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
           category_id: categoryId || null,
           collection_ids: selectedCollectionIds,
           default_weight_grams: Number(defaultWeightGrams || 500),
+          shipping_method: shippingMethod,
+          custom_delivery_charge: shippingMethod === 'custom' ? Number(customDeliveryCharge) : null,
           is_featured: isFeatured,
           is_new: isNew,
           is_bestseller: isBestseller,
@@ -329,11 +334,13 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
         if (mode === 'create') {
           const res = await createAdminProduct(payload)
           setSuccess(`Product "${name}" successfully published to live catalog!`)
+          setIsDirty(false)
           setTimeout(() => {
             router.push('/admin/products')
           }, 1500)
         } else {
           await updateAdminProduct(initialData.id, { ...payload, id: initialData.id })
+          setIsDirty(false)
           setSuccess(`Product "${name}" successfully updated! Storefront cache synchronized.`)
           setTimeout(() => {
             router.refresh()
@@ -459,7 +466,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
         })}
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} onChange={() => setIsDirty(true)}>
         {/* TAB 1: BASIC DETAILS */}
         {activeTab === 'details' && (
           <div className="admin-table-card" style={{ padding: '24px' }}>
@@ -690,6 +697,15 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                     background: 'var(--surface-subtle)'
                   }}
                 />
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginBottom: '24px' }}>
+              <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '10px' }}>Delivery & Logistics</label>
+              <div style={{ display: 'grid', gap: '10px' }}>
+                <label><input type="radio" name="shipping-method" checked={shippingMethod === 'weight_based'} onChange={() => setShippingMethod('weight_based')} /> Weight Based</label>
+                <label><input type="radio" name="shipping-method" checked={shippingMethod === 'custom'} onChange={() => setShippingMethod('custom')} /> Custom Delivery Charge</label>
+                {shippingMethod === 'custom' && <input type="number" min="0" step="0.01" value={customDeliveryCharge} onChange={e => setCustomDeliveryCharge(e.target.value)} placeholder="Delivery charge in ₹" required />}
               </div>
             </div>
 
@@ -1125,13 +1141,18 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
 
         {/* Form Action Controls */}
         <div style={{
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 10,
           marginTop: '28px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           borderTop: '1px solid var(--border)',
-          paddingTop: '20px'
+          padding: '14px 0',
+          background: 'var(--background)'
         }}>
+          <span style={{ fontSize: '12px', color: isDirty ? '#9a3412' : 'var(--muted)', fontWeight: 600 }}>{isDirty ? 'Unsaved changes' : 'All changes saved'}</span>
           <Link href="/admin/products" className="outline-btn" style={{ padding: '12px 20px', fontSize: '11px', textDecoration: 'none' }}>
             Cancel
           </Link>

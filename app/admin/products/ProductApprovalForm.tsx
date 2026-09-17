@@ -31,8 +31,27 @@ export function ProductApprovalForm({ productId, currentStatus, currentReason }:
     }
   }
 
+  const quickUpdate = async (nextStatus: string, nextReason = '') => {
+    setLoading(true)
+    try {
+      await updateProductApproval(productId, nextStatus, nextReason)
+      setStatus(nextStatus)
+      setReason(nextReason)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (err: any) {
+      alert(err.message || 'Failed to update approval status')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <button type="button" disabled={loading} className="button button-outline" style={{ fontSize: '10px', padding: '5px 8px' }} onClick={() => quickUpdate('approved')}>Approve</button>
+        <button type="button" disabled={loading} className="button button-outline" style={{ fontSize: '10px', padding: '5px 8px' }} onClick={() => quickUpdate('rejected', 'Changes requested by SENO admin.')}>Request Changes</button>
+      </div>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
         <select
           value={status}

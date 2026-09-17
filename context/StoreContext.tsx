@@ -12,6 +12,8 @@ export interface CartItem {
   sku: string
   unit_price: number
   unit_weight_grams: number
+  shipping_method: 'weight_based' | 'custom'
+  custom_delivery_charge?: number
   size: string
   colour: string
   qty: number
@@ -125,6 +127,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         sku: variant.sku,
         unit_price: price,
         unit_weight_grams: weight,
+        shipping_method: product.shippingMethod,
+        custom_delivery_charge: product.customDeliveryCharge,
         size: variant.size,
         colour: variant.colour,
         qty

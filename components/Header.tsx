@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import { Search, User, Heart, ShoppingBag, Menu, X, ArrowRight } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
 
-export function Header() {
+export function Header({ categories = [] }: { categories?: { name: string; slug: string }[] }) {
   const pathname = usePathname()
   const {
     cartCount,
@@ -29,23 +29,18 @@ export function Header() {
     }
   }, [mobileMenuOpen])
 
+  const categoryLinks = categories.map(category => ({ label: category.name.toUpperCase(), href: `/collections/${category.slug}` }))
   const navLinks = [
     { label: 'ALL PRODUCTS', href: '/collections/all' },
     { label: 'NEW ARRIVALS', href: '/collections/new-arrivals' },
-    { label: 'TOPWEAR', href: '/collections/topwear' },
-    { label: 'BOTTOMWEAR', href: '/collections/bottomwear' },
-    { label: 'OUTERWEAR', href: '/collections/outerwear' },
-    { label: 'ACCESSORIES', href: '/collections/accessories' },
+    ...categoryLinks,
     { label: 'COLLECTIONS', href: '/collections/all' },
   ]
 
   const shopLinks = [
     { label: 'All Products', href: '/collections/all' },
     { label: 'New Arrivals', href: '/collections/new-arrivals' },
-    { label: 'Topwear', href: '/collections/topwear' },
-    { label: 'Bottomwear', href: '/collections/bottomwear' },
-    { label: 'Outerwear', href: '/collections/outerwear' },
-    { label: 'Accessories', href: '/collections/accessories' },
+    ...categories.map(category => ({ label: category.name, href: `/collections/${category.slug}` })),
     { label: 'Collections', href: '/collections/all' },
   ]
 

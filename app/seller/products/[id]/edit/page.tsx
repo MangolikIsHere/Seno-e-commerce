@@ -16,7 +16,7 @@ export default async function EditProductPage({ params }: { params: { id: string
 
   const { data: product, error } = await supabase
     .from('products')
-    .select('*, product_images(*), product_variants(*)')
+    .select('*, product_images(*), product_variants(*), collection_products(collection_id)')
     .eq('id', params.id)
     .eq('seller_id', seller.id)
     .single()
@@ -33,7 +33,8 @@ export default async function EditProductPage({ params }: { params: { id: string
 
   const initialData = {
     ...product,
-    variants: variantsWithInventory
+    variants: variantsWithInventory,
+    collection_ids: (product.collection_products || []).map((item: any) => item.collection_id)
   }
 
   const { data: categories } = await supabase
@@ -41,6 +42,11 @@ export default async function EditProductPage({ params }: { params: { id: string
     .select('id, name')
     .eq('is_active', true)
     .order('display_order', { ascending: true })
+  const { data: collections } = await supabase
+    .from('collections')
+    .select('id, name')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
 
   return (
     <div className="static-page-container" style={{ maxWidth: '800px', paddingBottom: '96px' }}>
@@ -70,7 +76,7 @@ export default async function EditProductPage({ params }: { params: { id: string
         </p>
       </div>
 
-      <ProductForm categories={categories || []} initialData={initialData} />
+      <ProductForm categories={categories || []} collections={collections || []} initialData={initialData} />
     </div>
   )
 }
