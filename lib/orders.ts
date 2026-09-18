@@ -13,6 +13,17 @@ export interface OrderAddress {
   country: string
 }
 
+export type FulfillmentState =
+  | 'unfulfilled'
+  | 'processing'
+  | 'dispatched'
+  | 'in_transit'
+  | 'out_for_delivery'
+  | 'delivered'
+  | 'cancelled'
+  | 'returned'
+  | 'delivery_failed'
+
 export interface OrderItem {
   id: string
   order_id: string
@@ -31,7 +42,10 @@ export interface OrderItem {
   unit_weight_grams: number
   quantity: number
   total_price: number
-  fulfillment_status: 'unfulfilled' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+  fulfillment_status: FulfillmentState | 'shipped'
+  tracking_number?: string | null
+  carrier?: string | null
+  estimated_delivery_date?: string | null
   created_at: string
 }
 

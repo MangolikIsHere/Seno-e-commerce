@@ -79,8 +79,9 @@ export default async function AdminOrdersPage() {
                   <th>Order #</th>
                   <th>Date</th>
                   <th>Customer</th>
-                  <th>Payment</th>
-                  <th>Fulfillment</th>
+                  <th>Items & Seller</th>
+                  <th>Payment Status</th>
+                  <th>Lifecycle / Fulfillment</th>
                   <th style={{ textAlign: 'right' }}>Total</th>
                 </tr>
               </thead>
@@ -109,14 +110,31 @@ export default async function AdminOrdersPage() {
                         <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{order.profiles?.email || '—'}</div>
                       </td>
                       <td>
-                        <span className={`status-pill ${order.payment_status === 'paid' ? 'paid' : 'pending'}`}>
-                          {order.payment_status}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {(order.order_items || []).map((item: any) => (
+                            <div key={item.id} style={{ fontSize: '12px' }}>
+                              <span style={{ fontWeight: 500 }}>{item.product_name}</span>{' '}
+                              <span style={{ color: 'var(--muted)' }}>(x{item.quantity})</span>
+                              <div style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                                Seller: <strong style={{ color: 'var(--ink)' }}>{item.sellers?.store_name || 'Platform (SENO)'}</strong>
+                                {' · '}
+                                <span style={{ textTransform: 'capitalize' }}>{item.fulfillment_status || 'unfulfilled'}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`status-pill ${order.payment_status === 'paid' ? 'paid' : order.payment_status === 'failed' ? 'suspended' : 'pending'}`}>
+                          {order.payment_status?.toUpperCase() || 'UNPAID'}
                         </span>
                       </td>
                       <td>
-                        <span className={`status-pill ${order.status === 'delivered' ? 'delivered' : order.status === 'shipped' ? 'shipped' : order.status === 'cancelled' ? 'cancelled' : 'processing'}`}>
-                          {order.status}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span className={`status-pill ${order.status === 'delivered' ? 'delivered' : order.status === 'shipped' ? 'shipped' : order.status === 'cancelled' ? 'cancelled' : order.status === 'confirmed' ? 'approved' : 'pending'}`} style={{ alignSelf: 'flex-start' }}>
+                            {order.status}
+                          </span>
+                        </div>
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: 600 }}>
                         {money(Number(order.total_amount))}

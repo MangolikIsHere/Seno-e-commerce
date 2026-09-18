@@ -2,6 +2,7 @@
 
 import crypto from 'crypto'
 import { createClient } from '@/utils/supabase/server'
+import { revalidatePath } from 'next/cache'
 
 export interface PaymentConfig {
   keyId: string
@@ -283,6 +284,12 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ve
       }
     }
 
+    // Invalidate caches across seller, customer, and admin portals
+    revalidatePath('/seller/orders')
+    revalidatePath('/seller/dashboard')
+    revalidatePath('/admin/orders')
+    revalidatePath('/account')
+
     return {
       success: true,
       order_id: order.id,
@@ -319,12 +326,19 @@ export async function cancelUnpaidOrderAction(orderId: string, reason?: string) 
       return { success: false, error: data?.error || error?.message || 'Unable to cancel order.' }
     }
 
+    // Invalidate caches across seller, customer, and admin portals
+    revalidatePath('/seller/orders')
+    revalidatePath('/seller/dashboard')
+    revalidatePath('/admin/orders')
+    revalidatePath('/account')
+
     return {
       success: true,
       order_id: orderId,
       is_already_cancelled: data.is_already_cancelled,
       restored_items_count: data.restored_items_count
     }
+
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Cancellation error.'
     return { success: false, error: msg }

@@ -79,7 +79,12 @@ export default async function SellerOrdersPage() {
                   </div>
                   <div>
                     <span style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', fontSize: '10px' }}>Order #</span>
-                    <span style={{ fontWeight: 600, fontFamily: 'monospace' }}>{item.orders.order_number}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                      <span style={{ fontWeight: 600, fontFamily: 'monospace' }}>{item.orders.order_number}</span>
+                      <span className="status-pill paid" style={{ fontSize: '10px', padding: '2px 8px', letterSpacing: '0.5px' }}>
+                        PAID
+                      </span>
+                    </div>
                   </div>
                   <div>
                     <span style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', fontSize: '10px' }}>Ship To</span>

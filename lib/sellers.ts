@@ -575,8 +575,10 @@ export async function getSellerOrders() {
 
   const { data, error } = await supabase
     .from('order_items')
-    .select('*, orders(order_number, status, payment_status, created_at, shipping_address)')
+    .select('*, orders!inner(order_number, status, payment_status, created_at, shipping_address)')
     .eq('seller_id', seller.id)
+    .eq('orders.payment_status', 'paid')
+    .in('orders.status', ['confirmed', 'processing', 'partially_shipped', 'shipped', 'delivered'])
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -586,8 +588,131 @@ export async function getSellerOrders() {
   return data
 }
 
+export async function getSellerOrderById(orderId: string) {
+  const supabase = await createClient()
+  const seller = await getMySellerRecord()
+  if (!seller) return null
+
+  const { data, error } = await supabase
+    .from('order_items')
+    .select(`
+      id,
+      seller_id,
+      product_name,
+      sku,
+      variant_details,
+      unit_price,
+      quantity,
+      total_price,
+      fulfillment_status,
+      tracking_number,
+      carrier,
+      estimated_delivery_date,
+      created_at,
+      orders!inner(
+        id,
+        order_number,
+        customer_id,
+        status,
+        payment_status,
+        created_at,
+        shipping_address,
+        razorpay_order_id,
+        razorpay_payment_id,
+        profiles!customer_id(full_name, email)
+      )
+    `)
+    .eq('id', orderId)
+    .eq('seller_id', seller.id)
+    .eq('orders.payment_status', 'paid')
+    .maybeSingle()
+
+  if (error || !data) {
+    console.error('Error fetching seller order detail:', error)
+    return null
+  }
+
+  const order = data.orders as any
+  const profile = Array.isArray(order?.profiles) ? order.profiles[0] : order?.profiles
+
+  return {
+    id: data.id,
+    order_number: order?.order_number,
+    payment_status: order?.payment_status,
+    status: order?.status,
+    fulfillment_status: data.fulfillment_status,
+    tracking_number: data.tracking_number,
+    carrier: data.carrier,
+    estimated_delivery_date: data.estimated_delivery_date,
+    created_at: order?.created_at || data.created_at,
+    shipping_address: order?.shipping_address,
+    customer_email: profile?.email || null,
+    customer_name: profile?.full_name || null,
+    order_items: [{
+      id: data.id,
+      product_name: data.product_name,
+      sku: data.sku,
+      variant_details: data.variant_details || {},
+      unit_price: data.unit_price,
+      quantity: data.quantity,
+      total_price: data.total_price,
+      fulfillment_status: data.fulfillment_status,
+      tracking_number: data.tracking_number,
+      carrier: data.carrier,
+      estimated_delivery_date: data.estimated_delivery_date,
+      image_url: null
+    }],
+    razorpay_order_id: order?.razorpay_order_id || null,
+    razorpay_payment_id: order?.razorpay_payment_id || null
+  }
+}
+
+export async function updateSellerOrderFulfillment(formData: FormData): Promise<void> {
+  const supabase = await createClient()
+  const seller = await getMySellerRecord()
+  if (!seller) throw new Error('Unauthorized: No active seller account.')
+
+  const orderItemId = String(formData.get('orderItemId') || '')
+  const status = String(formData.get('status') || 'unfulfilled')
+  const trackingNumber = String(formData.get('trackingNumber') || '').trim()
+  const carrier = String(formData.get('carrier') || '').trim()
+  const estimatedDeliveryDate = String(formData.get('estimatedDeliveryDate') || '').trim()
+
+  if (!orderItemId) {
+    throw new Error('Order item is required.')
+  }
+
+  const allowedStatuses = ['unfulfilled', 'processing', 'dispatched', 'in_transit', 'out_for_delivery', 'delivered', 'cancelled', 'returned', 'delivery_failed']
+  if (!allowedStatuses.includes(status)) {
+    throw new Error('Invalid fulfillment status.')
+  }
+
+  const { error } = await supabase
+    .from('order_items')
+    .update({
+      fulfillment_status: status,
+      tracking_number: trackingNumber || null,
+      carrier: carrier || null,
+      estimated_delivery_date: estimatedDeliveryDate ? new Date(estimatedDeliveryDate).toISOString() : null
+    })
+    .eq('id', orderItemId)
+    .eq('seller_id', seller.id)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/seller/orders')
+  revalidatePath('/seller/dashboard')
+  revalidatePath('/admin/orders')
+  revalidatePath('/account')
+  revalidatePath(`/seller/orders/${orderItemId}`)
+}
+
 export async function updateFulfillmentStatus(orderItemId: string, status: string, tracking: string, carrier: string) {
   const supabase = await createClient()
+  const seller = await getMySellerRecord()
+  if (!seller) throw new Error('Unauthorized: No active seller account.')
   
   const { error } = await supabase
     .from('order_items')
@@ -597,11 +722,14 @@ export async function updateFulfillmentStatus(orderItemId: string, status: strin
       carrier: carrier || null
     })
     .eq('id', orderItemId)
+    .eq('seller_id', seller.id)
     
   if (error) {
     throw new Error(error.message)
   }
   
   revalidatePath('/seller/orders')
+  revalidatePath('/seller/dashboard')
   revalidatePath('/admin/orders')
+  revalidatePath('/account')
 }

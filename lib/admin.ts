@@ -192,7 +192,7 @@ export async function getPlatformOrders() {
 
   const { data, error } = await supabase
     .from('orders')
-    .select('*, profiles(full_name, email)')
+    .select('*, profiles(full_name, email), order_items(*, sellers(store_name, slug))')
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)

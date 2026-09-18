@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { createClient } from '@/utils/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { revalidatePath } from 'next/cache'
+
+function getAdminSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createSupabaseClient(supabaseUrl, supabaseServiceKey)
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,7 +36,7 @@ export async function POST(req: NextRequest) {
     const eventType = event.event as string
     const payload = event.payload || {}
 
-    const supabase = await createClient()
+    const supabase = getAdminSupabase()
 
     // 2. Check Idempotency via payment_events audit table
     const { data: existingEvent } = await supabase
@@ -124,6 +131,12 @@ export async function POST(req: NextRequest) {
         processed_at: new Date().toISOString()
       })
       .eq('event_id', eventId)
+
+    // Invalidate caches so seller, customer, and admin immediately reflect confirmed state
+    revalidatePath('/seller/orders')
+    revalidatePath('/seller/dashboard')
+    revalidatePath('/admin/orders')
+    revalidatePath('/account')
 
     return NextResponse.json({ success: true, processed: true }, { status: 200 })
   } catch (err: unknown) {
