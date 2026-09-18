@@ -108,32 +108,43 @@ export function CommissionProposalCard({ proposal, status }: Props) {
         <form onSubmit={handleNegotiate} style={{ marginTop: '32px', background: 'var(--surface-subtle)', padding: '24px', border: '1px solid var(--border)' }}>
           <h3 style={{ fontSize: '16px', margin: '0 0 16px' }}>Request Commission Change</h3>
           
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '8px' }}>Requested Rate (%)</label>
-            <input 
-              type="number"
-              step="0.1"
-              min="0"
-              max="100"
-              required
-              value={requestedRate}
-              onChange={e => setRequestedRate(e.target.value)}
-              className="input-field"
-              style={{ width: '120px' }}
-            />
+          <div style={{ marginBottom: '18px' }}>
+            <label className="form-label" htmlFor="requested-rate">
+              Requested Commission Rate (%) <span className="form-label-required">*</span>
+            </label>
+            <div className="form-prefix-wrapper" style={{ maxWidth: '180px' }}>
+              <input 
+                id="requested-rate"
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                required
+                placeholder="e.g. 12.5"
+                value={requestedRate}
+                onChange={e => setRequestedRate(e.target.value)}
+                className="input-field"
+              />
+              <span style={{ position: 'absolute', right: '14px', color: 'var(--muted)', fontSize: '13px', pointerEvents: 'none' }}>%</span>
+            </div>
+            <div className="form-helper-text">Specify your proposed reseller take rate or fee discount.</div>
           </div>
           
           <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '8px' }}>Reason for Request</label>
+            <label className="form-label" htmlFor="negotiation-reason">
+              Commercial Justification & Terms <span className="form-label-required">*</span>
+            </label>
             <textarea
+              id="negotiation-reason"
               required
               minLength={10}
+              rows={4}
               value={reason}
               onChange={e => setReason(e.target.value)}
               className="input-field"
-              style={{ minHeight: '100px', width: '100%' }}
-              placeholder="Please explain why you are requesting this rate..."
+              placeholder="Detail your sales volume projections, catalog exclusivity, average order value, or margins justifying this rate..."
             />
+            <div className="form-helper-text">SENO partner team will review your proposal within 2 business days.</div>
           </div>
           
           <div style={{ display: 'flex', gap: '12px' }}>

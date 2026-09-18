@@ -1166,16 +1166,61 @@ a {
 }
 
 .main-gallery-image {
-  aspect-ratio: 3 / 4;
   background: var(--card-bg);
   overflow: hidden;
   position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: aspect-ratio 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .main-gallery-image img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+}
+
+/* Dynamic Product Return Policy Trust Badge */
+.product-trust-badge {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 16px;
+  margin: 18px 0;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  background: var(--surface-subtle);
+  font-size: 12px;
+  line-height: 1.45;
+  transition: all 0.2s ease;
+}
+
+.product-trust-badge.returnable {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.product-trust-badge.non-returnable {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.product-trust-badge .badge-title {
+  display: block;
+  font-weight: 600;
+  font-size: 12.5px;
+  letter-spacing: 0.2px;
+  margin-bottom: 2px;
+}
+
+.product-trust-badge .badge-subtitle {
+  display: block;
+  font-size: 11px;
+  opacity: 0.85;
 }
 
 .gallery-thumbnails-row {
@@ -2112,6 +2157,296 @@ a {
 
 .form-input-field:focus {
   border-color: var(--ink);
+}
+
+/* ==========================================================================
+   UNIFIED FORM CONTROLS & SELLER STUDIO SUITE
+   ========================================================================== */
+.input-field {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.input-field:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+
+.input-field::placeholder {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.input-field:disabled {
+  background: var(--surface-subtle);
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+select.input-field {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23171717' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 14px;
+  padding-right: 38px;
+  cursor: pointer;
+}
+
+textarea.input-field {
+  resize: vertical;
+  min-height: 100px;
+  line-height: 1.6;
+}
+
+.form-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  margin-bottom: 7px;
+  color: var(--ink);
+}
+
+.form-label-required {
+  color: var(--clay);
+  margin-left: 2px;
+}
+
+.form-helper-text {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.form-prefix-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.form-prefix-addon {
+  position: absolute;
+  left: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  pointer-events: none;
+  user-select: none;
+}
+
+.form-prefix-wrapper .input-field {
+  padding-left: 30px;
+}
+
+/* SELLER STUDIO STEPPER */
+.seller-stepper-container {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.seller-stepper-container::-webkit-scrollbar {
+  display: none;
+}
+
+.seller-stepper {
+  display: flex;
+  min-width: 640px;
+  width: 100%;
+}
+
+.seller-step-item {
+  flex: 1;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.seller-step-item.active {
+  border-bottom-color: var(--ink);
+}
+
+.seller-step-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.seller-step-item.active .seller-step-badge {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #ffffff;
+}
+
+.seller-step-item.completed .seller-step-badge {
+  background: #15803d;
+  border-color: #15803d;
+  color: #ffffff;
+}
+
+.seller-step-text {
+  font-size: 11.5px;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  transition: color 0.2s ease;
+}
+
+.seller-step-item.active .seller-step-text {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.seller-step-item.completed .seller-step-text {
+  color: var(--ink);
+}
+
+/* VARIANT TABLE COMPACT OVERRIDES */
+.variant-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.variant-table th {
+  background: var(--surface-subtle);
+  padding: 12px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.variant-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.variant-table td:first-child,
+.admin-table.variant-table td:first-child {
+  min-width: unset !important;
+}
+
+.variant-table .input-field {
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+
+/* SHIPPING SELECTION CARDS */
+.shipping-card {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shipping-card:hover {
+  border-color: var(--ink);
+}
+
+.shipping-card.selected {
+  border-color: var(--ink);
+  background: var(--surface-subtle);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+/* MEDIA UPLOAD ZONE */
+.media-dropzone {
+  border: 1.5px dashed var(--line);
+  padding: 36px 20px;
+  text-align: center;
+  background: var(--surface-subtle);
+  border-radius: var(--radius-xs);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.media-dropzone:hover {
+  border-color: var(--ink);
+  background: #f4f4f2;
+}
+
+.product-image-card {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-subtle);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.product-image-card.is-primary {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+
+.product-image-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.image-icon-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  color: var(--muted);
+  transition: all 0.15s ease;
+}
+
+.image-icon-btn:hover {
+  color: var(--ink);
+  background: var(--surface-subtle);
+}
+
+.image-icon-btn.danger:hover {
+  color: #b91c1c;
+  background: #fee2e2;
 }
 
 /* ==========================================================================

@@ -20,7 +20,9 @@ import {
   Image as ImageIcon,
   Tag,
   DollarSign,
-  Package
+  Package,
+  RotateCcw,
+  ShieldCheck
 } from 'lucide-react'
 import { 
   createAdminProduct, 
@@ -29,6 +31,7 @@ import {
   AdminProductImage,
   AdminProductVariant 
 } from '@/lib/adminCatalog'
+import { parseReturnPolicy } from '@/lib/catalog'
 
 function toClientSlug(text: string): string {
   return text
@@ -63,7 +66,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   const [description, setDescription] = useState(initialData?.description || '')
   const [details, setDetails] = useState<string[]>(
     Array.isArray(initialData?.details) && initialData.details.length > 0 
-      ? initialData.details 
+      ? initialData.details.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
       : ['100% Premium Cotton', 'Pre-shrunk finish', 'Dry clean or gentle hand wash']
   )
   const [newDetailText, setNewDetailText] = useState('')
@@ -78,6 +81,12 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   )
   const [shippingMethod, setShippingMethod] = useState<'weight_based' | 'custom'>(initialData?.shipping_method === 'custom' ? 'custom' : 'weight_based')
   const [customDeliveryCharge, setCustomDeliveryCharge] = useState<number | string>(initialData?.custom_delivery_charge ?? '')
+
+  // Return & Exchange Policy
+  const initialRp = parseReturnPolicy(initialData?.details)
+  const [isReturnable, setIsReturnable] = useState<boolean>(initialRp.isReturnable)
+  const [returnWindowDays, setReturnWindowDays] = useState<number>(initialRp.returnWindowDays || 14)
+  const [returnPolicyNotes, setReturnPolicyNotes] = useState<string>(initialRp.returnPolicyNotes || '')
 
   // Pricing & Merchandising
   const [price, setPrice] = useState<number | string>(initialData?.price ?? '')
@@ -323,6 +332,11 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
           default_weight_grams: Number(defaultWeightGrams || 500),
           shipping_method: shippingMethod,
           custom_delivery_charge: shippingMethod === 'custom' ? Number(customDeliveryCharge) : null,
+          return_policy: {
+            is_returnable: isReturnable,
+            return_window_days: isReturnable ? Number(returnWindowDays) : 0,
+            notes: returnPolicyNotes
+          },
           is_featured: isFeatured,
           is_new: isNew,
           is_bestseller: isBestseller,
@@ -709,6 +723,145 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
               </div>
             </div>
 
+            {/* Return & Exchange Policy */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                <RotateCcw size={15} color="var(--ink)" />
+                <label style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, color: 'var(--ink)' }}>
+                  Customer Return & Exchange Policy
+                </label>
+              </div>
+              <p style={{ margin: '0 0 14px', fontSize: '12px', color: 'var(--muted)' }}>
+                Define if this piece is eligible for customer returns and configure the return window shown on the product page.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                    padding: '14px',
+                    border: isReturnable ? '2px solid var(--ink)' : '1px solid var(--border)',
+                    borderRadius: '2px',
+                    background: isReturnable ? 'var(--surface-subtle)' : '#fff',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="admin-return-eligibility"
+                    checked={isReturnable}
+                    onChange={() => setIsReturnable(true)}
+                    style={{ marginTop: '3px' }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>Eligible for Return & Exchange</div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--muted)', marginTop: '2px' }}>
+                      Customers can initiate returns within the specified policy window.
+                    </div>
+                  </div>
+                </label>
+
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                    padding: '14px',
+                    border: !isReturnable ? '2px solid var(--ink)' : '1px solid var(--border)',
+                    borderRadius: '2px',
+                    background: !isReturnable ? 'var(--surface-subtle)' : '#fff',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="admin-return-eligibility"
+                    checked={!isReturnable}
+                    onChange={() => setIsReturnable(false)}
+                    style={{ marginTop: '3px' }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>Final Sale — Non-Returnable</div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--muted)', marginTop: '2px' }}>
+                      Item cannot be returned or exchanged once dispatched. Marked on product page.
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              {isReturnable && (
+                <div style={{ padding: '16px', background: 'var(--surface-subtle)', borderRadius: '2px', border: '1px solid var(--border)', display: 'grid', gap: '14px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '6px', color: 'var(--ink)' }}>
+                      Return Window Duration (Days)
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      {[7, 10, 14, 30].map(days => (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => setReturnWindowDays(days)}
+                          style={{
+                            padding: '5px 12px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            border: returnWindowDays === days ? '1px solid var(--ink)' : '1px solid var(--border)',
+                            background: returnWindowDays === days ? 'var(--ink)' : '#fff',
+                            color: returnWindowDays === days ? '#fff' : 'var(--ink)',
+                            borderRadius: '2px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {days} Days
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="number"
+                      min="1"
+                      max="90"
+                      value={returnWindowDays}
+                      onChange={e => setReturnWindowDays(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      style={{
+                        maxWidth: '180px',
+                        padding: '8px 12px',
+                        fontSize: '13px',
+                        border: '1px solid var(--border)',
+                        borderRadius: '2px',
+                        background: '#fff'
+                      }}
+                      placeholder="e.g. 14"
+                    />
+                    <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
+                      Shoppers will see &ldquo;{returnWindowDays}-Day Returns & Exchanges&rdquo; prominently on this product page.
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>
+                      Custom Policy Terms / Notes (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={returnPolicyNotes}
+                      onChange={e => setReturnPolicyNotes(e.target.value)}
+                      placeholder="e.g. Must be in pristine condition with original tags and protective packaging."
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                        border: '1px solid var(--border)',
+                        borderRadius: '2px',
+                        background: '#fff'
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div style={{ marginBottom: '24px' }}>
               <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '8px', color: 'var(--ink)' }}>
                 Curated Collections
@@ -878,11 +1031,11 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                       position: 'relative'
                     }}
                   >
-                    <div style={{ height: '220px', position: 'relative' }}>
+                    <div style={{ height: '220px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1c1c1c' }}>
                       <img
                         src={img.url}
                         alt={`Photo ${idx + 1}`}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                       />
                       {img.is_primary && (
                         <span style={{

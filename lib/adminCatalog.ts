@@ -29,7 +29,7 @@ export interface CreateProductInput {
   name: string
   slug?: string
   description: string
-  details?: string[]
+  details?: any[]
   price: number
   compare_at_price?: number | null
   category_id?: string | null
@@ -37,6 +37,11 @@ export interface CreateProductInput {
   default_weight_grams: number
   shipping_method?: 'weight_based' | 'custom'
   custom_delivery_charge?: number | null
+  return_policy?: {
+    is_returnable: boolean
+    return_window_days: number
+    notes?: string
+  }
   is_featured?: boolean
   is_new?: boolean
   is_bestseller?: boolean
@@ -358,14 +363,28 @@ export async function createAdminProduct(input: CreateProductInput) {
     throw new Error(`The slug "${finalSlug}" is already taken. Please choose another.`)
   }
 
-  // 3. Insert Product
+  // 3. Format details with return policy if provided
+  const rawCreateDetails: any[] = Array.isArray(input.details) ? input.details : []
+  let formattedCreateDetails: any[] = rawCreateDetails
+  if (input.return_policy) {
+    const clean = rawCreateDetails.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
+    formattedCreateDetails = [
+      { __return_policy: input.return_policy },
+      input.return_policy.is_returnable
+        ? `Return Policy: ${input.return_policy.return_window_days} Days Return & Exchange`
+        : 'Return Policy: Final Sale (Non-Returnable)',
+      ...clean
+    ]
+  }
+
+  // 4. Insert Product
   const productPayload: any = {
     seller_id: platformSellerId,
     category_id: input.category_id || null,
     name: input.name.trim(),
     slug: finalSlug,
     description: input.description || '',
-    details: input.details || [],
+    details: formattedCreateDetails,
     price: Number(input.price),
     compare_at_price: input.compare_at_price ? Number(input.compare_at_price) : null,
     default_weight_grams: Number(input.default_weight_grams || 500),
@@ -479,13 +498,27 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
     finalSlug = await generateUniqueSlug(input.name, id)
   }
 
-  // 2. Update Product attributes
+  // 2. Format details with return policy if provided
+  const rawUpdateDetails: any[] = Array.isArray(input.details) ? input.details : []
+  let formattedUpdateDetails: any[] = rawUpdateDetails
+  if (input.return_policy) {
+    const clean = rawUpdateDetails.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
+    formattedUpdateDetails = [
+      { __return_policy: input.return_policy },
+      input.return_policy.is_returnable
+        ? `Return Policy: ${input.return_policy.return_window_days} Days Return & Exchange`
+        : 'Return Policy: Final Sale (Non-Returnable)',
+      ...clean
+    ]
+  }
+
+  // 3. Update Product attributes
   const updates: any = {
     category_id: input.category_id || null,
     name: input.name.trim(),
     slug: finalSlug,
     description: input.description || '',
-    details: input.details || [],
+    details: formattedUpdateDetails,
     price: Number(input.price),
     compare_at_price: input.compare_at_price ? Number(input.compare_at_price) : null,
     default_weight_grams: Number(input.default_weight_grams || 500),

@@ -37,16 +37,17 @@ export function FulfillmentForm({ orderItemId, initialStatus, initialTracking, i
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-      {error && <div style={{ color: '#b91c1c', fontSize: '11px' }}>{error}</div>}
-      {success && <div style={{ color: '#15803d', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}><Check size={12} /> Dispatched / Updated</div>}
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      {error && <div style={{ color: '#b91c1c', fontSize: '11px', background: '#fef2f2', padding: '6px 10px', borderRadius: '2px', border: '1px solid #fecaca' }}>{error}</div>}
+      {success && <div style={{ color: '#15803d', fontSize: '11px', background: '#f0fdf4', padding: '6px 10px', borderRadius: '2px', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: '6px' }}><Check size={13} strokeWidth={2.5} /> Dispatch details saved</div>}
 
       <div>
-        <label style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)', marginBottom: '4px' }}>Fulfillment State</label>
+        <label className="form-label" style={{ fontSize: '10px', marginBottom: '4px' }}>Fulfillment State</label>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          style={{ width: '100%', height: '32px', padding: '0 8px', fontSize: '12px', border: '1px solid var(--border)', borderRadius: '2px', background: '#fff', outline: 'none' }}
+          className="input-field"
+          style={{ padding: '8px 12px', fontSize: '12px' }}
         >
           <option value="unfulfilled">Unfulfilled</option>
           <option value="processing">Processing</option>
@@ -57,24 +58,26 @@ export function FulfillmentForm({ orderItemId, initialStatus, initialTracking, i
       </div>
 
       <div>
-        <label style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)', marginBottom: '4px' }}>Logistics Carrier</label>
+        <label className="form-label" style={{ fontSize: '10px', marginBottom: '4px' }}>Logistics Carrier</label>
         <input
           type="text"
           value={carrier}
           onChange={(e) => setCarrier(e.target.value)}
           placeholder="e.g. DHL, BlueDart, Delhivery"
-          style={{ width: '100%', height: '32px', padding: '0 8px', fontSize: '12px', border: '1px solid var(--border)', borderRadius: '2px', background: '#fff', outline: 'none' }}
+          className="input-field"
+          style={{ padding: '8px 12px', fontSize: '12px' }}
         />
       </div>
 
       <div>
-        <label style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)', marginBottom: '4px' }}>Consignment Tracking #</label>
+        <label className="form-label" style={{ fontSize: '10px', marginBottom: '4px' }}>Consignment Tracking #</label>
         <input
           type="text"
           value={tracking}
           onChange={(e) => setTracking(e.target.value)}
           placeholder="e.g. TRK-98721389"
-          style={{ width: '100%', height: '32px', padding: '0 8px', fontSize: '12px', border: '1px solid var(--border)', borderRadius: '2px', background: '#fff', outline: 'none' }}
+          className="input-field"
+          style={{ padding: '8px 12px', fontSize: '12px', fontFamily: 'monospace' }}
         />
       </div>
 
@@ -82,9 +85,9 @@ export function FulfillmentForm({ orderItemId, initialStatus, initialTracking, i
         type="submit"
         disabled={loading}
         className="button button-primary"
-        style={{ padding: '8px 14px', fontSize: '11px', marginTop: '6px', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+        style={{ padding: '9px 14px', fontSize: '11px', marginTop: '4px', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
       >
-        {loading ? <Loader2 size={12} className="spin" /> : success ? 'Updated' : 'Update Fulfillment'}
+        {loading ? <Loader2 size={13} className="spin" /> : success ? 'Saved' : 'Update Fulfillment'}
       </button>
     </form>
   )

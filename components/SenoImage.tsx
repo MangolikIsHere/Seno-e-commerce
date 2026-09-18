@@ -77,8 +77,14 @@ export function SenoImage({
         transition: 'opacity 0.3s ease',
         opacity: loaded ? 1 : 0.85,
       }}
-      onLoad={() => setLoaded(true)}
-      onError={() => setError(true)}
+      onLoad={(e) => {
+        setLoaded(true)
+        rest.onLoad?.(e)
+      }}
+      onError={(e) => {
+        setError(true)
+        rest.onError?.(e)
+      }}
       {...rest}
     />
   )

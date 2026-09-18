@@ -29,9 +29,177 @@ export function SellerProductsClient({ products, categories }: { products: any[]
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   }), [products, query, status, category, stock, sort])
 
-  return <section>
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '18px', flexWrap: 'wrap', marginBottom: '22px' }}><div><span className="section-kicker">SELLER STUDIO / PRODUCTS</span><h1 className="static-page-title" style={{ margin: '6px 0' }}>Product Library</h1><p style={{ color: 'var(--muted)', margin: 0 }}>Manage submitted listings, stock, and review status.</p></div><Link href="/seller/products/new" className="button button-primary"><Plus size={15} /> Add Product</Link></div>
-    <div className="admin-table-card" style={{ padding: '14px', marginBottom: '18px' }}><div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) repeat(4, minmax(130px, .35fr))', gap: '8px' }}><label style={{ position: 'relative' }}><Search size={14} style={{ position: 'absolute', left: '11px', top: '12px', color: 'var(--muted)' }} /><input aria-label="Search products" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search name, slug, SKU" className="input-field" style={{ paddingLeft: '34px', width: '100%' }} /></label><select aria-label="Filter by status" value={status} onChange={event => setStatus(event.target.value)} className="input-field"><option value="all">All statuses</option><option value="draft">Draft</option><option value="submitted">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select><select aria-label="Filter by category" value={category} onChange={event => setCategory(event.target.value)} className="input-field"><option value="all">All categories</option>{categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><select aria-label="Filter by stock" value={stock} onChange={event => setStock(event.target.value)} className="input-field"><option value="all">All stock</option><option value="available">In stock</option><option value="low">Low stock</option><option value="out">Out of stock</option></select><select aria-label="Sort products" value={sort} onChange={event => setSort(event.target.value)} className="input-field"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="price_low">Price low</option><option value="price_high">Price high</option></select></div></div>
-    {filteredProducts.length === 0 ? <div className="admin-table-card" style={{ padding: '64px 24px', textAlign: 'center' }}><Filter size={28} color="var(--muted)" style={{ margin: '0 auto 12px' }} /><h2 style={{ fontSize: '18px', fontWeight: 500 }}>No products match these filters</h2><p style={{ color: 'var(--muted)' }}>Adjust the filters or create your first listing.</p><Link href="/seller/products/new" className="button button-outline"><Plus size={14} /> Create Product</Link></div> : <div className="admin-table-card" style={{ overflowX: 'auto' }}><div style={{ padding: '16px 18px', borderBottom: '1px solid var(--border)', color: 'var(--muted)', fontSize: '12px' }}>{filteredProducts.length} of {products.length} products</div><table className="admin-table"><thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Updated</th><th /></tr></thead><tbody>{filteredProducts.map(product => <tr key={product.id}><td><div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: '230px' }}><div style={{ width: '44px', height: '58px', overflow: 'hidden', background: 'var(--surface-subtle)', flexShrink: 0 }}><SenoImage src={product.primary_image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div><div><strong>{product.name}</strong><div style={{ fontSize: '11px', color: 'var(--muted)' }}>/{product.slug}</div></div></div></td><td>{product.categories?.name || 'Uncategorized'}</td><td>{money(Number(product.price))}</td><td><span style={{ color: product.total_stock === 0 ? '#9f1239' : product.low_stock ? '#9a3412' : 'var(--ink)' }}>{product.total_stock}</span></td><td><span className={`status-pill ${product.approval_status === 'approved' ? 'approved' : product.approval_status === 'rejected' ? 'rejected' : 'pending'}`}>{product.approval_status}</span></td><td style={{ whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: '12px' }}>{new Date(product.updated_at || product.created_at).toLocaleDateString('en-IN')}</td><td><Link href={`/seller/products/${product.id}/edit`} className="button button-outline" style={{ fontSize: '11px', padding: '6px 10px' }}>Edit <ArrowUpRight size={12} /></Link></td></tr>)}</tbody></table></div>}
-  </section>
+  const hasActiveFilters = query.trim() !== '' || status !== 'all' || category !== 'all' || stock !== 'all' || sort !== 'newest'
+
+  return (
+    <section>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '18px', flexWrap: 'wrap', marginBottom: '24px' }}>
+        <div>
+          <span className="section-kicker">SELLER STUDIO / CATALOG</span>
+          <h1 className="static-page-title" style={{ margin: '4px 0 6px', fontSize: '28px' }}>Product Library</h1>
+          <p style={{ color: 'var(--muted)', margin: 0, fontSize: '13px' }}>
+            Manage submitted listings, catalog pricing, live inventory, and SENO review statuses.
+          </p>
+        </div>
+        <Link href="/seller/products/new" className="button button-primary" style={{ padding: '10px 20px', fontSize: '11px', gap: '6px' }}>
+          <Plus size={14} /> Add New Product
+        </Link>
+      </div>
+
+      <div className="admin-table-card" style={{ padding: '16px', marginBottom: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', alignItems: 'center' }}>
+          <div style={{ position: 'relative', gridColumn: 'span 1' }}>
+            <Search size={14} style={{ position: 'absolute', left: '12px', top: '13px', color: 'var(--muted)', pointerEvents: 'none' }} />
+            <input 
+              aria-label="Search products" 
+              value={query} 
+              onChange={event => setQuery(event.target.value)} 
+              placeholder="Search by name, slug, or SKU..." 
+              className="input-field" 
+              style={{ paddingLeft: '36px' }} 
+            />
+          </div>
+
+          <select aria-label="Filter by status" value={status} onChange={event => setStatus(event.target.value)} className="input-field">
+            <option value="all">All Statuses</option>
+            <option value="draft">Draft</option>
+            <option value="submitted">Pending Review</option>
+            <option value="approved">Approved & Active</option>
+            <option value="rejected">Action Required / Rejected</option>
+          </select>
+
+          <select aria-label="Filter by category" value={category} onChange={event => setCategory(event.target.value)} className="input-field">
+            <option value="all">All Categories</option>
+            {categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+
+          <select aria-label="Filter by stock" value={stock} onChange={event => setStock(event.target.value)} className="input-field">
+            <option value="all">All Inventory</option>
+            <option value="available">In Stock (&gt; 5)</option>
+            <option value="low">Low Stock (&le; 5)</option>
+            <option value="out">Out of Stock (0)</option>
+          </select>
+
+          <select aria-label="Sort products" value={sort} onChange={event => setSort(event.target.value)} className="input-field">
+            <option value="newest">Sort: Newest First</option>
+            <option value="oldest">Sort: Oldest First</option>
+            <option value="price_low">Sort: Price Low to High</option>
+            <option value="price_high">Sort: Price High to Low</option>
+          </select>
+        </div>
+
+        {hasActiveFilters && (
+          <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--muted)' }}>
+            <span>Filtered: Showing {filteredProducts.length} of {products.length} products</span>
+            <button
+              type="button"
+              onClick={() => {
+                setQuery('')
+                setStatus('all')
+                setCategory('all')
+                setStock('all')
+                setSort('newest')
+              }}
+              style={{ color: 'var(--ink)', textDecoration: 'underline', cursor: 'pointer', background: 'none', border: 'none', fontSize: '11px' }}
+            >
+              Clear all filters
+            </button>
+          </div>
+        )}
+      </div>
+
+      {filteredProducts.length === 0 ? (
+        <div className="admin-table-card" style={{ padding: '64px 24px', textAlign: 'center' }}>
+          <Filter size={32} color="var(--muted)" style={{ margin: '0 auto 12px' }} strokeWidth={1.3} />
+          <h2 style={{ fontSize: '17px', fontWeight: 600, margin: '0 0 6px' }}>No products match your criteria</h2>
+          <p style={{ color: 'var(--muted)', fontSize: '13px', margin: '0 0 20px', maxWidth: '380px', marginLeft: 'auto', marginRight: 'auto' }}>
+            Try resetting your search query or filters to view all catalog items.
+          </p>
+          <Link href="/seller/products/new" className="button button-outline" style={{ padding: '10px 20px', fontSize: '11px' }}>
+            <Plus size={14} /> Add New Product
+          </Link>
+        </div>
+      ) : (
+        <div className="admin-table-card" style={{ overflowX: 'auto' }}>
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--muted)', fontSize: '12px' }}>
+            <span>Showing {filteredProducts.length} products</span>
+            <span style={{ fontSize: '11px' }}>Updated in real-time</span>
+          </div>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th style={{ minWidth: '260px' }}>Product & Slug</th>
+                <th>Department</th>
+                <th>Retail Price</th>
+                <th>Units in Stock</th>
+                <th>Review Status</th>
+                <th>Last Modified</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProducts.map(product => (
+                <tr key={product.id}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <div style={{ width: '46px', height: '60px', overflow: 'hidden', background: 'var(--surface-subtle)', flexShrink: 0, borderRadius: '2px', border: '1px solid var(--border)' }}>
+                        <SenoImage src={product.primary_image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+                      <div>
+                        <strong style={{ fontSize: '13.5px', color: 'var(--ink)' }}>{product.name}</strong>
+                        <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'monospace', marginTop: '2px' }}>
+                          /{product.slug}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span style={{ fontSize: '12px', background: 'var(--surface-subtle)', padding: '2px 8px', borderRadius: '2px', border: '1px solid var(--border)' }}>
+                      {product.categories?.name || 'Uncategorized'}
+                    </span>
+                  </td>
+                  <td>
+                    <strong style={{ fontSize: '13px' }}>{money(Number(product.price))}</strong>
+                  </td>
+                  <td>
+                    <span 
+                      style={{ 
+                        fontWeight: 600,
+                        color: product.total_stock === 0 ? '#9f1239' : product.low_stock ? '#9a3412' : '#15803d',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      {product.total_stock}
+                      <span style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 400 }}>
+                        {product.total_stock === 0 ? '(Out of stock)' : product.low_stock ? '(Low stock)' : 'units'}
+                      </span>
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`status-pill ${product.approval_status === 'approved' ? 'approved' : product.approval_status === 'rejected' ? 'rejected' : 'pending'}`}>
+                      {product.approval_status === 'submitted' ? 'Pending Review' : product.approval_status}
+                    </span>
+                  </td>
+                  <td style={{ whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: '12px' }}>
+                    {new Date(product.updated_at || product.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <Link 
+                      href={`/seller/products/${product.id}/edit`} 
+                      className="button button-outline" 
+                      style={{ fontSize: '11px', padding: '6px 12px', gap: '4px' }}
+                    >
+                      Edit <ArrowUpRight size={12} />
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
 }

@@ -265,10 +265,30 @@ export async function getSellerStudioStats() {
 
 export async function submitSellerProduct(formData: FormData, images: any[], variants: any[], productId?: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('You must be logged in to create or edit a product.')
+  }
+
   const seller = await getMySellerRecord()
   
-  if (!seller || seller.seller_status !== 'approved') {
-    throw new Error('Only approved sellers can submit products')
+  if (!seller) {
+    throw new Error('No approved seller account is associated with your account.')
+  }
+
+  if (seller.seller_status !== 'approved') {
+    throw new Error('Your seller application must be approved before you can create products.')
+  }
+
+  if (seller.seller_type !== 'reseller') {
+    throw new Error('Only registered reseller accounts can create products via Seller Studio.')
+  }
+
+  // Reject any malicious client-supplied seller_id
+  const clientProvidedSellerId = formData.get('seller_id')
+  if (clientProvidedSellerId && clientProvidedSellerId !== seller.id) {
+    throw new Error('Unauthorized: You cannot specify or tamper with seller_id.')
   }
 
   const name = formData.get('name') as string
@@ -281,6 +301,40 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
   const custom_delivery_charge = formData.get('custom_delivery_charge') ? parseFloat(formData.get('custom_delivery_charge') as string) : null
   const category_id = formData.get('category_id') as string
   const collection_ids = JSON.parse(String(formData.get('collection_ids') || '[]')) as string[]
+
+  const is_returnable = formData.get('is_returnable') === 'false' ? false : true
+  const return_window_days = is_returnable ? (parseInt(formData.get('return_window_days') as string, 10) || 14) : 0
+  const return_policy_notes = (formData.get('return_policy_notes') as string) || ''
+
+  let baseDetails: any[] = []
+  try {
+    const rawDetails = formData.get('details') as string
+    if (rawDetails) {
+      baseDetails = JSON.parse(rawDetails)
+      if (!Array.isArray(baseDetails)) baseDetails = []
+    }
+  } catch {
+    baseDetails = []
+  }
+
+  const cleanDetails = baseDetails.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
+
+  const detailsPayload = [
+    {
+      __return_policy: {
+        is_returnable,
+        return_window_days,
+        notes: return_policy_notes
+      }
+    },
+    is_returnable
+      ? `Return Policy: ${return_window_days} Days Return & Exchange`
+      : 'Return Policy: Final Sale (Non-Returnable)',
+    ...cleanDetails
+  ]
+
+  const rawApprovalStatus = formData.get('approval_status') as string
+  const approval_status: 'draft' | 'submitted' = rawApprovalStatus === 'submitted' ? 'submitted' : 'draft'
 
   if (!name || !slug || isNaN(price) || price < 0 || (compare_at_price !== null && (isNaN(compare_at_price) || compare_at_price < 0))) throw new Error('Missing or invalid product information')
   if (shipping_method === 'custom' && (custom_delivery_charge === null || !Number.isFinite(custom_delivery_charge) || custom_delivery_charge < 0)) throw new Error('A non-negative custom delivery charge is required')
@@ -298,19 +352,29 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
         name,
         slug,
         description,
+        details: detailsPayload,
         price,
         compare_at_price,
         default_weight_grams,
         category_id: category_id || null,
         shipping_method,
         custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null,
-        // Trigger `enforce_product_rules` will automatically revert approval status 
-        // to `submitted` if there are material changes to an approved product.
+        // Set status to submitted if requested (for review), or draft (to unpublish)
+        ...(rawApprovalStatus === 'submitted' ? { approval_status: 'submitted' } : rawApprovalStatus === 'draft' ? { approval_status: 'draft' } : {})
       })
       .eq('id', productId)
       .eq('seller_id', seller.id)
 
-    if (productError) throw new Error(productError.message)
+    if (productError) {
+      const msg = productError.message
+      if (msg.includes('Administrators can only create products belonging to the SENO platform seller')) {
+        throw new Error('No approved seller account is associated with your account.')
+      }
+      if (msg.includes('Seller account is not approved to create products')) {
+        throw new Error('Your seller application must be approved before you can create products.')
+      }
+      throw new Error(productError.message)
+    }
 
     // Handle images (delete old, insert new)
     await supabase.from('product_images').delete().eq('product_id', productId)
@@ -372,18 +436,31 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
         name,
         slug,
         description,
+        details: detailsPayload,
         price,
         compare_at_price,
         default_weight_grams,
         category_id: category_id || null,
-        approval_status: 'submitted',
+        approval_status,
         shipping_method,
         custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null
       })
       .select()
       .single()
 
-    if (productError || !product) throw new Error(productError?.message || 'Failed to create product')
+    if (productError || !product) {
+      const msg = productError?.message || ''
+      if (msg.includes('Administrators can only create products belonging to the SENO platform seller')) {
+        throw new Error('No approved seller account is associated with your account.')
+      }
+      if (msg.includes('Seller account is not approved to create products')) {
+        throw new Error('Your seller application must be approved before you can create products.')
+      }
+      if (msg.includes('No seller record associated with current account')) {
+        throw new Error('No approved seller account is associated with your account.')
+      }
+      throw new Error(productError?.message || 'Failed to create product')
+    }
     finalProductId = product.id
 
     // Insert Images
@@ -431,6 +508,64 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
     revalidatePath(`/seller/products/${finalProductId}`)
   }
   return { id: finalProductId }
+}
+
+/**
+ * Dedicated server action to quickly update variant inventory for sellers.
+ * Bypasses the full product edit lifecycle to allow instant stock updates without review resets.
+ */
+export async function updateSellerVariantInventory(variantId: string, quantity: number) {
+  const supabase = await createClient()
+  const seller = await getMySellerRecord()
+  if (!seller) throw new Error('Unauthorized: No seller record found.')
+
+  // Verify the variant belongs to the authenticated seller
+  const { data: variant, error: varError } = await supabase
+    .from('product_variants')
+    .select('id, products!inner(seller_id, slug)')
+    .eq('id', variantId)
+    .single()
+
+  if (varError || !variant || (variant.products as any).seller_id !== seller.id) {
+    throw new Error('Unauthorized or variant not found.')
+  }
+
+  const qty = Math.max(0, Number(quantity))
+
+  // Upsert inventory
+  const { data: invRow } = await supabase
+    .from('inventory')
+    .select('id')
+    .eq('variant_id', variantId)
+    .single()
+
+  if (invRow) {
+    const { error } = await supabase
+      .from('inventory')
+      .update({ quantity: qty, updated_at: new Date().toISOString() })
+      .eq('variant_id', variantId)
+    if (error) throw new Error(error.message)
+  } else {
+    const { error } = await supabase
+      .from('inventory')
+      .insert({ variant_id: variantId, quantity: qty, low_stock_threshold: 5 })
+    if (error) throw new Error(error.message)
+  }
+
+  const slug = (variant.products as any).slug
+  revalidatePath('/seller/products')
+  if (slug) revalidatePath(`/products/${slug}`)
+  
+  return { success: true, quantity: qty }
+}
+
+/**
+ * Dedicated server action for creating products as an authenticated reseller.
+ * Verifies seller authorization server-side, derives seller_id automatically,
+ * rejects client tampering, and ensures products are created in draft/submitted state.
+ */
+export async function createSellerProduct(formData: FormData, images: any[], variants: any[]) {
+  return submitSellerProduct(formData, images, variants)
 }
 
 export async function getSellerOrders() {

@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Heart, Minus, Plus, ShoppingBag, Check } from 'lucide-react'
+import { ArrowLeft, Heart, Minus, Plus, ShoppingBag, Check, RotateCcw } from 'lucide-react'
 import { money, Product } from '@/lib/catalog'
 import { useStore } from '@/context/StoreContext'
 import { ProductCard } from '@/components/ProductCard'
@@ -22,6 +22,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
   const { addToCart, toggleWishlist, isWishlisted } = useStore()
 
   const [activeImgIndex, setActiveImgIndex] = useState(0)
+  const [galleryRatio, setGalleryRatio] = useState<number | null>(null)
   const [selectedSize, setSelectedSize] = useState<string>(product.sizes.length === 1 ? product.sizes[0] : '')
   const [selectedColour, setSelectedColour] = useState<string>(product.colors.length === 1 ? product.colors[0] : '')
   const [quantity, setQuantity] = useState(1)
@@ -92,11 +93,30 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
             ))}
           </div>
 
-          <div className="main-gallery-image" style={{ position: 'relative', overflow: 'hidden', background: 'var(--card-bg)' }}>
+          <div 
+            className="main-gallery-image" 
+            style={{ 
+              position: 'relative', 
+              overflow: 'hidden', 
+              background: 'var(--card-bg)',
+              aspectRatio: galleryRatio ? `${galleryRatio}` : undefined,
+              maxHeight: '82vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'aspect-ratio 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+          >
             <SenoImage 
               src={galleryImages[activeImgIndex] || product.image} 
               alt={product.name} 
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                const img = e.currentTarget
+                if (img.naturalWidth && img.naturalHeight) {
+                  setGalleryRatio(img.naturalWidth / img.naturalHeight)
+                }
+              }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             />
           </div>
         </div>
@@ -228,6 +248,25 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
             </button>
           )}
 
+          {/* Prominent Return Policy Badge & Customer Guarantee */}
+          <div style={{ marginTop: '16px', marginBottom: '20px' }}>
+            <div className={`product-trust-badge ${product.returnPolicy?.isReturnable ? 'returnable' : 'non-returnable'}`}>
+              <RotateCcw size={15} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong style={{ display: 'block', fontSize: '12px', letterSpacing: '0.4px' }}>
+                  {product.returnPolicy?.isReturnable
+                    ? `${product.returnPolicy.returnWindowDays}-Day Returns & Free Exchanges`
+                    : 'Final Sale — Non-Returnable Piece'}
+                </strong>
+                <span style={{ fontSize: '11px', opacity: 0.85, marginTop: '2px', display: 'block', lineHeight: 1.4 }}>
+                  {product.returnPolicy?.isReturnable
+                    ? product.returnPolicy.returnPolicyNotes || 'Complimentary reverse doorstep pickup across India. Garments must be unworn with original tags.'
+                    : 'This curated specialty piece cannot be returned or exchanged once dispatched.'}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Accordion Details */}
           <div className="product-accordion-group">
             <div className="accordion-item">
@@ -263,8 +302,22 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
               {openAccordion === 'Shipping' && (
                 <div className="accordion-content">
                   <p>
-                    Complimentary express shipping on all orders over ₹1,999 across India. Standard orders dispatched within 24-48 hours. Easy returns accepted within 7 days of delivery.
+                    Complimentary express shipping on all orders over ₹1,999 across India. Standard orders dispatched within 24–48 hours in signature museum-grade archival packaging.
                   </p>
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                    <strong style={{ fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Return &amp; Exchange Policy:
+                    </strong>{' '}
+                    {product.returnPolicy?.isReturnable ? (
+                      <span>
+                        Eligible for return and size exchange within <strong>{product.returnPolicy.returnWindowDays} days</strong> of delivery. {product.returnPolicy.returnPolicyNotes || 'All items must be in original condition with security ribbons and designer packaging intact.'}
+                      </span>
+                    ) : (
+                      <span>
+                        <strong>Final Sale:</strong> This item is strictly non-returnable and non-exchangeable once dispatched.
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

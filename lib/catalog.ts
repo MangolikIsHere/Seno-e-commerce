@@ -12,6 +12,49 @@ export interface Variant {
   inventoryQuantity: number
 }
 
+export interface ReturnPolicy {
+  isReturnable: boolean
+  returnWindowDays: number
+  returnPolicyNotes?: string
+}
+
+export function parseReturnPolicy(details: any): ReturnPolicy {
+  if (Array.isArray(details)) {
+    const obj = details.find(d => typeof d === 'object' && d !== null && (d.is_returnable !== undefined || d.__return_policy !== undefined))
+    if (obj) {
+      const rp = obj.__return_policy || obj
+      return {
+        isReturnable: rp.is_returnable ?? true,
+        returnWindowDays: Number(rp.return_window_days ?? 14),
+        returnPolicyNotes: rp.notes || ''
+      }
+    }
+    const str = details.find(d => typeof d === 'string' && d.toLowerCase().startsWith('return policy:'))
+    if (str) {
+      const lower = str.toLowerCase()
+      if (lower.includes('non-returnable') || lower.includes('final sale') || lower.includes('not eligible')) {
+        return { isReturnable: false, returnWindowDays: 0, returnPolicyNotes: 'Final Sale — Non-Returnable' }
+      }
+      const match = str.match(/(\d+)\s*day/i)
+      return { isReturnable: true, returnWindowDays: match ? parseInt(match[1], 10) : 14, returnPolicyNotes: '' }
+    }
+  } else if (typeof details === 'object' && details !== null) {
+    const rp = details.return_policy || details
+    if (rp.is_returnable !== undefined) {
+      return {
+        isReturnable: rp.is_returnable ?? true,
+        returnWindowDays: Number(rp.return_window_days ?? 14),
+        returnPolicyNotes: rp.notes || ''
+      }
+    }
+  }
+  return {
+    isReturnable: true,
+    returnWindowDays: 14,
+    returnPolicyNotes: 'Standard 14-day return window. Garments must be unworn with original tags.'
+  }
+}
+
 export interface Product {
   id: string
   seller_id: string
@@ -21,6 +64,7 @@ export interface Product {
   category: Category
   description: string
   details?: string[]
+  returnPolicy?: ReturnPolicy
   price: number
   compareAtPrice?: number
   defaultWeightGrams: number
@@ -93,6 +137,11 @@ function mapProductRow(row: any): Product {
   const totalInventory = variants.reduce((sum: number, v: Variant) => sum + v.inventoryQuantity, 0)
   const soldOut = totalInventory === 0 && variants.length > 0
 
+  const returnPolicy = parseReturnPolicy(row.details)
+  const cleanDetails = Array.isArray(row.details)
+    ? row.details.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
+    : []
+
   return {
     id: row.id,
     seller_id: row.seller_id,
@@ -101,7 +150,8 @@ function mapProductRow(row: any): Product {
     name: row.name,
     category: row.categories?.name || 'Uncategorized',
     description: row.description || '',
-    details: row.details || [],
+    details: cleanDetails,
+    returnPolicy,
     price: Number(row.price),
     compareAtPrice: row.compare_at_price ? Number(row.compare_at_price) : undefined,
     defaultWeightGrams: Number(row.default_weight_grams),

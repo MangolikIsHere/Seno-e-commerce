@@ -5,7 +5,8 @@ import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
-export default async function EditProductPage({ params }: { params: { id: string } }) {
+export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const seller = await getMySellerRecord()
   
   if (!seller || seller.seller_status !== 'approved') {
@@ -17,7 +18,7 @@ export default async function EditProductPage({ params }: { params: { id: string
   const { data: product, error } = await supabase
     .from('products')
     .select('*, product_images(*), product_variants(*), collection_products(collection_id)')
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('seller_id', seller.id)
     .single()
 
@@ -49,33 +50,7 @@ export default async function EditProductPage({ params }: { params: { id: string
     .order('name', { ascending: true })
 
   return (
-    <div className="static-page-container" style={{ maxWidth: '800px', paddingBottom: '96px' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <Link 
-          href="/seller/products" 
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '12px',
-            color: 'var(--muted)',
-            textDecoration: 'none',
-            letterSpacing: '0.5px'
-          }}
-        >
-          <ArrowLeft size={14} />
-          <span>Back to Products</span>
-        </Link>
-      </div>
-
-      <div style={{ marginBottom: '32px' }}>
-        <span className="section-kicker">SELLER DASHBOARD</span>
-        <h1 className="static-page-title" style={{ margin: '4px 0 6px' }}>Edit Product</h1>
-        <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>
-          Update your product listing. Major changes may require re-approval from SENO admin.
-        </p>
-      </div>
-
+    <div className="static-page-container" style={{ maxWidth: '860px', paddingBottom: '96px', paddingTop: '16px' }}>
       <ProductForm categories={categories || []} collections={collections || []} initialData={initialData} />
     </div>
   )

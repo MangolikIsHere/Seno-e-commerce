@@ -90,8 +90,8 @@ async function main() {
       default_weight_grams: 500,
       seller_id: 'fb09c575-2d0c-48d8-b1ff-b7a1ead8407a'
     })
-    assert.ok(error, 'Expected RLS to reject anonymous insert')
-    assert.strictEqual(error.code, '42501', 'RLS code 42501 received')
+    assert.ok(error, 'Expected RLS or security trigger to reject anonymous insert')
+    assert.ok(error.code === '42501' || error.code === 'P0001', `Expected security rejection code (42501 or P0001), got ${error.code}`)
   })
 
   // 5. Test Slug generation utility logic
