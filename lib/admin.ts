@@ -286,7 +286,10 @@ export async function getAdminOrderById(orderId: string) {
       profiles(full_name, email, phone),
       order_items(
         *,
-        sellers(store_name, seller_type, slug)
+        sellers(store_name, seller_type, slug),
+        products(
+          product_images(url, is_primary)
+        )
       )
     `)
     .eq('id', orderId)
