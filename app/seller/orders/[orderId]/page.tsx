@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, MapPin, PackageCheck, Truck, Phone, Mail, CalendarDays } from 'lucide-react'
 import { getMySellerRecord, getSellerOrderById, updateSellerOrderFulfillment } from '@/lib/sellers'
 import { money } from '@/lib/catalog'
+import { PaidCancelForm } from '../PaidCancelForm'
 
 const FULFILLMENT_OPTIONS = [
   'unfulfilled',
@@ -145,7 +146,13 @@ export default async function SellerOrderDetailPage({ params }: { params: Promis
                 <input type="date" name="estimatedDeliveryDate" defaultValue={order.estimated_delivery_date ? new Date(order.estimated_delivery_date).toISOString().slice(0, 10) : ''} className="input-field" />
               </label>
 
-              <button type="submit" className="button button-primary" style={{ justifyContent: 'center' }}>Update fulfillment</button>
+              {order.payment_status === 'paid' && order.fulfillment_status !== 'cancelled' ? (
+                <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                  <PaidCancelForm orderItemId={order.order_items?.[0]?.id || order.id} />
+                </div>
+              ) : order.fulfillment_status !== 'cancelled' ? (
+                <button type="submit" className="button button-primary" style={{ justifyContent: 'center' }}>Update fulfillment</button>
+              ) : null}
             </form>
           </div>
 
@@ -155,6 +162,12 @@ export default async function SellerOrderDetailPage({ params }: { params: Promis
               <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--muted)' }}>Payment status</span><strong>{order.payment_status}</strong></div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--muted)' }}>Razorpay order</span><strong>{order.razorpay_order_id || '—'}</strong></div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--muted)' }}>Razorpay payment</span><strong>{order.razorpay_payment_id || '—'}</strong></div>
+              {order.fulfillment_status === 'cancelled' && order.payment_status === 'paid' && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: '10px', marginTop: '10px' }}>
+                  <span style={{ color: 'var(--muted)' }}>Refund status</span>
+                  <strong style={{ color: 'var(--error)' }}>Processing</strong>
+                </div>
+              )}
             </div>
           </div>
         </aside>

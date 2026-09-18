@@ -173,6 +173,12 @@ export default function OrderDetailPage() {
                       <span>Fulfillment Status: </span>
                       <strong style={{ textTransform: 'capitalize', color: 'var(--ink)' }}>{item.fulfillment_status}</strong>
                     </div>
+                    {item.fulfillment_status === 'cancelled' && order.payment_status !== 'unpaid' && (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--error)', marginTop: '4px', display: 'block' }}>
+                        <span>Refund Status: </span>
+                        <strong>{order.payment_status === 'refunded' ? 'Refunded' : 'Processing'}</strong>
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>

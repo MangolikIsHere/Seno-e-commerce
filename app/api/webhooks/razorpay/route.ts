@@ -111,9 +111,21 @@ export async function POST(req: NextRequest) {
         })
       }
     } else if (eventType === 'refund.created' || eventType === 'refund.processed') {
-      if (senoOrderId) {
+      const refundReceipt = refundEntity.receipt || ''
+      const refundId = refundEntity.id || `rfnd_${Date.now()}`
+      const isProcessed = eventType === 'refund.processed'
+
+      if (refundReceipt) {
+        // This is a partial item refund initiated by cancelAndRefundOrderItemAction
+        // The receipt is the payment_events UUID
+        await supabase.rpc('update_refund_status', {
+          p_refund_event_id: refundReceipt,
+          p_status: isProcessed ? 'processed' : 'pending',
+          p_razorpay_refund_id: refundId
+        })
+      } else if (senoOrderId) {
+        // Fallback for full order manual refunds
         const refundAmount = refundEntity.amount ? Number(refundEntity.amount) / 100 : 0
-        const refundId = refundEntity.id || `rfnd_${Date.now()}`
         await supabase.rpc('record_order_refund', {
           p_order_id: senoOrderId,
           p_razorpay_payment_id: razorpayPaymentId,
@@ -122,8 +134,6 @@ export async function POST(req: NextRequest) {
         })
       }
     }
-
-    // Mark event processed
     await supabase
       .from('payment_events')
       .update({

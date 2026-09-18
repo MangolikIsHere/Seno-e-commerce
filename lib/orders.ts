@@ -313,7 +313,7 @@ export async function getCustomerOrders(): Promise<{ orders: Order[]; error?: st
         )
       `)
       .eq('customer_id', user.id)
-      .eq('payment_status', 'paid')
+      .in('payment_status', ['paid', 'refund_processing', 'refunded'])
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -384,7 +384,7 @@ export async function getCustomerOrderById(
       `)
       .eq('id', orderId)
       .eq('customer_id', user.id)
-      .eq('payment_status', 'paid')
+      .in('payment_status', ['paid', 'refund_processing', 'refunded'])
       .single()
 
     if (error) {

@@ -768,5 +768,118 @@ export async function updateFulfillmentStatus(orderItemId: string, status: strin
   revalidatePath('/seller/orders')
   revalidatePath('/seller/dashboard')
   revalidatePath('/admin/orders')
+  revalidatePath('/admin/orders')
+  revalidatePath('/account')
+}
+
+export async function cancelAndRefundOrderItemAction(orderItemId: string, reason: string): Promise<void> {
+  const supabase = await createClient()
+  const seller = await getMySellerRecord()
+  if (!seller) throw new Error('Unauthorized: No active seller account.')
+
+  // 1. Call RPC to initiate cancellation and idempotently get refund_event_id
+  const { data: cancelRes, error: cancelError } = await supabase.rpc('cancel_paid_order_item', {
+    p_order_item_id: orderItemId,
+    p_seller_id: seller.id,
+    p_reason: reason || 'Cancelled by seller'
+  })
+
+  if (cancelError || !cancelRes || !cancelRes.success) {
+    throw new Error(cancelRes?.error || cancelError?.message || 'Failed to cancel item.')
+  }
+
+  const { refund_event_id, razorpay_payment_id, refundable_amount, is_already_requested } = cancelRes
+
+  // If we already requested it, we can still try to execute the API call just in case it failed previously
+  // But wait, if it's already requested, we might want to check the event processing_status.
+  // For safety, we will just attempt the API call. Razorpay handles idempotency via receipt if we pass it, 
+  // but Razorpay refund API natively might not be idempotent on receipt alone for refunds, it's safer to check status.
+  
+  // Let's check current processing status
+  const { data: eventData } = await supabase
+    .from('payment_events')
+    .select('processing_status')
+    .eq('id', refund_event_id)
+    .single()
+
+  if (eventData?.processing_status === 'processed') {
+    revalidatePath('/seller/orders')
+    revalidatePath('/seller/dashboard')
+    revalidatePath('/admin/orders')
+    revalidatePath('/account')
+    return
+  }
+
+  // 2. Call Razorpay Refund API
+  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_seno_demo_key'
+  const keySecret = process.env.RAZORPAY_KEY_SECRET || 'seno_demo_secret_key_12345'
+  const isMock = keyId.startsWith('rzp_test_seno_demo') || keySecret.startsWith('seno_demo')
+
+  const amountPaise = Math.round(Number(refundable_amount) * 100)
+  
+  let razorpayRefundId = null
+  let refundStatus = 'failed'
+  let errorMsg = null
+
+  if (!isMock && razorpay_payment_id && razorpay_payment_id !== 'mock_payment_id') {
+    const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString('base64')
+    try {
+      const rzpResponse = await fetch(`https://api.razorpay.com/v1/payments/${razorpay_payment_id}/refund`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${basicAuth}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          amount: amountPaise,
+          receipt: refund_event_id,
+          notes: {
+            order_item_id: orderItemId,
+            seller_id: seller.id
+          }
+        })
+      })
+
+      if (rzpResponse.ok) {
+        const rzpData = await rzpResponse.json()
+        razorpayRefundId = rzpData.id
+        refundStatus = rzpData.status === 'processed' ? 'processed' : 'pending' // pending will be updated by webhook
+      } else {
+        const errText = await rzpResponse.text()
+        errorMsg = `Razorpay API error: ${errText}`
+        refundStatus = 'failed'
+      }
+    } catch (err: any) {
+      errorMsg = `Network error: ${err.message}`
+      refundStatus = 'failed'
+    }
+  } else {
+    // Mock successful refund
+    razorpayRefundId = `rfnd_test_${Math.random().toString(36).substring(2, 9)}`
+    refundStatus = 'processed'
+  }
+
+  // 3. Update refund status
+  // We use the admin client since this updates payment events
+  const { createClient: createSupabaseClient } = require('@supabase/supabase-js')
+  const adminSupabase = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  await adminSupabase.rpc('update_refund_status', {
+    p_refund_event_id: refund_event_id,
+    p_status: refundStatus === 'processed' ? 'processed' : (refundStatus === 'failed' ? 'failed' : 'pending'),
+    p_razorpay_refund_id: razorpayRefundId,
+    p_error_message: errorMsg
+  })
+
+  if (refundStatus === 'failed') {
+    throw new Error(`Refund initiation failed: ${errorMsg}`)
+  }
+
+  revalidatePath('/seller/orders')
+  revalidatePath('/seller/dashboard')
+  revalidatePath('/admin/orders')
   revalidatePath('/account')
 }
