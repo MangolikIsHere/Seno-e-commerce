@@ -135,7 +135,7 @@ function mapProductRow(row: any): Product {
   const color = colors.length > 0 ? colors[0] : 'Default'
   
   const totalInventory = variants.reduce((sum: number, v: Variant) => sum + v.inventoryQuantity, 0)
-  const soldOut = totalInventory === 0 && variants.length > 0
+  const soldOut = row.is_sold_out || (totalInventory === 0 && variants.length > 0)
 
   const returnPolicy = parseReturnPolicy(row.details)
   const cleanDetails = Array.isArray(row.details)

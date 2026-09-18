@@ -234,6 +234,43 @@ export async function getSellerProducts() {
   }))
 }
 
+export async function toggleProductSoldOutAction(formData: FormData) {
+  const supabase = await createClient()
+  const seller = await getMySellerRecord()
+  if (!seller) throw new Error('Unauthorized: No seller record found.')
+
+  const productId = String(formData.get('productId') || '')
+  const isSoldOutStr = String(formData.get('isSoldOut') || 'false')
+  const isSoldOut = isSoldOutStr === 'true'
+
+  if (!productId) throw new Error('Product ID is required.')
+
+  const { data, error } = await supabase
+    .from('products')
+    .update({ is_sold_out: isSoldOut, updated_at: new Date().toISOString() })
+    .eq('id', productId)
+    .eq('seller_id', seller.id)
+    .select('slug')
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  if (!data) {
+    throw new Error('Product not found or you do not have permission to modify it.')
+  }
+
+  revalidatePath('/seller/products')
+  revalidatePath('/seller/dashboard')
+  if (data.slug) {
+    revalidatePath(`/products/${data.slug}`)
+  }
+  revalidatePath('/') // catalog home
+  
+  return { success: true }
+}
+
 export async function getSellerStudioStats() {
   const seller = await getMySellerRecord()
   if (!seller) return null

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, MapPin, PackageCheck, Truck, Phone, Mail, CalendarDays } from 'lucide-react'
-import { getAdminOrderById, updateAdminOrderFulfillment, checkIsAdmin } from '@/lib/admin'
+import { getAdminOrderById, updateAdminOrderFulfillment, checkIsAdmin, cancelAdminOrderAction } from '@/lib/admin'
 import { money } from '@/lib/catalog'
 
 const FULFILLMENT_OPTIONS = [
@@ -59,7 +59,17 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         <section style={{ display: 'grid', gap: '24px' }}>
           <div className="admin-table-card" style={{ padding: '24px' }}>
             <span className="section-kicker">PLATFORM ORDER</span>
-            <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '30px', margin: '8px 0 6px', fontWeight: 400 }}>{order.order_number}</h1>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '30px', margin: '8px 0 6px', fontWeight: 400 }}>{order.order_number}</h1>
+              {order.payment_status === 'unpaid' && order.status !== 'cancelled' && (
+                <form action={cancelAdminOrderAction}>
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <button type="submit" className="button button-outline" style={{ borderColor: '#9f1239', color: '#9f1239', fontSize: '11px', padding: '6px 12px' }}>
+                    Cancel Order
+                  </button>
+                </form>
+              )}
+            </div>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '12px' }}>
               <span className="status-pill paid">Payment: {order.payment_status}</span>
               <span className="status-pill processing">Order Status: {formatStateLabel(order.status)}</span>

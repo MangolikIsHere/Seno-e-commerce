@@ -1,7 +1,14 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+
+function getAdminSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  return createSupabaseClient(supabaseUrl, supabaseServiceKey)
+}
 
 export async function checkIsAdmin() {
   const supabase = await createClient()
@@ -25,6 +32,74 @@ export async function checkIsAdmin() {
   }
 
   return false
+}
+
+export async function getAdminStoreSettings() {
+  const supabase = await createClient()
+  const isAdmin = await checkIsAdmin()
+  if (!isAdmin) return null
+
+  const { data, error } = await supabase
+    .from('store_settings')
+    .select('*')
+    .single()
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error fetching store settings:', error)
+  }
+
+  return data
+}
+
+export async function cancelAdminOrderAction(formData: FormData) {
+  const supabase = await createClient()
+  const isAdmin = await checkIsAdmin()
+  if (!isAdmin) throw new Error('Unauthorized: Admin access required.')
+
+  const orderId = String(formData.get('orderId') || '')
+  if (!orderId) throw new Error('Order ID is required.')
+
+  // Fetch the order to check its payment status
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('id, payment_status, status')
+    .eq('id', orderId)
+    .single()
+
+  if (orderError || !order) {
+    throw new Error('Order not found.')
+  }
+
+  // Strict Payment State Safety
+  // If payment_status is paid, we do NOT release inventory (it is permanently consumed unless refunded)
+  if (order.payment_status === 'paid') {
+    throw new Error('Paid orders cannot be cancelled using this mechanism. Use the refund lifecycle instead.')
+  }
+
+  // If already cancelled, do nothing (idempotency)
+  if (order.status === 'cancelled') {
+    return
+  }
+
+  // Active Unpaid Reservation -> Use the atomic release mechanism
+  const adminSupabase = getAdminSupabase()
+  const { data, error } = await adminSupabase.rpc('cancel_unpaid_order', {
+    p_order_id: orderId,
+    p_reason: 'admin_cancelled'
+  })
+
+  if (error) {
+    console.error('Error releasing unpaid reservation:', error)
+    throw new Error('Failed to cancel the order and release inventory.')
+  }
+
+  // Revalidate caches so inventory updates show immediately on storefront
+  revalidatePath('/admin/orders')
+  revalidatePath(`/admin/orders/${orderId}`)
+  revalidatePath('/seller/dashboard')
+  revalidatePath('/seller/products')
+  revalidatePath('/seller/orders')
+  revalidatePath('/') // catalog home
 }
 
 export async function getPendingSellers() {
