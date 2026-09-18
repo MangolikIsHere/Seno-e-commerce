@@ -13,6 +13,8 @@ export function SellerProductsClient({ products, categories }: { products: any[]
   const [category, setCategory] = useState('all')
   const [stock, setStock] = useState('all')
   const [sort, setSort] = useState('newest')
+  
+  const [optimisticSoldOut, setOptimisticSoldOut] = useState<Record<string, boolean>>({})
 
   const filteredProducts = useMemo(() => products.filter(product => {
     const text = query.trim().toLowerCase()
@@ -166,13 +168,13 @@ export function SellerProductsClient({ products, categories }: { products: any[]
                     <span 
                       style={{ 
                         fontWeight: 600,
-                        color: (product.total_stock === 0 || product.is_sold_out) ? '#9f1239' : product.low_stock ? '#9a3412' : '#15803d',
+                        color: (product.total_stock === 0 || (optimisticSoldOut[product.id] ?? product.is_sold_out)) ? '#9f1239' : product.low_stock ? '#9a3412' : '#15803d',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '4px'
                       }}
                     >
-                      {product.is_sold_out ? (
+                      {(optimisticSoldOut[product.id] ?? product.is_sold_out) ? (
                         <>
                           OUT OF STOCK
                           <span style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 400 }}>
@@ -198,7 +200,13 @@ export function SellerProductsClient({ products, categories }: { products: any[]
                     {new Date(product.updated_at || product.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <ProductActions product={product} />
+                    <ProductActions 
+                      product={{
+                        ...product,
+                        is_sold_out: optimisticSoldOut[product.id] ?? product.is_sold_out
+                      }}
+                      onOptimisticUpdate={(id, val) => setOptimisticSoldOut(prev => ({...prev, [id]: val}))}
+                    />
                   </td>
                 </tr>
               ))}

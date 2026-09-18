@@ -15,14 +15,6 @@ export const metadata: Metadata = {
   title: 'SENO — Everyday, Elevated.',
   description: 'Considered clothing and objects for a life in motion. Designed in Mumbai.',
   generator: 'SENO Studio',
-  icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: '32x32', type: 'image/x-icon' },
-      { url: '/brand/seno-mark.svg', type: 'image/svg+xml' },
-      { url: '/brand/seno-mark.png', sizes: '32x32', type: 'image/png' },
-    ],
-    apple: '/apple-touch-icon.png',
-  },
 }
 
 export const viewport: Viewport = {

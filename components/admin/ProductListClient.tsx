@@ -29,10 +29,13 @@ interface ProductListClientProps {
 
 export function ProductListClient({ initialProducts, categories }: ProductListClientProps) {
   const [products, setProducts] = useState(initialProducts)
+  const [isPending, startTransition] = useTransition()
+  
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
-  const [isPending, startTransition] = useTransition()
+  
+  const [optimisticSoldOut, setOptimisticSoldOut] = useState<Record<string, boolean>>({})
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
   // Filter products locally for instant responsive UI
@@ -400,14 +403,14 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                             width: '8px',
                             height: '8px',
                             borderRadius: '50%',
-                            background: (product.isSoldOut || product.is_sold_out)
+                            background: ((optimisticSoldOut[product.id] ?? product.isSoldOut) || (optimisticSoldOut[product.id] ?? product.is_sold_out))
                               ? '#ef4444' 
                               : product.isLowStock 
                               ? '#f59e0b' 
                               : '#10b981'
                           }} />
-                          <span style={{ fontSize: '13px', fontWeight: 600, color: (product.isSoldOut || product.is_sold_out) ? '#ef4444' : 'inherit' }}>
-                            {(product.isSoldOut || product.is_sold_out) ? 'OUT OF STOCK' : `${product.totalStock} in stock`}
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: ((optimisticSoldOut[product.id] ?? product.isSoldOut) || (optimisticSoldOut[product.id] ?? product.is_sold_out)) ? '#ef4444' : 'inherit' }}>
+                            {((optimisticSoldOut[product.id] ?? product.isSoldOut) || (optimisticSoldOut[product.id] ?? product.is_sold_out)) ? 'OUT OF STOCK' : `${product.totalStock} in stock`}
                           </span>
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
@@ -452,7 +455,14 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
 
                       {/* Row Actions */}
                       <td style={{ textAlign: 'right' }}>
-                        <ProductActions product={product} />
+                        <ProductActions 
+                          product={{
+                            ...product, 
+                            isSoldOut: optimisticSoldOut[product.id] ?? product.isSoldOut,
+                            is_sold_out: optimisticSoldOut[product.id] ?? product.is_sold_out 
+                          }}
+                          onOptimisticUpdate={(id, val) => setOptimisticSoldOut(prev => ({...prev, [id]: val}))}
+                        />
                       </td>
                     </tr>
                   )

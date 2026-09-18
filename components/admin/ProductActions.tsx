@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { MoreHorizontal, Edit, AlertTriangle, PackageX, PackageCheck, Trash2 } from 'lucide-react'
 import { setProductSoldOutAction, deleteProductAction } from '@/lib/sellers'
 
@@ -12,9 +13,11 @@ interface ProductActionsProps {
     is_sold_out?: boolean
     slug: string
   }
+  onOptimisticUpdate?: (productId: string, isSoldOut: boolean) => void
 }
 
-export function ProductActions({ product }: ProductActionsProps) {
+export function ProductActions({ product, onOptimisticUpdate }: ProductActionsProps) {
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -22,11 +25,21 @@ export function ProductActions({ product }: ProductActionsProps) {
   const isSoldOut = product.isSoldOut || product.is_sold_out || false
 
   const handleToggleSoldOut = async () => {
+    // Fire optimistic update immediately
+    if (onOptimisticUpdate) {
+      onOptimisticUpdate(product.id, !isSoldOut)
+    }
+    
     startTransition(async () => {
       try {
         await setProductSoldOutAction(product.id, !isSoldOut)
         setIsOpen(false)
+        router.refresh()
       } catch (err: any) {
+        // Revert optimistic update on failure
+        if (onOptimisticUpdate) {
+          onOptimisticUpdate(product.id, isSoldOut)
+        }
         alert(err.message)
       }
     })
