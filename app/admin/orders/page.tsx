@@ -72,8 +72,8 @@ export default async function AdminOrdersPage() {
             <p style={{ color: 'var(--muted)', fontSize: '14px', margin: 0 }}>No orders placed on the platform yet.</p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="admin-table">
+          <div className="table-responsive-wrapper">
+            <table className="admin-table responsive-card-table">
               <thead>
                 <tr>
                   <th>Order #</th>
@@ -83,6 +83,7 @@ export default async function AdminOrdersPage() {
                   <th>Payment Status</th>
                   <th>Lifecycle / Fulfillment</th>
                   <th style={{ textAlign: 'right' }}>Total</th>
+                  <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -95,21 +96,23 @@ export default async function AdminOrdersPage() {
 
                   return (
                     <tr key={order.id}>
-                      <td>
-                        <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{order.order_number}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--muted)' }}>ID: {order.id.slice(0, 8)}...</div>
+                      <td data-label="Order #">
+                        <Link href={`/admin/orders/${order.id}`} style={{ textDecoration: 'none' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{order.order_number}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--muted)' }}>ID: {order.id.slice(0, 8)}...</div>
+                        </Link>
                       </td>
-                      <td>
+                      <td data-label="Date">
                         <div style={{ fontSize: '13px' }}>{orderDate}</div>
                         <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
                           {new Date(order.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </td>
-                      <td>
+                      <td data-label="Customer">
                         <div style={{ fontWeight: 500, fontSize: '13px' }}>{order.profiles?.full_name || 'Guest Checkout'}</div>
                         <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{order.profiles?.email || '—'}</div>
                       </td>
-                      <td>
+                      <td data-label="Items & Seller">
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           {(order.order_items || []).map((item: any) => (
                             <div key={item.id} style={{ fontSize: '12px' }}>
@@ -124,20 +127,25 @@ export default async function AdminOrdersPage() {
                           ))}
                         </div>
                       </td>
-                      <td>
+                      <td data-label="Payment Status">
                         <span className={`status-pill ${order.payment_status === 'paid' ? 'paid' : order.payment_status === 'failed' ? 'suspended' : 'pending'}`}>
                           {order.payment_status?.toUpperCase() || 'UNPAID'}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="Lifecycle">
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                           <span className={`status-pill ${order.status === 'delivered' ? 'delivered' : order.status === 'shipped' ? 'shipped' : order.status === 'cancelled' ? 'cancelled' : order.status === 'confirmed' ? 'approved' : 'pending'}`} style={{ alignSelf: 'flex-start' }}>
                             {order.status}
                           </span>
                         </div>
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                      <td data-label="Total" style={{ textAlign: 'right', fontWeight: 600 }}>
                         {money(Number(order.total_amount))}
+                      </td>
+                      <td data-label="Action" style={{ textAlign: 'right' }}>
+                        <Link href={`/admin/orders/${order.id}`} className="button button-outline" style={{ fontSize: '11px', padding: '6px 12px', whiteSpace: 'nowrap' }}>
+                          View Details
+                        </Link>
                       </td>
                     </tr>
                   )

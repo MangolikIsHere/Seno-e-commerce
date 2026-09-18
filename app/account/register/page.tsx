@@ -4,12 +4,14 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function RegisterPage() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<boolean>(false)
   const [loading, setLoading] = useState(false)
@@ -21,7 +23,7 @@ export default function RegisterPage() {
     setError(null)
     setLoading(true)
 
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -33,6 +35,9 @@ export default function RegisterPage() {
 
     if (signUpError) {
       setError(signUpError.message)
+      setLoading(false)
+    } else if (data?.user && data.user.identities && data.user.identities.length === 0) {
+      setError('An account with this email is already registered.')
       setLoading(false)
     } else {
       setSuccess(true)
@@ -68,6 +73,13 @@ export default function RegisterPage() {
       {error && (
         <div style={{ color: 'red', fontSize: '12px', marginBottom: '16px', textAlign: 'center' }}>
           {error}
+          {error === 'An account with this email is already registered.' && (
+            <div style={{ marginTop: '8px' }}>
+              <Link href="/account/forgot-password" style={{ color: 'var(--ink)', textDecoration: 'underline', fontWeight: 600 }}>
+                Forgot your password?
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
@@ -96,14 +108,37 @@ export default function RegisterPage() {
           onChange={e => setEmail(e.target.value)}
           required
         />
-        <input
-          type="password"
-          placeholder="Password"
-          className="form-input-field"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          required
-        />
+        <div style={{ position: 'relative' }}>
+          <input
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Password"
+            className="form-input-field"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+            style={{ paddingRight: '40px' }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            style={{
+              position: 'absolute',
+              right: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0'
+            }}
+          >
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        </div>
 
         <button type="submit" className="dark-btn" style={{ padding: '16px', fontSize: '10px', letterSpacing: '2px' }} disabled={loading}>
           {loading ? 'CREATING...' : 'CREATE ACCOUNT'}

@@ -665,6 +665,56 @@ a {
   transform: scale(1.03);
 }
 
+/* Mobile Responsive Table Cards */
+@media (max-width: 768px) {
+  .responsive-card-table {
+    display: block;
+    width: 100%;
+  }
+  .responsive-card-table thead {
+    display: none;
+  }
+  .responsive-card-table tbody,
+  .responsive-card-table tr {
+    display: block;
+    width: 100%;
+  }
+  .responsive-card-table tr {
+    margin-bottom: 16px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+  }
+  .responsive-card-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--soft);
+    text-align: right;
+  }
+  .responsive-card-table td:last-child {
+    border-bottom: none;
+  }
+  .responsive-card-table td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    text-align: left;
+    flex: 1;
+    padding-right: 12px;
+  }
+  .responsive-card-table td > div,
+  .responsive-card-table td > span,
+  .responsive-card-table td > a {
+    flex: 2;
+    text-align: right;
+  }
+}
+
 /* Badges */
 .badge {
   position: absolute;

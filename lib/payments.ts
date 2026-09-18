@@ -62,6 +62,10 @@ export async function getPaymentConfigAction(): Promise<PaymentConfig> {
 export async function createRazorpayOrderAction(orderId: string): Promise<RazorpayOrderResult> {
   try {
     const supabase = await createClient()
+
+    // Opportunistic cleanup of expired reservations
+    supabase.rpc('expire_unpaid_orders', { p_batch_size: 20 }).then(() => {}).catch(() => {})
+
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
@@ -203,6 +207,10 @@ export async function createRazorpayOrderAction(orderId: string): Promise<Razorp
 export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<VerifyPaymentResult> {
   try {
     const supabase = await createClient()
+
+    // Opportunistic cleanup
+    supabase.rpc('expire_unpaid_orders', { p_batch_size: 20 }).then(() => {}).catch(() => {})
+
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {

@@ -138,6 +138,9 @@ export async function POST(req: NextRequest) {
     revalidatePath('/admin/orders')
     revalidatePath('/account')
 
+    // Opportunistic expiration of any old unpaid reservations
+    supabase.rpc('expire_unpaid_orders', { p_batch_size: 20 }).then(() => {}).catch(() => {})
+
     return NextResponse.json({ success: true, processed: true }, { status: 200 })
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : 'Internal webhook processing error'

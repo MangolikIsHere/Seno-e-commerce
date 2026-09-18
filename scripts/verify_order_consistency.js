@@ -62,7 +62,15 @@ async function main() {
     assert.ok(supabaseServiceKey.length > 50, 'Key format invalid')
   })
 
-  // 3. Check getSellerOrders query in lib/sellers.ts
+  // 3. Check customer face order visibility is paid-only and server-authoritative
+  runTest('lib/orders.ts customer queries enforce payment_status = paid and customer ownership', () => {
+    const ordersSource = fs.readFileSync(path.join(__dirname, '../lib/orders.ts'), 'utf8')
+    assert.ok(ordersSource.includes(".eq('customer_id', user.id)"), 'Customer list must scope to authenticated customer')
+    assert.ok(ordersSource.includes(".eq('payment_status', 'paid')"), 'Customer-facing orders must be paid-only')
+    assert.ok(ordersSource.includes(".eq('id', orderId)"), 'Order-detail lookup must include order ID')
+  })
+
+  // 4. Check getSellerOrders query in lib/sellers.ts
   runTest('lib/sellers.ts getSellerOrders strictly filters orders!inner with payment_status = paid', () => {
     const sellersSource = fs.readFileSync(path.join(__dirname, '../lib/sellers.ts'), 'utf8')
     assert.ok(sellersSource.includes("orders!inner"), 'Must use orders!inner join')
@@ -70,7 +78,7 @@ async function main() {
     assert.ok(sellersSource.includes("confirmed"), 'Must verify confirmed fulfillment status')
   })
 
-  // 4. Check Webhook Handler uses Service Role & Revalidation
+  // 5. Check Webhook Handler uses Service Role & Revalidation
   runTest('app/api/webhooks/razorpay/route.ts uses privileged admin client and revalidates caches', () => {
     const webhookSource = fs.readFileSync(path.join(__dirname, '../app/api/webhooks/razorpay/route.ts'), 'utf8')
     assert.ok(webhookSource.includes('SUPABASE_SERVICE_ROLE_KEY'), 'Must support service role key')

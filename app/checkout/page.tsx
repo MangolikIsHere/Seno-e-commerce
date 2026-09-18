@@ -15,7 +15,6 @@ import {
   getPaymentConfigAction,
   createRazorpayOrderAction,
   verifyPaymentAction,
-  cancelUnpaidOrderAction,
   recordPaymentFailureAction
 } from '@/lib/payments'
 
@@ -71,7 +70,6 @@ export default function CheckoutPage() {
   // Submission & Payment state
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
-  const [isCancelling, setIsCancelling] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
 
@@ -230,7 +228,7 @@ export default function CheckoutPage() {
             ondismiss: () => {
               setIsSubmitting(false)
               setInfoMessage(
-                'Payment attempt was not completed. Your inventory reservation is held. You may retry payment or cancel your order below.'
+                'Payment attempt was not completed. Your inventory reservation is held temporarily. You may retry payment, or your order will automatically expire.'
               )
             }
           }
@@ -266,7 +264,7 @@ export default function CheckoutPage() {
   // Handle Order Placement (New Order or Retry)
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (isSubmitting || isVerifying || isCancelling) return
+    if (isSubmitting || isVerifying) return
 
     setErrorMessage(null)
     setInfoMessage(null)
@@ -360,36 +358,7 @@ export default function CheckoutPage() {
     }
   }
 
-  // Handle Explicit Order Cancellation
-  const handleCancelOrder = async () => {
-    if (!activeOrder || isCancelling) return
 
-    const confirmCancel = window.confirm('Are you sure you want to cancel this order? Your reserved items will be released.')
-    if (!confirmCancel) return
-
-    setIsCancelling(true)
-    setErrorMessage(null)
-
-    try {
-      const cancelRes = await cancelUnpaidOrderAction(activeOrder.order_id, 'customer_manual_cancellation')
-
-      if (!cancelRes.success) {
-        setErrorMessage(cancelRes.error || 'Failed to cancel order.')
-        setIsCancelling(false)
-        return
-      }
-
-      setActiveOrder(null)
-      setIsSubmitting(false)
-      setIsVerifying(false)
-      setIsCancelling(false)
-      setInfoMessage('Order has been cancelled and inventory reservation restored. You may review your cart or place a new order.')
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Cancellation error.'
-      setErrorMessage(msg)
-      setIsCancelling(false)
-    }
-  }
 
   // Dev Test Simulator Handler
   const handleSimulatePayment = async () => {
@@ -556,27 +525,6 @@ export default function CheckoutPage() {
               <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
                 Your items are reserved. Retrying will not duplicate your order or re-decrement stock.
               </p>
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={handleCancelOrder}
-                disabled={isCancelling || isVerifying || isSubmitting}
-                className="outline-btn"
-                style={{
-                  padding: '10px 16px',
-                  fontSize: '11px',
-                  color: '#c53030',
-                  borderColor: '#fed7d7',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                <XCircle size={14} />
-                {isCancelling ? 'CANCELLING...' : 'CANCEL ORDER'}
-              </button>
             </div>
           </div>
         )}

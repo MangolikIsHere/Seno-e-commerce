@@ -306,9 +306,14 @@ export async function getCustomerOrders(): Promise<{ orders: Order[]; error?: st
           quantity,
           total_price,
           fulfillment_status,
+          tracking_number,
+          carrier,
+          estimated_delivery_date,
           created_at
         )
       `)
+      .eq('customer_id', user.id)
+      .eq('payment_status', 'paid')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -371,10 +376,15 @@ export async function getCustomerOrderById(
           quantity,
           total_price,
           fulfillment_status,
+          tracking_number,
+          carrier,
+          estimated_delivery_date,
           created_at
         )
       `)
       .eq('id', orderId)
+      .eq('customer_id', user.id)
+      .eq('payment_status', 'paid')
       .single()
 
     if (error) {

@@ -199,6 +199,67 @@ export async function getPlatformOrders() {
   return data
 }
 
+export async function getAdminOrderById(orderId: string) {
+  const supabase = await createClient()
+  const isAdmin = await checkIsAdmin()
+  if (!isAdmin) throw new Error('Unauthorized')
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      profiles(full_name, email, phone),
+      order_items(
+        *,
+        sellers(store_name, seller_type, slug)
+      )
+    `)
+    .eq('id', orderId)
+    .single()
+
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function updateAdminOrderFulfillment(formData: FormData): Promise<void> {
+  const supabase = await createClient()
+  const isAdmin = await checkIsAdmin()
+  if (!isAdmin) throw new Error('Unauthorized')
+
+  const orderItemId = String(formData.get('orderItemId') || '')
+  const status = String(formData.get('status') || 'unfulfilled')
+  const trackingNumber = String(formData.get('trackingNumber') || '').trim()
+  const carrier = String(formData.get('carrier') || '').trim()
+  const estimatedDeliveryDate = String(formData.get('estimatedDeliveryDate') || '').trim()
+
+  if (!orderItemId) {
+    throw new Error('Order item is required.')
+  }
+
+  const allowedStatuses = ['unfulfilled', 'processing', 'dispatched', 'in_transit', 'out_for_delivery', 'delivered', 'cancelled', 'returned', 'delivery_failed']
+  if (!allowedStatuses.includes(status)) {
+    throw new Error('Invalid fulfillment status.')
+  }
+
+  const { error } = await supabase
+    .from('order_items')
+    .update({
+      fulfillment_status: status,
+      tracking_number: trackingNumber || null,
+      carrier: carrier || null,
+      estimated_delivery_date: estimatedDeliveryDate ? new Date(estimatedDeliveryDate).toISOString() : null
+    })
+    .eq('id', orderItemId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/admin/orders')
+  revalidatePath('/seller/orders')
+  revalidatePath('/account')
+}
+
 export interface AdminOverviewStats {
   totalRevenue: number
   totalOrdersCount: number
