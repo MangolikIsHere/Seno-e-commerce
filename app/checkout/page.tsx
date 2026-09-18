@@ -238,13 +238,14 @@ export default function CheckoutPage() {
         rzp.on('payment.failed', async (response: any) => {
           setIsSubmitting(false)
           const reason = response.error?.description || 'Payment rejected by gateway.'
-          setErrorMessage(`Payment attempt failed: ${reason}. You can retry payment.`)
+          setErrorMessage(`Payment failed: ${reason}. Your inventory reservation has been released. You can try again if the item is still available.`)
           await recordPaymentFailureAction(
             orderId,
             rzpOrderId,
             response.error?.metadata?.payment_id || 'failed',
             reason
           )
+          setActiveOrder(null)
         })
         rzp.open()
       } else {
@@ -470,16 +471,18 @@ export default function CheckoutPage() {
         {infoMessage && (
           <div style={{
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             gap: '12px',
             background: '#f7fafc',
             border: '1px solid #e2e8f0',
             color: '#2d3748',
-            padding: '16px 20px',
+            padding: '16px',
             fontSize: '13px',
-            marginBottom: '28px'
+            marginBottom: '28px',
+            lineHeight: 1.5,
+            wordBreak: 'break-word'
           }}>
-            <ShieldCheck size={18} color="var(--ink)" />
+            <ShieldCheck size={18} color="var(--ink)" style={{ flexShrink: 0, marginTop: '2px' }} />
             <span style={{ flex: 1 }}>{infoMessage}</span>
           </div>
         )}
@@ -488,16 +491,18 @@ export default function CheckoutPage() {
         {errorMessage && (
           <div style={{
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             gap: '12px',
             background: '#fff5f5',
             border: '1px solid #fed7d7',
             color: '#c53030',
-            padding: '16px 20px',
+            padding: '16px',
             fontSize: '13px',
-            marginBottom: '28px'
+            marginBottom: '28px',
+            lineHeight: 1.5,
+            wordBreak: 'break-word'
           }}>
-            <AlertCircle size={18} />
+            <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
             <span style={{ flex: 1 }}>{errorMessage}</span>
           </div>
         )}
@@ -529,8 +534,18 @@ export default function CheckoutPage() {
           </div>
         )}
 
+        <style dangerouslySetInnerHTML={{__html: `
+          .checkout-grid { display: grid; grid-template-columns: 1fr 380px; gap: 48px; alignItems: start; }
+          .order-summary-sidebar { background: var(--soft); padding: 28px; border: 1px solid var(--border); position: sticky; top: 100px; }
+          @media (max-width: 900px) {
+            .checkout-grid { grid-template-columns: 1fr; gap: 32px; }
+            .order-summary-sidebar { position: static; padding: 20px; }
+            .static-page-title { font-size: 28px; margin-bottom: 24px !important; }
+            .static-page-container { padding-left: 16px; padding-right: 16px; }
+          }
+        `}} />
         <form onSubmit={handlePlaceOrder}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '48px', alignItems: 'start' }}>
+          <div className="checkout-grid">
             
             {/* Left Column: Customer Info & Address */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -746,7 +761,7 @@ export default function CheckoutPage() {
             </div>
 
             {/* Right Column: Order Summary */}
-            <div style={{ background: 'var(--soft)', padding: '28px', border: '1px solid var(--border)', position: 'sticky', top: '100px' }}>
+            <div className="order-summary-sidebar">
               <h3 style={{ fontFamily: 'Georgia, serif', fontSize: '20px', fontWeight: 400, margin: '0 0 20px' }}>
                 Order Summary
               </h3>
@@ -809,14 +824,14 @@ export default function CheckoutPage() {
               <button
                 type="submit"
                 className="dark-btn"
-                disabled={isSubmitting || isVerifying || isCancelling}
+                disabled={isSubmitting || isVerifying}
                 style={{
                   width: '100%',
                   padding: '16px',
                   fontSize: '11px',
                   letterSpacing: '2px',
-                  opacity: (isSubmitting || isVerifying || isCancelling) ? 0.7 : 1,
-                  cursor: (isSubmitting || isVerifying || isCancelling) ? 'not-allowed' : 'pointer',
+                  opacity: (isSubmitting || isVerifying) ? 0.7 : 1,
+                  cursor: (isSubmitting || isVerifying) ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

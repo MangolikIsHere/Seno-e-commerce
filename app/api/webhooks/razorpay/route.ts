@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
     revalidatePath('/account')
 
     // Opportunistic expiration of any old unpaid reservations
-    supabase.rpc('expire_unpaid_orders', { p_batch_size: 20 }).then(() => {}).catch(() => {})
+    supabase.rpc('expire_unpaid_orders', { p_batch_size: 20 }).then(() => {}, () => {})
 
     return NextResponse.json({ success: true, processed: true }, { status: 200 })
   } catch (err: unknown) {

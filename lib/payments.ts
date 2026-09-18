@@ -64,7 +64,7 @@ export async function createRazorpayOrderAction(orderId: string): Promise<Razorp
     const supabase = await createClient()
 
     // Opportunistic cleanup of expired reservations
-    supabase.rpc('expire_unpaid_orders', { p_batch_size: 20 }).then(() => {}).catch(() => {})
+    supabase.rpc('expire_unpaid_orders', { p_batch_size: 20 }).then(() => {}, () => {})
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -209,7 +209,7 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ve
     const supabase = await createClient()
 
     // Opportunistic cleanup
-    supabase.rpc('expire_unpaid_orders', { p_batch_size: 20 }).then(() => {}).catch(() => {})
+    supabase.rpc('expire_unpaid_orders', { p_batch_size: 20 }).then(() => {}, () => {})
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
