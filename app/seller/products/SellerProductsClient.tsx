@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import { ArrowUpRight, Filter, Package, Plus, Search } from 'lucide-react'
 import { money } from '@/lib/catalog'
 import { SenoImage } from '@/components/SenoImage'
+import { ProductActions } from '@/components/admin/ProductActions'
 
 export function SellerProductsClient({ products, categories }: { products: any[]; categories: any[] }) {
   const [query, setQuery] = useState('')
@@ -165,52 +166,39 @@ export function SellerProductsClient({ products, categories }: { products: any[]
                     <span 
                       style={{ 
                         fontWeight: 600,
-                        color: product.total_stock === 0 ? '#9f1239' : product.low_stock ? '#9a3412' : '#15803d',
+                        color: (product.total_stock === 0 || product.is_sold_out) ? '#9f1239' : product.low_stock ? '#9a3412' : '#15803d',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '4px'
                       }}
                     >
-                      {product.total_stock}
-                      <span style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 400 }}>
-                        {product.total_stock === 0 ? '(Out of stock)' : product.low_stock ? '(Low stock)' : 'units'}
-                      </span>
+                      {product.is_sold_out ? (
+                        <>
+                          OUT OF STOCK
+                          <span style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 400 }}>
+                            (Manually overriden)
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          {product.total_stock}
+                          <span style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 400 }}>
+                            {product.total_stock === 0 ? '(Out of stock)' : product.low_stock ? '(Low stock)' : 'units'}
+                          </span>
+                        </>
+                      )}
                     </span>
                   </td>
                   <td>
                     <span className={`status-pill ${product.approval_status === 'approved' ? 'approved' : product.approval_status === 'rejected' ? 'rejected' : 'pending'}`}>
                       {product.approval_status === 'submitted' ? 'Pending Review' : product.approval_status}
                     </span>
-                    {product.is_sold_out && (
-                      <span className="status-pill rejected" style={{ marginTop: '4px', display: 'inline-block' }}>Manually Sold Out</span>
-                    )}
                   </td>
                   <td style={{ whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: '12px' }}>
                     {new Date(product.updated_at || product.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                      <button
-                        onClick={async () => {
-                          const fd = new FormData()
-                          fd.append('productId', product.id)
-                          fd.append('isSoldOut', String(!product.is_sold_out))
-                          const { toggleProductSoldOutAction } = await import('@/lib/sellers')
-                          await toggleProductSoldOutAction(fd)
-                        }}
-                        className="button button-outline"
-                        style={{ fontSize: '11px', padding: '6px 12px', gap: '4px' }}
-                      >
-                        {product.is_sold_out ? 'Mark Available' : 'Mark Sold Out'}
-                      </button>
-                      <Link 
-                        href={`/seller/products/${product.id}/edit`} 
-                        className="button button-outline" 
-                        style={{ fontSize: '11px', padding: '6px 12px', gap: '4px' }}
-                      >
-                        Edit <ArrowUpRight size={12} />
-                      </Link>
-                    </div>
+                    <ProductActions product={product} />
                   </td>
                 </tr>
               ))}

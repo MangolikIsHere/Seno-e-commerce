@@ -8,7 +8,7 @@ export async function getActiveCategories() {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('categories')
-    .select('id, name, slug, description, display_order, is_active')
+    .select('id, name, slug, description, image_url, display_order, is_active')
     .eq('is_active', true)
     .order('display_order', { ascending: true })
     .order('name', { ascending: true })

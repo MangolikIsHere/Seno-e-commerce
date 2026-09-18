@@ -20,6 +20,7 @@ import { money } from '@/lib/catalog'
 import { toggleProductActive } from '@/lib/adminCatalog'
 import { ProductApprovalForm } from '@/app/admin/products/ProductApprovalForm'
 import { SenoImage } from '@/components/SenoImage'
+import { ProductActions } from '@/components/admin/ProductActions'
 
 interface ProductListClientProps {
   initialProducts: any[]
@@ -399,14 +400,14 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                             width: '8px',
                             height: '8px',
                             borderRadius: '50%',
-                            background: product.isSoldOut 
+                            background: (product.isSoldOut || product.is_sold_out)
                               ? '#ef4444' 
                               : product.isLowStock 
                               ? '#f59e0b' 
                               : '#10b981'
                           }} />
-                          <span style={{ fontSize: '13px', fontWeight: 600 }}>
-                            {product.totalStock} in stock
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: (product.isSoldOut || product.is_sold_out) ? '#ef4444' : 'inherit' }}>
+                            {(product.isSoldOut || product.is_sold_out) ? 'OUT OF STOCK' : `${product.totalStock} in stock`}
                           </span>
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
@@ -451,21 +452,7 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
 
                       {/* Row Actions */}
                       <td style={{ textAlign: 'right' }}>
-                        <Link
-                          href={`/admin/products/${product.id}/edit`}
-                          className="outline-btn"
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            padding: '6px 12px',
-                            fontSize: '11px',
-                            textDecoration: 'none'
-                          }}
-                        >
-                          <Edit3 size={12} />
-                          <span>Edit</span>
-                        </Link>
+                        <ProductActions product={product} />
                       </td>
                     </tr>
                   )

@@ -4,7 +4,7 @@ import Link from 'next/link'
 export default function NotFound() {
   return (
     <main className="static-page-container" style={{ minHeight: '60vh', textAlign: 'center' }}>
-      <span className="section-kicker">404 / SENO STUDIO</span>
+      <span className="section-kicker">404 / SENO</span>
       <h1 className="static-page-title">
         404
         <br />

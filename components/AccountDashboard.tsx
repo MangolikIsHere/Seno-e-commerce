@@ -21,6 +21,72 @@ import { getCustomerOrders, Order } from '@/lib/orders'
 import { money } from '@/lib/catalog'
 import { useStore } from '@/context/StoreContext'
 
+const fulfillmentLabels: Record<string, string> = {
+  unfulfilled: 'Order Placed',
+  processing: 'Processing',
+  dispatched: 'Dispatched',
+  shipped: 'Dispatched',
+  in_transit: 'In Transit',
+  out_for_delivery: 'Out for Delivery',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled by Seller',
+  returned: 'Returned',
+  delivery_failed: 'Delivery Failed'
+}
+
+const fulfillmentSummaries: Record<string, string> = {
+  unfulfilled: 'Your order has been received.',
+  processing: 'Your order is being prepared.',
+  dispatched: 'Your order has been shipped.',
+  shipped: 'Your order has been shipped.',
+  in_transit: 'Your order is on the way.',
+  out_for_delivery: 'Your order is out for delivery today.',
+  delivered: 'Your order has been delivered.',
+  cancelled: 'This item was cancelled by the seller.',
+  returned: 'This item has been returned.',
+  delivery_failed: 'Delivery could not be completed.'
+}
+
+const formatOrderDate = (isoString: string) => {
+  try {
+    return new Date(isoString).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    })
+  } catch {
+    return isoString
+  }
+}
+
+const getOrderItems = (order: Order) => order.order_items || []
+
+const getOrderStatus = (order: Order) => {
+  const items = getOrderItems(order)
+  if (items.length === 0) return order.status
+
+  const statuses = Array.from(new Set(items.map(item => item.fulfillment_status || 'unfulfilled')))
+  return statuses.length === 1 ? statuses[0] : null
+}
+
+const formatStatus = (status: string) => fulfillmentLabels[status] || status.replaceAll('_', ' ')
+
+const formatDelivery = (date: string, delivered: boolean) => {
+  const deliveryDate = new Date(date)
+  const today = new Date()
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+  const dateKey = deliveryDate.toLocaleDateString('en-CA')
+  const todayKey = today.toLocaleDateString('en-CA')
+  const tomorrowKey = tomorrow.toLocaleDateString('en-CA')
+
+  if (delivered) return { label: 'Delivered', value: '' }
+  if (dateKey === todayKey) return { label: 'Arriving today', value: '' }
+  if (dateKey === tomorrowKey) return { label: 'Arriving tomorrow', value: '' }
+  if (deliveryDate < today) return { label: 'Delivery update', value: 'Expected delivery date has passed.' }
+  return { label: 'Arriving', value: formatOrderDate(date) }
+}
+
 export function AccountDashboard() {
   const router = useRouter()
   const supabase = createClient()
@@ -41,19 +107,6 @@ export function AccountDashboard() {
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.refresh()
-  }
-
-  const formatOrderDate = (isoString: string) => {
-    try {
-      const d = new Date(isoString)
-      return d.toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      })
-    } catch {
-      return isoString
-    }
   }
 
   return (
@@ -292,6 +345,22 @@ export function AccountDashboard() {
                 overflow: 'hidden'
               }}
             >
+              {(() => {
+                const items = getOrderItems(order)
+                const orderStatus = getOrderStatus(order)
+                const showItemStatuses = items.length > 1 && !orderStatus
+                const deliveryItems = items.filter(item => item.estimated_delivery_date)
+                const allDelivered = items.length > 0 && items.every(item => item.fulfillment_status === 'delivered')
+                const deliveryItem = deliveryItems[0]
+                const deliveryDates = Array.from(new Set(deliveryItems.map(item => item.estimated_delivery_date)))
+                const delivery = deliveryDates.length === 1 && deliveryItem?.estimated_delivery_date
+                  ? formatDelivery(deliveryItem.estimated_delivery_date, allDelivered)
+                  : null
+                const trackingItem = items.find(item => item.tracking_number)
+                const refundStatus = order.payment_status === 'refunded' ? 'Refunded' : 'Processing'
+
+                return (
+                  <>
               {/* Order Card Header */}
               <div style={{
                 display: 'flex',
@@ -306,40 +375,26 @@ export function AccountDashboard() {
               }}>
                 <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <div>
-                    <span style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', fontSize: '10px' }}>
-                      Order Placed
-                    </span>
+                    <span style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', fontSize: '10px' }}>Order</span>
+                    <span style={{ fontWeight: 600, fontFamily: 'monospace' }}>#{order.order_number}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', fontSize: '10px' }}>Placed</span>
                     <span style={{ fontWeight: 600 }}>{formatOrderDate(order.created_at)}</span>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', fontSize: '10px' }}>
-                      Total
-                    </span>
-                    <span style={{ fontWeight: 600 }}>{money(Number(order.total_amount))}</span>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', fontSize: '10px' }}>
-                      Ship To
-                    </span>
-                    <span style={{ fontWeight: 500 }}>{order.shipping_address?.recipient_name || 'Customer'}</span>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', fontSize: '10px' }}>
-                      Order Number
-                    </span>
-                    <span style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: '12px' }}>
-                      {order.order_number}
-                    </span>
+                    <span style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', fontSize: '10px' }}>Total</span>
+                    <span style={{ fontWeight: 600 }}>{money(Number(order.total_amount))}</span>
                   </div>
                   <Link
                     href={`/account/orders/${order.id}`}
                     className="button button-outline"
                     style={{ fontSize: '11px', padding: '6px 12px' }}
                   >
-                    <span>View Receipt</span>
+                    <span>View Order</span>
                     <ChevronRight size={12} />
                   </Link>
                 </div>
@@ -347,20 +402,43 @@ export function AccountDashboard() {
 
               {/* Order Card Body */}
               <div style={{ padding: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span className={`status-pill ${order.status === 'delivered' ? 'delivered' : order.status === 'shipped' ? 'shipped' : order.status === 'cancelled' ? 'cancelled' : 'processing'}`}>
-                      {order.status}
-                    </span>
-                    <span className={`status-pill ${order.payment_status === 'paid' ? 'paid' : 'pending'}`}>
-                      Payment: {order.payment_status}
-                    </span>
+                {!showItemStatuses && orderStatus && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '18px', alignItems: 'flex-start', marginBottom: '20px' }}>
+                    <div>
+                      <span className="section-kicker">Order Status</span>
+                      <div style={{ marginTop: '6px' }}><span className={`status-pill ${orderStatus === 'delivered' ? 'delivered' : orderStatus === 'cancelled' ? 'cancelled' : 'processing'}`}>{formatStatus(orderStatus)}</span></div>
+                      <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--muted)' }}>{fulfillmentSummaries[orderStatus] || 'Your order is being updated.'}</div>
+                    </div>
+                    {delivery && (
+                      <div>
+                        <span className="section-kicker">{delivery.label}</span>
+                        {delivery.value && <div style={{ marginTop: '6px', fontSize: '13px', fontWeight: 600 }}>{delivery.value}</div>}
+                      </div>
+                    )}
+                    <div>
+                      <span className="section-kicker">Payment</span>
+                      <div style={{ marginTop: '6px', fontSize: '13px', fontWeight: 600 }}>{order.payment_status === 'paid' || order.payment_status === 'refunded' ? 'Paid' : order.payment_status.replace('_', ' ')}</div>
+                    </div>
+                    {orderStatus === 'cancelled' && (
+                      <div>
+                        <span className="section-kicker">Refund</span>
+                        <div style={{ marginTop: '6px', fontSize: '13px', fontWeight: 600 }}>{money(Number(order.total_amount))} · {refundStatus}</div>
+                      </div>
+                    )}
+                    {trackingItem && (
+                      <div>
+                        <span className="section-kicker">Tracking</span>
+                        <div style={{ marginTop: '6px', fontSize: '12px' }}>{trackingItem.carrier || 'Carrier'} · {trackingItem.tracking_number}</div>
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
+
+                {showItemStatuses && <div style={{ marginBottom: '18px' }}><span className="section-kicker">Order Status</span><p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--muted)' }}>Items in this order have different fulfillment states.</p></div>}
 
                 {/* Items preview list */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {order.order_items?.map(item => (
+                  {items.map(item => (
                     <div
                       key={item.id}
                       style={{
@@ -368,18 +446,17 @@ export function AccountDashboard() {
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         fontSize: '13px',
-                        paddingBottom: '10px',
+                        paddingBottom: '14px',
                         borderBottom: '1px solid var(--border)'
                       }}
                     >
                       <div>
-                        <span style={{ fontWeight: 600 }}>{item.product_name}</span>
-                        <span style={{ color: 'var(--muted)', fontSize: '12px', marginLeft: '10px' }}>
-                          Size: {item.variant_details?.size || 'Standard'} {item.variant_details?.colour && item.variant_details.colour !== 'Default' ? `· ${item.variant_details.colour}` : ''}
-                        </span>
-                        <span style={{ color: 'var(--muted)', fontSize: '12px', marginLeft: '10px' }}>
-                          Qty: {item.quantity}
-                        </span>
+                        <div style={{ fontWeight: 600 }}>{item.product_name}</div>
+                        <div style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '4px' }}>Size: {item.variant_details?.size || 'Standard'} {item.variant_details?.colour && item.variant_details.colour !== 'Default' ? `· ${item.variant_details.colour}` : ''} · Qty: {item.quantity}</div>
+                        {showItemStatuses && <div style={{ marginTop: '8px' }}><span className={`status-pill ${item.fulfillment_status === 'delivered' ? 'delivered' : item.fulfillment_status === 'cancelled' ? 'cancelled' : 'processing'}`}>{formatStatus(item.fulfillment_status)}</span><div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--muted)' }}>{fulfillmentSummaries[item.fulfillment_status] || 'This item is being updated.'}</div></div>}
+                        {item.estimated_delivery_date && <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--muted)' }}>{formatDelivery(item.estimated_delivery_date, item.fulfillment_status === 'delivered').label} {formatDelivery(item.estimated_delivery_date, item.fulfillment_status === 'delivered').value}</div>}
+                        {item.tracking_number && <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--muted)' }}>Tracking: {item.carrier || 'Carrier'} · {item.tracking_number}</div>}
+                        {item.fulfillment_status === 'cancelled' && <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--muted)' }}>Refund: {money(Number(item.total_price))} · {refundStatus}</div>}
                       </div>
                       <span style={{ fontWeight: 600 }}>{money(Number(item.total_price))}</span>
                     </div>
@@ -392,7 +469,14 @@ export function AccountDashboard() {
                     {order.shipping_address.address_line1}, {order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.postal_code}
                   </div>
                 )}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '18px' }}>
+                  {trackingItem && <Link href={`/account/orders/${order.id}/track`} className="button button-outline" style={{ fontSize: '11px', padding: '8px 12px' }}>Track Order</Link>}
+                  <Link href={`/account/orders/${order.id}`} className="button button-primary" style={{ fontSize: '11px', padding: '8px 12px' }}>View Receipt</Link>
+                </div>
               </div>
+                  </>
+                )
+              })()}
             </div>
           ))}
 

@@ -59,6 +59,9 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   const [success, setSuccess] = useState<string | null>(null)
   const [isDirty, setIsDirty] = useState(false)
   const [activeTab, setActiveTab] = useState<'details' | 'pricing' | 'media' | 'variants'>('details')
+  const categoryOptions = initialData?.categories?.id && !categories.some(category => category.id === initialData.categories.id)
+    ? [...categories, { ...initialData.categories, isLegacy: true }]
+    : categories
 
   // Product Basic Information
   const [name, setName] = useState(initialData?.name || '')
@@ -72,7 +75,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   const [newDetailText, setNewDetailText] = useState('')
 
   // Classification & Logistics
-  const [categoryId, setCategoryId] = useState(initialData?.category_id || categories[0]?.id || '')
+  const [categoryId, setCategoryId] = useState(initialData?.category_id || categoryOptions[0]?.id || '')
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>(
     initialData?.collection_ids || []
   )
@@ -685,8 +688,8 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                   }}
                 >
                   <option value="">Select Category</option>
-                  {categories.map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                  {categoryOptions.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name}{c.isLegacy ? ' (Legacy - review)' : ''}</option>
                   ))}
                 </select>
               </div>

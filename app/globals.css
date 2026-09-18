@@ -201,7 +201,7 @@ a {
 .logo-subtext {
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 7.5px;
-  letter-spacing: 2px;
+  letter-spacing: 1.4px;
   font-weight: 500;
   text-transform: uppercase;
   margin-top: 3px;
@@ -434,7 +434,7 @@ a {
    HERO SECTION
    ========================================================================== */
 .hero-section {
-  height: clamp(440px, 70vh, 650px);
+  height: clamp(500px, 72vh, 720px);
   position: relative;
   overflow: hidden;
   background: var(--card-bg);
@@ -449,7 +449,7 @@ a {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 32%;
+  object-position: center 28%;
   filter: saturate(0.85);
   transition: transform 0.8s ease-out;
 }
@@ -506,10 +506,10 @@ a {
 
 @media (max-width: 900px) {
   .hero-section {
-    height: clamp(420px, 68vh, 520px);
+    height: clamp(500px, 76vh, 650px);
   }
   .hero-image-wrapper img {
-    object-position: center 22%;
+    object-position: 58% center;
   }
   .hero-content-overlay {
     left: 6%;
@@ -607,6 +607,33 @@ a {
 
 .product-grid.columns-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.product-rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - 72px) / 4);
+  gap: 24px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+  padding-bottom: 14px;
+}
+
+.product-rail:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 8px;
+}
+
+.product-rail > .product-card {
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+.bestseller-section {
+  background: var(--surface-subtle);
 }
 
 @media (max-width: 1024px) {
@@ -833,23 +860,52 @@ a {
    ========================================================================== */
 .category-tiles-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: auto auto;
+  gap: 16px;
+}
+
+.category-section {
+  background: #f5f2ec;
+}
+
+.category-tile-card:nth-child(1),
+.category-tile-card:nth-child(2) {
+  grid-column: span 3;
+}
+
+.category-tile-card:nth-child(n + 3) {
+  grid-column: span 2;
 }
 
 @media (max-width: 900px) {
   .category-tiles-grid {
     grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: none;
     gap: 16px;
+  }
+
+  .category-tile-card:nth-child(n) {
+    grid-column: span 1;
+  }
+
+  .category-tile-card:nth-child(1),
+  .category-tile-card:nth-child(2) {
+    grid-column: span 2;
   }
 }
 
 .category-tile-card {
   position: relative;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   background: var(--card-bg);
   display: block;
+}
+
+.category-tile-card:nth-child(1),
+.category-tile-card:nth-child(2) {
+  aspect-ratio: 16 / 10;
 }
 
 .category-tile-img {
@@ -866,7 +922,7 @@ a {
 .category-tile-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.05) 50%);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.68) 0%, rgba(0, 0, 0, 0.02) 58%);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -876,7 +932,7 @@ a {
 
 .category-tile-title {
   font-family: Georgia, serif;
-  font-size: 24px;
+  font-size: clamp(17px, 2.2vw, 28px);
   font-weight: 400;
   margin: 0 0 4px;
   letter-spacing: -0.5px;
@@ -887,6 +943,45 @@ a {
   letter-spacing: 1.6px;
   text-transform: uppercase;
   opacity: 0.85;
+}
+
+@media (max-width: 600px) {
+  .product-rail {
+    grid-auto-columns: minmax(72%, 1fr);
+    gap: 14px;
+    margin-right: -18px;
+    padding-right: 18px;
+  }
+
+  .category-tiles-grid {
+    display: flex;
+    overflow-x: auto;
+    gap: 12px;
+    margin-right: -18px;
+    padding-right: 18px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .category-tiles-grid::-webkit-scrollbar,
+  .product-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .category-tile-card:nth-child(n) {
+    flex: 0 0 76vw;
+    aspect-ratio: 4 / 5;
+    scroll-snap-align: start;
+  }
+
+  .category-tile-card:nth-child(1),
+  .category-tile-card:nth-child(2) {
+    aspect-ratio: 4 / 5;
+  }
+
+  .category-tile-overlay {
+    padding: 18px;
+  }
 }
 
 /* ==========================================================================
@@ -3084,8 +3179,8 @@ textarea.input-field {
   position: fixed;
   inset: 0;
   z-index: 99999;
-  background: #0b0c0d;
-  color: #ffffff;
+  background: var(--bg);
+  color: var(--ink);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3110,6 +3205,13 @@ textarea.input-field {
   text-align: center;
 }
 
+.intro-mark {
+  width: 58px;
+  height: 58px;
+  margin-bottom: 22px;
+  object-fit: contain;
+}
+
 .intro-wordmark-wrap {
   display: flex;
   flex-direction: column;
@@ -3122,7 +3224,7 @@ textarea.input-field {
   font-weight: 700;
   letter-spacing: -2px;
   line-height: 0.95;
-  color: #ffffff;
+  color: var(--ink);
   animation: introWordmarkReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -3145,7 +3247,7 @@ textarea.input-field {
 .intro-divider {
   width: 38px;
   height: 1px;
-  background: rgba(255, 255, 255, 0.28);
+  background: var(--line);
   margin: 18px auto 14px;
   transform-origin: center;
   animation: introLineExpand 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both;
@@ -3180,19 +3282,13 @@ textarea.input-field {
   }
 }
 
-.intro-studio,
-.intro-loc {
+.intro-tagline {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 9.5px;
   letter-spacing: 3.5px;
   text-transform: uppercase;
-  color: #a3a29d;
+  color: var(--muted);
   font-weight: 500;
-}
-
-.intro-sep {
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 10px;
 }
 
 .intro-dismiss-btn {
@@ -3201,7 +3297,7 @@ textarea.input-field {
   font-size: 8.5px;
   letter-spacing: 2.2px;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--muted);
   font-weight: 500;
   background: none;
   border: none;
@@ -3212,7 +3308,7 @@ textarea.input-field {
 }
 
 .intro-dismiss-btn:hover {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--ink);
 }
 
 @keyframes introFadeIn {

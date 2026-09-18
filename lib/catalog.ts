@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 
-export type Category = 'Topwear' | 'Bottomwear' | 'Outerwear' | 'Accessories' | string
+export type Category = 'Ethnic & Traditional Wear' | 'Western' | 'Topwear' | 'Bottomwear' | 'Cosmetics' | string
 
 export interface Variant {
   id: string
@@ -148,7 +148,7 @@ function mapProductRow(row: any): Product {
     category_id: row.category_id,
     slug: row.slug,
     name: row.name,
-    category: row.categories?.name || 'Uncategorized',
+    category: row.categories?.name || '',
     description: row.description || '',
     details: cleanDetails,
     returnPolicy,
@@ -174,7 +174,7 @@ function mapProductRow(row: any): Product {
 
 const selectQuery = `
   *,
-  categories(name),
+  categories!inner(name, slug, is_active),
   product_images(url, is_primary, display_order),
   product_variants(id, size, colour, sku, price_override, weight_grams_override, is_active, inventory(quantity))
 `
@@ -183,6 +183,7 @@ export const getProduct = async (slug: string): Promise<Product | undefined> => 
   const { data, error } = await supabase
     .from('products')
     .select(selectQuery)
+    .eq('categories.is_active', true)
     .eq('slug', slug)
     .eq('is_active', true)
     .eq('approval_status', 'approved')
@@ -200,6 +201,7 @@ export const getRelatedProducts = async (product: Product, limit = 4): Promise<P
     const { data: catData } = await supabase
       .from('products')
       .select(selectQuery)
+      .eq('categories.is_active', true)
       .eq('is_active', true)
       .eq('approval_status', 'approved')
       .eq('category_id', product.category_id)
@@ -220,6 +222,7 @@ export const getRelatedProducts = async (product: Product, limit = 4): Promise<P
     let fallbackQuery = supabase
       .from('products')
       .select(selectQuery)
+      .eq('categories.is_active', true)
       .eq('is_active', true)
       .eq('approval_status', 'approved')
       .neq('slug', product.slug)
@@ -244,6 +247,7 @@ export const getNewArrivals = async (limit = 4): Promise<Product[]> => {
   const { data, error } = await supabase
     .from('products')
     .select(selectQuery)
+    .eq('categories.is_active', true)
     .eq('is_active', true)
     .eq('approval_status', 'approved')
     .eq('is_new', true)
@@ -258,6 +262,7 @@ export const getBestsellers = async (limit = 4): Promise<Product[]> => {
   const { data, error } = await supabase
     .from('products')
     .select(selectQuery)
+    .eq('categories.is_active', true)
     .eq('is_active', true)
     .eq('approval_status', 'approved')
     .eq('is_bestseller', true)
@@ -281,6 +286,7 @@ export const getCollectionProducts = async (
   const { data, error } = await supabase
     .from('products')
     .select(selectQuery)
+    .eq('categories.is_active', true)
     .eq('is_active', true)
     .eq('approval_status', 'approved')
 
@@ -342,6 +348,7 @@ export const searchProducts = async (queryStr: string, limit?: number): Promise<
   const { data, error } = await supabase
     .from('products')
     .select(selectQuery)
+    .eq('categories.is_active', true)
     .eq('is_active', true)
     .eq('approval_status', 'approved')
 
@@ -387,6 +394,7 @@ export const getProductsBySlugs = async (slugs: string[]): Promise<Product[]> =>
   const { data, error } = await supabase
     .from('products')
     .select(selectQuery)
+    .eq('categories.is_active', true)
     .eq('is_active', true)
     .eq('approval_status', 'approved')
     .in('slug', slugs)

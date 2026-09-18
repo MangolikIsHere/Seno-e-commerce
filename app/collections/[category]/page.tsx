@@ -21,13 +21,17 @@ function getCategoryMeta(slug: string) {
       title: 'Bottomwear Collection — SENO',
       description: 'Pleated trousers, denim, and relaxed trousers designed for effortless everyday motion.'
     },
-    outerwear: {
-      title: 'Outerwear Collection — SENO',
-      description: 'Sculpted coats, transitional jackets, and refined layering pieces.'
+    'ethnic-traditional-wear': {
+      title: 'Ethnic & Traditional Wear — SENO',
+      description: 'Heritage silhouettes and modern craft from the current SENO catalog.'
     },
-    accessories: {
-      title: 'Accessories & Objects — SENO',
-      description: 'Full-grain leather accessories, canvas totes, and tactile everyday objects.'
+    western: {
+      title: 'Western — SENO',
+      description: 'Contemporary everyday forms from the current SENO catalog.'
+    },
+    cosmetics: {
+      title: 'Cosmetics — SENO',
+      description: 'Beauty, care, and finishing touches from the current SENO catalog.'
     },
     'new-arrivals': {
       title: 'New Arrivals — SENO',
@@ -73,11 +77,7 @@ export default async function CategoryPage({ params }: PageProps) {
 
   const categories = await getActiveCategories()
   let title = categories.find(category => category.slug === slug)?.name.toUpperCase() || 'ALL PRODUCTS'
-  if (slug === 'topwear') title = 'TOPWEAR'
-  else if (slug === 'bottomwear') title = 'BOTTOMWEAR'
-  else if (slug === 'outerwear') title = 'OUTERWEAR'
-  else if (slug === 'accessories') title = 'ACCESSORIES'
-  else if (slug === 'new-arrivals') title = 'NEW ARRIVALS'
+  if (slug === 'new-arrivals') title = 'NEW ARRIVALS'
   else if (slug === 'bestsellers') title = 'BESTSELLERS'
 
   return <CollectionView categoryTitle={title} categorySlug={slug} categoryOptions={categories.map(category => category.name)} />

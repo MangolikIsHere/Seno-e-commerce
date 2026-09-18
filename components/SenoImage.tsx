@@ -61,7 +61,7 @@ export function SenoImage({
             opacity: 0.45,
           }}
         >
-          STUDIO / 01
+          EVERYDAY, ELEVATED.
         </span>
       </div>
     )

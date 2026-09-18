@@ -47,15 +47,18 @@ async function runAsyncTest(name, fn) {
 
 async function main() {
   // 1. Check Categories & Collections baseline
-  await runAsyncTest('Categories baseline: 4 luxury departments present', async () => {
+  await runAsyncTest('Categories baseline: five active storefront departments present', async () => {
     const { data, error } = await supabase.from('categories').select('*').eq('is_active', true)
     assert.ifError(error)
-    assert.ok(data.length >= 4, `Expected at least 4 categories, got ${data.length}`)
+    assert.strictEqual(data.length, 5, `Expected exactly 5 active categories, got ${data.length}`)
     const names = data.map(c => c.name)
+    assert.ok(names.includes('Ethnic & Traditional Wear'), 'Includes Ethnic & Traditional Wear')
+    assert.ok(names.includes('Western'), 'Includes Western')
     assert.ok(names.includes('Topwear'), 'Includes Topwear')
     assert.ok(names.includes('Bottomwear'), 'Includes Bottomwear')
-    assert.ok(names.includes('Outerwear'), 'Includes Outerwear')
-    assert.ok(names.includes('Accessories'), 'Includes Accessories')
+    assert.ok(names.includes('Cosmetics'), 'Includes Cosmetics')
+    assert.ok(!names.includes('Outerwear'), 'Does not expose Outerwear as active')
+    assert.ok(!names.includes('Accessories'), 'Does not expose Accessories as active')
   })
 
   await runAsyncTest('Collections baseline: New Arrivals and Bestsellers present', async () => {

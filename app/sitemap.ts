@@ -4,6 +4,11 @@ import { supabase } from '@/lib/supabase'
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seno-luxury.com'
   const currentDate = new Date().toISOString()
+  const { data: activeCategories } = await supabase
+    .from('categories')
+    .select('slug')
+    .eq('is_active', true)
+    .order('display_order', { ascending: true })
 
   // 1. Static Storefront Routes
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -18,30 +23,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: currentDate,
       changeFrequency: 'daily',
       priority: 0.9
-    },
-    {
-      url: `${siteUrl}/collections/topwear`,
-      lastModified: currentDate,
-      changeFrequency: 'weekly',
-      priority: 0.8
-    },
-    {
-      url: `${siteUrl}/collections/bottomwear`,
-      lastModified: currentDate,
-      changeFrequency: 'weekly',
-      priority: 0.8
-    },
-    {
-      url: `${siteUrl}/collections/outerwear`,
-      lastModified: currentDate,
-      changeFrequency: 'weekly',
-      priority: 0.8
-    },
-    {
-      url: `${siteUrl}/collections/accessories`,
-      lastModified: currentDate,
-      changeFrequency: 'weekly',
-      priority: 0.8
     },
     {
       url: `${siteUrl}/collections/new-arrivals`,
@@ -87,6 +68,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   ]
 
+  const categoryRoutes: MetadataRoute.Sitemap = (activeCategories || []).map(category => ({
+    url: `${siteUrl}/collections/${category.slug}`,
+    lastModified: currentDate,
+    changeFrequency: 'weekly',
+    priority: 0.8
+  }))
+
   // 2. Database-backed Public Product Routes
   try {
     const { data: products } = await supabase
@@ -103,7 +91,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.8
       }))
 
-      return [...staticRoutes, ...productRoutes]
+      return [...staticRoutes, ...categoryRoutes, ...productRoutes]
     }
   } catch {
     // If DB query fails during build time, return static routes fallback

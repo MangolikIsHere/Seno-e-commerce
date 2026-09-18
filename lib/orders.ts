@@ -62,7 +62,7 @@ export interface Order {
     | 'delivered'
     | 'cancelled'
     | 'refunded'
-  payment_status: 'unpaid' | 'authorized' | 'paid' | 'failed' | 'refunded'
+  payment_status: 'unpaid' | 'authorized' | 'paid' | 'refund_processing' | 'failed' | 'refunded'
   payment_method?: string | null
   subtotal_amount: number
   shipping_amount: number

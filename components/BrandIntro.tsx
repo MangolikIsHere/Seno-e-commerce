@@ -12,22 +12,18 @@ export function BrandIntro() {
       return
     }
 
-    // Sequence orchestration:
-    // 0.00s - 1.60s: Brand presentation (SENO wordmark + STUDIO / 01 reveals via CSS)
-    // 1.60s: Smooth veil-lift dissolve begins
-    // 2.15s: Element cleanly unmounts from DOM
     const exitTimer = setTimeout(() => {
       setPhase('exiting')
-    }, 1600)
+    }, 900)
 
     const removeTimer = setTimeout(() => {
       setPhase('removed')
-    }, 2150)
+    }, 1350)
 
     // Defensive fallback: guarantees the website is never blocked even if delays occur
     const fallbackTimer = setTimeout(() => {
       setPhase('removed')
-    }, 2800)
+    }, 1800)
 
     return () => {
       clearTimeout(exitTimer)
@@ -48,14 +44,13 @@ export function BrandIntro() {
       onClick={() => setPhase('removed')}
     >
       <div className="intro-stage">
+        <img className="intro-mark" src="/brand/seno-mark.svg" alt="SENO" />
         <div className="intro-wordmark-wrap">
           <span className="intro-wordmark">SENO</span>
           <div className="intro-divider" />
         </div>
         <div className="intro-details">
-          <span className="intro-studio">STUDIO / 01</span>
-          <span className="intro-sep">·</span>
-          <span className="intro-loc">MUMBAI</span>
+          <span className="intro-tagline">EVERYDAY, ELEVATED.</span>
         </div>
       </div>
       <button 

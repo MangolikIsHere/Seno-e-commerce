@@ -3,37 +3,40 @@ import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
 import { SenoImage } from '@/components/SenoImage'
 import { getNewArrivals, getBestsellers } from '@/lib/catalog'
+import { getActiveCategories } from '@/lib/categories'
 
 export default async function HomePage() {
-  const newArrivals = await getNewArrivals(4)
-  const bestsellers = await getBestsellers(4)
+  const newArrivals = await getNewArrivals(8)
+  const bestsellers = await getBestsellers(8)
+  const categories = await getActiveCategories()
 
-  const categoryTiles = [
-    {
-      title: 'Topwear',
-      subtitle: 'Shirts, Tanks & Cardigans',
-      image: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=800&q=80',
-      href: '/collections/topwear'
+  const categoryPresentation: Record<string, { subtitle: string; className?: string }> = {
+    'ethnic-traditional-wear': {
+      subtitle: 'Heritage silhouettes & modern craft',
+      className: 'category-tile-feature'
     },
-    {
-      title: 'Bottomwear',
-      subtitle: 'Pleated Trousers & Cargo Pants',
-      image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80',
-      href: '/collections/bottomwear'
+    western: {
+      subtitle: 'Contemporary everyday forms',
+      className: 'category-tile-feature'
     },
-    {
-      title: 'Outerwear',
-      subtitle: 'Selvedge Denim & Wool Blazers',
-      image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80',
-      href: '/collections/outerwear'
+    topwear: {
+      subtitle: 'Shirts, tees & elevated essentials'
     },
-    {
-      title: 'Accessories',
-      subtitle: 'Canvas Totes & Brushed Wool',
-      image: 'https://images.unsplash.com/photo-1594223274512-ad4803739b7c?auto=format&fit=crop&w=800&q=80',
-      href: '/collections/accessories'
+    bottomwear: {
+      subtitle: 'Denim, trousers & modern separates'
+    },
+    cosmetics: {
+      subtitle: 'Beauty, care & finishing touches'
     }
-  ]
+  }
+
+  const categoryTiles = categories.map(category => ({
+    title: category.name.toUpperCase(),
+    subtitle: categoryPresentation[category.slug]?.subtitle || category.description || 'Explore the current SENO collection.',
+    image: category.image_url || '/placeholder.jpg',
+    href: `/collections/${category.slug}`,
+    className: categoryPresentation[category.slug]?.className
+  }))
 
   return (
     <div className="homepage-storefront">
@@ -58,7 +61,29 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 2. NEW ARRIVALS */}
+      {/* 2. SHOP BY CATEGORY */}
+      <section className="section-padding category-section">
+        <div className="section-header-flex">
+          <div>
+            <span className="section-kicker">THE SEASONAL WARDROBE</span>
+            <h2 className="section-title">Shop by Category</h2>
+          </div>
+        </div>
+
+        <div className="category-tiles-grid">
+          {categoryTiles.map((cat) => (
+            <Link href={cat.href} key={cat.title} className={`category-tile-card ${cat.className || ''}`}>
+              <SenoImage src={cat.image} alt={cat.title} className="category-tile-img" />
+              <div className="category-tile-overlay">
+                <h3 className="category-tile-title">{cat.title}</h3>
+                <span className="category-tile-subtitle">{cat.subtitle}</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* 3. NEW ARRIVALS */}
       <section className="section-padding">
         <div className="section-header-flex">
           <div>
@@ -70,36 +95,31 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <div className="product-grid columns-4">
+        <div className="product-rail" aria-label="New arrivals" tabIndex={0}>
           {newArrivals.map(product => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
       </section>
 
-      {/* 3. SHOP BY CATEGORY */}
-      <section className="section-padding" style={{ background: '#f5f4f0' }}>
+      {/* 4. BESTSELLERS */}
+      <section className="section-padding bestseller-section">
         <div className="section-header-flex">
           <div>
-            <span className="section-kicker">EXPLORE SILHOUETTES</span>
-            <h2 className="section-title">Shop by Category</h2>
+            <span className="section-kicker">ESSENTIAL STAPLES</span>
+            <h2 className="section-title">Bestsellers</h2>
           </div>
+          <Link href="/collections/bestsellers" className="view-all-link">VIEW ALL <span aria-hidden="true">→</span></Link>
         </div>
 
-        <div className="category-tiles-grid">
-          {categoryTiles.map((cat, idx) => (
-            <Link href={cat.href} key={idx} className="category-tile-card">
-              <SenoImage src={cat.image} alt={cat.title} className="category-tile-img" />
-              <div className="category-tile-overlay">
-                <h3 className="category-tile-title">{cat.title}</h3>
-                <span className="category-tile-subtitle">{cat.subtitle}</span>
-              </div>
-            </Link>
+        <div className="product-rail" aria-label="Bestsellers" tabIndex={0}>
+          {bestsellers.map(product => (
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       </section>
 
-      {/* 4. FEATURED EDIT */}
+      {/* 5. FEATURED EDIT */}
       <section className="featured-edit-banner">
         <div className="featured-edit-content">
           <span className="section-kicker">EDITORIAL EDIT</span>
@@ -116,25 +136,6 @@ export default async function HomePage() {
             src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1000&q=80"
             alt="The SENO Edit"
           />
-        </div>
-      </section>
-
-      {/* 5. BESTSELLERS */}
-      <section className="section-padding">
-        <div className="section-header-flex">
-          <div>
-            <span className="section-kicker">ESSENTIAL STAPLES</span>
-            <h2 className="section-title">Bestsellers</h2>
-          </div>
-          <Link href="/collections/all" className="view-all-link">
-            VIEW ALL
-          </Link>
-        </div>
-
-        <div className="product-grid columns-4">
-          {bestsellers.map(product => (
-            <ProductCard key={product.id} product={product} />
-          ))}
         </div>
       </section>
 

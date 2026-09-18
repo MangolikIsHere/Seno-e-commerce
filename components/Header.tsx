@@ -29,7 +29,10 @@ export function Header({ categories = [] }: { categories?: { name: string; slug:
     }
   }, [mobileMenuOpen])
 
-  const categoryLinks = categories.map(category => ({ label: category.name.toUpperCase(), href: `/collections/${category.slug}` }))
+  const categoryLinks = categories.map(category => ({
+    label: category.name.toUpperCase(),
+    href: `/collections/${category.slug}`
+  }))
   const navLinks = [
     { label: 'ALL PRODUCTS', href: '/collections/all' },
     { label: 'NEW ARRIVALS', href: '/collections/new-arrivals' },
@@ -40,7 +43,7 @@ export function Header({ categories = [] }: { categories?: { name: string; slug:
   const shopLinks = [
     { label: 'All Products', href: '/collections/all' },
     { label: 'New Arrivals', href: '/collections/new-arrivals' },
-    ...categories.map(category => ({ label: category.name, href: `/collections/${category.slug}` })),
+    ...categoryLinks.map(category => ({ label: category.label, href: category.href })),
     { label: 'Collections', href: '/collections/all' },
   ]
 
@@ -77,7 +80,7 @@ export function Header({ categories = [] }: { categories?: { name: string; slug:
           <div className="top-center">
             <Link href="/" className="header-logo">
               <span className="logo-wordmark">SENO</span>
-              <span className="logo-subtext">STUDIO / 01</span>
+              <span className="logo-subtext">EVERYDAY, ELEVATED.</span>
             </Link>
           </div>
 
@@ -140,7 +143,7 @@ export function Header({ categories = [] }: { categories?: { name: string; slug:
         <div className="mobile-header-center">
           <Link href="/" className="header-logo">
             <span className="logo-wordmark">SENO</span>
-            <span className="logo-subtext">STUDIO / 01</span>
+            <span className="logo-subtext">EVERYDAY, ELEVATED.</span>
           </Link>
         </div>
 
@@ -172,7 +175,7 @@ export function Header({ categories = [] }: { categories?: { name: string; slug:
             <div className="mobile-drawer-header">
               <Link href="/" onClick={() => setMobileMenuOpen(false)} className="header-logo">
                 <span className="logo-wordmark">SENO</span>
-                <span className="logo-subtext">STUDIO / 01</span>
+                <span className="logo-subtext">EVERYDAY, ELEVATED.</span>
               </Link>
               <button
                 className="mobile-drawer-close-btn"

@@ -59,6 +59,9 @@ export function ProductForm({
   const [slug, setSlug] = useState(initialData?.slug || '')
   const [description, setDescription] = useState(initialData?.description || '')
   const [categoryId, setCategoryId] = useState(initialData?.category_id || '')
+  const categoryOptions = initialData?.categories?.id && !categories.some(category => category.id === initialData.categories.id)
+    ? [...categories, { ...initialData.categories, isLegacy: true }]
+    : categories
   const [collectionIds, setCollectionIds] = useState<string[]>(initialData?.collection_ids || [])
   
   // Pricing & Logistics
@@ -485,9 +488,9 @@ export function ProductForm({
                   onChange={event => setCategoryId(event.target.value)}
                 >
                   <option value="">Select a category...</option>
-                  {categories.map(category => (
+                  {categoryOptions.map(category => (
                     <option key={category.id} value={category.id}>
-                      {category.name}
+                      {category.name}{category.isLegacy ? ' (Legacy - review)' : ''}
                     </option>
                   ))}
                 </select>

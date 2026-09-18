@@ -12,25 +12,16 @@ import { getActiveCategories } from '@/lib/categories'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'SENO — Made for the in-between',
+  title: 'SENO — Everyday, Elevated.',
   description: 'Considered clothing and objects for a life in motion. Designed in Mumbai.',
   generator: 'SENO Studio',
   icons: {
     icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
+      { url: '/favicon.ico', sizes: '32x32', type: 'image/x-icon' },
+      { url: '/brand/seno-mark.svg', type: 'image/svg+xml' },
+      { url: '/brand/seno-mark.png', sizes: '32x32', type: 'image/png' },
     ],
-    apple: '/apple-icon.png',
+    apple: '/apple-touch-icon.png',
   },
 }
 
@@ -56,7 +47,7 @@ export default async function RootLayout({
               <AnnouncementBar />
               <Header categories={categories} />
               <main className="main-content">{children}</main>
-              <Footer />
+              <Footer categories={categories} />
               <CartDrawer />
               <SearchModal />
             </div>

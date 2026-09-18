@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- SENO MARKETPLACE — PAYMENT FAILURE INVENTORY RELEASE
--- Migration: 20260919000000_payment_failure_release.sql
+-- Migration: 20260919000005_payment_failure_release.sql
 -- ==============================================================================
 -- Description:
 -- Redefines public.record_payment_failure to instantly release inventory

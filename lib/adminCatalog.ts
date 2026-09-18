@@ -146,6 +146,20 @@ export async function getCatalogMetadata() {
   }
 }
 
+async function requireActiveCategory(categoryId: string | null | undefined) {
+  if (!categoryId) throw new Error('A valid active category is required.')
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('categories')
+    .select('id')
+    .eq('id', categoryId)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (error || !data) throw new Error('Select one of the active storefront categories.')
+}
+
 /**
  * Fetch all catalog products for the admin panel with full variant and inventory details.
  */
@@ -330,6 +344,7 @@ export async function createAdminProduct(input: CreateProductInput) {
   if (input.price === undefined || input.price === null || Number(input.price) < 0) {
     throw new Error('Valid price is required.')
   }
+  await requireActiveCategory(input.category_id)
   const shippingMethod = input.shipping_method === 'custom' ? 'custom' : 'weight_based'
   const customDeliveryCharge = input.custom_delivery_charge == null ? null : Number(input.custom_delivery_charge)
   if (shippingMethod === 'custom' && (customDeliveryCharge === null || !Number.isFinite(customDeliveryCharge) || customDeliveryCharge < 0)) throw new Error('A non-negative custom delivery charge is required.')
@@ -481,6 +496,7 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
   if (input.price === undefined || input.price === null || Number(input.price) < 0) {
     throw new Error('Valid price is required.')
   }
+  await requireActiveCategory(input.category_id)
   const shippingMethod = input.shipping_method === 'custom' ? 'custom' : 'weight_based'
   const customDeliveryCharge = input.custom_delivery_charge == null ? null : Number(input.custom_delivery_charge)
   if (shippingMethod === 'custom' && (customDeliveryCharge === null || !Number.isFinite(customDeliveryCharge) || customDeliveryCharge < 0)) throw new Error('A non-negative custom delivery charge is required.')

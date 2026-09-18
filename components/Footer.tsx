@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 
-export function Footer() {
+export function Footer({ categories = [] }: { categories?: { name: string; slug: string }[] }) {
   const [email, setEmail] = useState('')
   const [subscribed, setSubscribed] = useState(false)
 
@@ -30,10 +30,9 @@ export function Footer() {
           <ul>
             <li><Link href="/collections/all">All Products</Link></li>
             <li><Link href="/collections/new-arrivals">New Arrivals</Link></li>
-            <li><Link href="/collections/topwear">Topwear</Link></li>
-            <li><Link href="/collections/bottomwear">Bottomwear</Link></li>
-            <li><Link href="/collections/outerwear">Outerwear</Link></li>
-            <li><Link href="/collections/accessories">Accessories</Link></li>
+            {categories.map(category => (
+              <li key={category.slug}><Link href={`/collections/${category.slug}`}>{category.name}</Link></li>
+            ))}
           </ul>
         </div>
 
