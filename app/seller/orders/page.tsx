@@ -6,6 +6,8 @@ import { PrintButton } from '@/components/PrintButton'
 import Link from 'next/link'
 import { ArrowLeft, Truck, Package, ShieldCheck, MapPin, Printer } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function SellerOrdersPage() {
   const seller = await getMySellerRecord()
   

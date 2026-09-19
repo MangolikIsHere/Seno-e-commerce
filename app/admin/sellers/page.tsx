@@ -2,6 +2,8 @@ import { getPendingSellers } from '@/lib/admin'
 import { SellerStatusForm } from './SellerStatusForm'
 import { Store, CheckCircle, Clock, AlertCircle } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminSellersPage() {
   const sellers = await getPendingSellers()
 

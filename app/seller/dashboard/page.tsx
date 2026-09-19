@@ -4,6 +4,8 @@ import { AlertCircle, ArrowUpRight, Boxes, CircleDollarSign, Package, ShoppingBa
 import { getMySellerRecord, getSellerProposals, getSellerStudioStats } from '@/lib/sellers'
 import { CommissionProposalCard } from './CommissionProposalCard'
 
+export const dynamic = 'force-dynamic'
+
 const navItems = [
   { label: 'Overview', href: '/seller/dashboard', icon: Store },
   { label: 'Products', href: '/seller/products', icon: Package },
