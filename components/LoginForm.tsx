@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { Eye, EyeOff } from 'lucide-react'
 
@@ -13,6 +13,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -29,6 +30,9 @@ export function LoginForm() {
       setError(signInError.message)
       setLoading(false)
     } else {
+      const next = searchParams.get('next') || searchParams.get('redirect')
+      const returnUrl = (next && next.startsWith('/')) ? next : '/'
+      router.push(returnUrl)
       router.refresh()
     }
   }

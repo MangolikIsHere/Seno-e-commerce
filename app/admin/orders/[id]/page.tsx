@@ -7,6 +7,7 @@ import { money } from '@/lib/catalog'
 import { formatStateLabel } from '@/lib/utils'
 import { CopyButton } from './CopyButton'
 import { AdminOrderFulfillmentForm } from './AdminOrderFulfillmentForm'
+import { PrintButton } from '@/components/PrintButton'
 
 function formatDate(value?: string | null) {
   if (!value) return 'Not set'
@@ -55,11 +56,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
 
   return (
     <main className="static-page-container" style={{ maxWidth: '1200px', paddingBottom: '96px' }}>
-      {/* Back Link */}
-      <div style={{ marginBottom: '32px' }}>
-        <Link href="/admin/orders" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--muted)', textDecoration: 'none' }}>
+      {/* Back Link & Print */}
+      <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Link href="/admin/orders" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--muted)', textDecoration: 'none', minHeight: '44px' }}>
           <ArrowLeft size={16} /> Back to Orders
         </Link>
+        <PrintButton label="Print Receipt" />
       </div>
 
       {/* Order Header */}
@@ -136,11 +138,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
       </div>
 
       {/* Two Column Layout (Desktop) */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 700px), 1fr))',
-        gap: '40px' 
-      }}>
+      <div className="order-details-layout">
         {/* Main Content */}
         <section style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
           

@@ -613,11 +613,15 @@ export async function createSellerProduct(formData: FormData, images: any[], var
 }
 
 export async function getSellerOrders() {
-  const supabase = await createClient()
   const seller = await getMySellerRecord()
   if (!seller) return []
 
-  const { data, error } = await supabase
+  // CRITICAL FIX: Bypass the restrictive 'orders_customer_select' RLS policy
+  // which prevents sellers from reading customer orders they didn't personally place.
+  // We MUST rigorously enforce seller scoping here server-side.
+  const adminSupabase = getAdminSupabase()
+
+  const { data, error } = await adminSupabase
     .from('order_items')
     .select('*, orders!inner(order_number, status, payment_status, created_at, shipping_address)')
     .eq('seller_id', seller.id)
@@ -633,11 +637,13 @@ export async function getSellerOrders() {
 }
 
 export async function getSellerOrderById(orderId: string) {
-  const supabase = await createClient()
   const seller = await getMySellerRecord()
   if (!seller) return null
 
-  const { data, error } = await supabase
+  // Enforce server-side isolation and bypass restrictive customer RLS on orders table
+  const adminSupabase = getAdminSupabase()
+
+  const { data, error } = await adminSupabase
     .from('order_items')
     .select(`
       id,
@@ -667,7 +673,7 @@ export async function getSellerOrderById(orderId: string) {
       )
     `)
     .eq('id', orderId)
-    .eq('seller_id', seller.id)
+    .eq('seller_id', seller.id) // Security: Ensure this specific seller owns this order item
     .eq('orders.payment_status', 'paid')
     .maybeSingle()
 

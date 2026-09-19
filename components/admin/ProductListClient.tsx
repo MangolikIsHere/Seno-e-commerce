@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { 
   Package, 
   Plus, 
@@ -28,12 +29,15 @@ interface ProductListClientProps {
 }
 
 export function ProductListClient({ initialProducts, categories }: ProductListClientProps) {
+  const searchParams = useSearchParams()
+  const initialStatus = searchParams?.get('status') || 'all'
+
   const [products, setProducts] = useState(initialProducts)
   const [isPending, startTransition] = useTransition()
   
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
-  const [selectedStatus, setSelectedStatus] = useState('all')
+  const [selectedStatus, setSelectedStatus] = useState(initialStatus)
   
   const [optimisticSoldOut, setOptimisticSoldOut] = useState<Record<string, boolean>>({})
   const [statusMessage, setStatusMessage] = useState<string | null>(null)

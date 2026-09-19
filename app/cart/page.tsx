@@ -31,7 +31,7 @@ export default function CartPage() {
 
   return (
     <main className="static-page-container">
-      <Link href="/collections/all" className="breadcrumb-back-link">
+      <Link href="/collections/all" className="breadcrumb-back-link" style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
         <ArrowLeft size={13} /> CONTINUE SHOPPING
       </Link>
 
@@ -47,7 +47,7 @@ export default function CartPage() {
           </Link>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '48px', marginTop: '32px' }}>
+        <div className="cart-layout">
           {/* Cart Table */}
           <div>
             <div style={{ paddingBottom: '16px', borderBottom: '1px solid var(--line)' }}>
@@ -93,19 +93,19 @@ export default function CartPage() {
                   </span>
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
-                    <div className="quantity-stepper-box">
-                      <button onClick={() => updateCartQty(item.variant_id, -1)}>
+                    <div className="quantity-stepper-box" style={{ display: 'flex', alignItems: 'center' }}>
+                      <button onClick={() => updateCartQty(item.variant_id, -1)} style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Minus size={13} />
                       </button>
-                      <span>{item.qty}</span>
-                      <button onClick={() => updateCartQty(item.variant_id, 1)}>
+                      <span style={{ minWidth: '32px', textAlign: 'center' }}>{item.qty}</span>
+                      <button onClick={() => updateCartQty(item.variant_id, 1)} style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Plus size={13} />
                       </button>
                     </div>
 
                     <button
                       onClick={() => removeFromCart(item.variant_id)}
-                      style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                      style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', minHeight: '44px', padding: '0 8px' }}
                     >
                       <Trash2 size={15} /> Remove
                     </button>
@@ -154,7 +154,7 @@ export default function CartPage() {
             <Link
               href="/checkout"
               className="dark-btn"
-              style={{ display: 'block', width: '100%', padding: '16px', fontSize: '10px', letterSpacing: '2px', textAlign: 'center' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '44px', padding: '16px', fontSize: '10px', letterSpacing: '2px', textAlign: 'center' }}
             >
               PROCEED TO CHECKOUT <span>→</span>
             </Link>

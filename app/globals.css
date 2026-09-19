@@ -812,6 +812,13 @@ a {
   transform: translateY(0);
 }
 
+@media (hover: none), (max-width: 900px) {
+  .quick-add-btn {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .quick-add-btn:hover {
   background: #000000;
 }
@@ -3373,6 +3380,60 @@ textarea.input-field {
   .admin-table th,
   .admin-table td {
     white-space: nowrap;
+  }
+}
+
+.cart-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 48px;
+  margin-top: 32px;
+}
+
+@media (max-width: 900px) {
+  .cart-layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+.order-details-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .order-details-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .site-header, .site-footer, .breadcrumb-back-link, .button-ghost, button {
+    display: none !important;
+  }
+  .static-page-container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .admin-table-card {
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+  .status-pill {
+    border: 1px solid #ccc !important;
+  }
+  .order-details-layout {
+    grid-template-columns: 1fr !important;
+    display: block !important;
   }
 }
 

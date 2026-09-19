@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import { getAdminCatalogProducts, getCatalogMetadata } from '@/lib/adminCatalog'
 import { ProductListClient } from '@/components/admin/ProductListClient'
 
@@ -11,9 +11,11 @@ export default async function AdminProductsPage() {
   ])
 
   return (
-    <ProductListClient 
-      initialProducts={products} 
-      categories={meta.categories} 
-    />
+    <Suspense fallback={<div>Loading...</div>}>
+      <ProductListClient 
+        initialProducts={products} 
+        categories={meta.categories} 
+      />
+    </Suspense>
   )
 }

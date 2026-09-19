@@ -35,7 +35,7 @@ export default async function AdminDashboardPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <Link href="/admin/products" className="button button-outline" style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '4px' }}>
+          <Link href="/admin/products?status=submitted" className="button button-outline" style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '4px' }}>
             Review Products
           </Link>
           <Link href="/admin/sellers" className="button button-primary" style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '4px' }}>
@@ -76,7 +76,7 @@ export default async function AdminDashboardPage() {
               </Link>
             )}
             {stats.pendingProductsCount > 0 && (
-              <Link href="/admin/products" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink)', textDecoration: 'underline', marginLeft: '12px' }}>
+              <Link href="/admin/products?status=submitted" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink)', textDecoration: 'underline', marginLeft: '12px' }}>
                 Review Products
               </Link>
             )}
@@ -136,7 +136,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Two Column Section: Recent Orders & Recent Sellers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
         {/* Recent Orders */}
         <div className="admin-table-card">
           <div className="admin-table-header-row">

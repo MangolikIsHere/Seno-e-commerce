@@ -2,8 +2,9 @@ import { redirect } from 'next/navigation'
 import { getSellerOrders, getMySellerRecord } from '@/lib/sellers'
 import { money } from '@/lib/catalog'
 import { FulfillmentForm } from './FulfillmentForm'
+import { PrintButton } from '@/components/PrintButton'
 import Link from 'next/link'
-import { ArrowLeft, Truck, Package, ShieldCheck, MapPin } from 'lucide-react'
+import { ArrowLeft, Truck, Package, ShieldCheck, MapPin, Printer } from 'lucide-react'
 
 export default async function SellerOrdersPage() {
   const seller = await getMySellerRecord()
@@ -32,6 +33,7 @@ export default async function SellerOrdersPage() {
           <ArrowLeft size={14} />
           <span>Back to Seller Dashboard</span>
         </Link>
+        <PrintButton label="Print Packing Slips" />
       </div>
 
       <div style={{ marginBottom: '32px' }}>
@@ -97,7 +99,7 @@ export default async function SellerOrdersPage() {
                 </div>
               </div>
 
-              <div style={{ padding: '24px', display: 'grid', gridTemplateColumns: '1fr 320px', gap: '28px', alignItems: 'start' }}>
+              <div className="order-details-layout" style={{ padding: '24px' }}>
                 <div>
                   <h3 style={{ fontSize: '15px', fontWeight: 600, margin: '0 0 10px', color: 'var(--ink)' }}>{item.product_name}</h3>
                   <div style={{ fontSize: '13px', color: 'var(--muted)', display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '4px 16px', marginBottom: '16px' }}>

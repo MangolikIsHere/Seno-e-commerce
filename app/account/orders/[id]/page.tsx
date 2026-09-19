@@ -78,7 +78,8 @@ export default function OrderDetailPage() {
             fontSize: '12px',
             color: 'var(--muted)',
             textDecoration: 'none',
-            letterSpacing: '0.5px'
+            letterSpacing: '0.5px',
+            minHeight: '44px'
           }}
         >
           <ArrowLeft size={14} />
@@ -88,7 +89,7 @@ export default function OrderDetailPage() {
         <button
           onClick={() => window.print()}
           className="button button-ghost"
-          style={{ fontSize: '12px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          style={{ fontSize: '12px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px', minHeight: '44px' }}
         >
           <Printer size={14} />
           <span>Print Receipt</span>
@@ -115,7 +116,8 @@ export default function OrderDetailPage() {
             fontSize: '28px',
             fontWeight: 400,
             letterSpacing: '-0.5px',
-            margin: '0 0 8px'
+            margin: '0 0 8px',
+            overflowWrap: 'anywhere'
           }}>
             Order #{order.order_number}
           </h1>
@@ -135,7 +137,7 @@ export default function OrderDetailPage() {
       </div>
 
       {/* Main Content Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '28px', alignItems: 'start' }}>
+      <div className="order-details-layout">
         
         {/* Left Column: Items and Logistics */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
