@@ -52,9 +52,9 @@ export async function getAdminStoreSettings() {
 }
 
 export async function cancelAdminOrderAction(formData: FormData) {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized: Admin access required.')
+  const supabase = getAdminSupabase()
 
   const orderId = String(formData.get('orderId') || '')
   if (!orderId) throw new Error('Order ID is required.')
@@ -82,8 +82,7 @@ export async function cancelAdminOrderAction(formData: FormData) {
   }
 
   // Active Unpaid Reservation -> Use the atomic release mechanism
-  const adminSupabase = getAdminSupabase()
-  const { data, error } = await adminSupabase.rpc('cancel_unpaid_order', {
+  const { data, error } = await supabase.rpc('cancel_unpaid_order', {
     p_order_id: orderId,
     p_reason: 'admin_cancelled'
   })
@@ -103,9 +102,9 @@ export async function cancelAdminOrderAction(formData: FormData) {
 }
 
 export async function getPendingSellers() {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
 
   const { data, error } = await supabase
     .from('sellers')
@@ -118,9 +117,9 @@ export async function getPendingSellers() {
 }
 
 export async function updateSellerStatus(sellerId: string, status: string, commissionRate?: number) {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
 
   const updates: any = { seller_status: status }
   if (commissionRate !== undefined) {
@@ -228,9 +227,9 @@ export async function approveCommissionRequest(sellerId: string, proposalId: str
 // -------------------------------------------------------------
 
 export async function getPendingProducts() {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
 
   const { data, error } = await supabase
     .from('products')
@@ -243,9 +242,9 @@ export async function getPendingProducts() {
 }
 
 export async function updateProductApproval(productId: string, status: string, reason?: string) {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
 
   const { error } = await supabase
     .from('products')
@@ -261,9 +260,9 @@ export async function updateProductApproval(productId: string, status: string, r
 }
 
 export async function getPlatformOrders() {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
 
   const { data, error } = await supabase
     .from('orders')
@@ -275,9 +274,9 @@ export async function getPlatformOrders() {
 }
 
 export async function getAdminOrderById(orderId: string) {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
 
   const { data, error } = await supabase
     .from('orders')
@@ -300,9 +299,9 @@ export async function getAdminOrderById(orderId: string) {
 }
 
 export async function updateAdminOrderFulfillment(formData: FormData): Promise<void> {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
 
   const orderItemId = String(formData.get('orderItemId') || '')
   const status = String(formData.get('status') || 'unfulfilled')
@@ -354,9 +353,9 @@ export interface AdminOverviewStats {
 }
 
 export async function getAdminOverviewStats(): Promise<AdminOverviewStats> {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
 
   // 1. Orders
   const { data: orders } = await supabase

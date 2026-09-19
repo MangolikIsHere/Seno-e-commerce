@@ -5,7 +5,10 @@ import { revalidatePath } from 'next/cache'
 
 function getAdminSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseServiceKey) {
+    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY. Webhook cannot bypass RLS.')
+  }
   return createSupabaseClient(supabaseUrl, supabaseServiceKey)
 }
 
@@ -19,7 +22,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing x-razorpay-signature header' }, { status: 400 })
     }
 
-    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || 'seno_webhook_secret_67890'
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET
+    if (!webhookSecret) {
+      console.error('RAZORPAY_WEBHOOK_SECRET is not configured.')
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
 
     // 1. Cryptographic Webhook Authenticity Verification
     const expectedSignature = crypto

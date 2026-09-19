@@ -59,7 +59,7 @@ export default function TrackingPage() {
   return (
     <main className="static-page-container" style={{ maxWidth: '980px', paddingBottom: '96px' }}>
       <div style={{ marginBottom: '24px' }}>
-        <Link href="/account/orders" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--muted)', textDecoration: 'none' }}>
+        <Link href="/account" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--muted)', textDecoration: 'none' }}>
           <ArrowLeft size={14} /> Back to orders
         </Link>
       </div>

@@ -748,21 +748,11 @@ export async function uploadImageAction(formData: FormData): Promise<{ url: stri
         return { url: urlData.publicUrl }
       }
     }
-  } catch (err) {
-    console.warn('Supabase storage upload attempt encountered error:', err)
-  }
-
-  // 2. Local fallback storage (/public/uploads/products) if storage bucket is not active
-  try {
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'products')
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true })
-    }
-    const localFilePath = path.join(uploadDir, fileName)
-    fs.writeFileSync(localFilePath, buffer)
-    return { url: `/uploads/products/${fileName}` }
+    
+    console.error('Supabase storage upload failed:', uploadErr)
+    return { url: '', error: 'Failed to upload image to storage bucket.' }
   } catch (err: any) {
-    console.error('Local fallback upload failed:', err)
-    return { url: '', error: 'Failed to store image' }
+    console.error('Unexpected error during upload:', err)
+    return { url: '', error: 'An unexpected error occurred during image upload.' }
   }
 }
