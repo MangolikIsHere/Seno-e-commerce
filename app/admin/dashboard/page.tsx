@@ -36,7 +36,7 @@ export default async function AdminDashboardPage() {
             Authoritative platform performance, seller ecosystem, and catalog governance
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
           <Link href="/admin/products?status=submitted" className="button button-outline" style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '4px' }}>
             Review Products
           </Link>

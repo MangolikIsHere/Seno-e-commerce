@@ -835,7 +835,7 @@ export function ProductForm({
                     ['300g (Tee / Top)', '300'],
                     ['500g (Shirt / Trousers)', '500'],
                     ['800g (Knit / Denim)', '800'],
-                    ['1200g (Outerwear)', '1200']
+                    ['1200g (Heavy Jacket)', '1200']
                   ].map(([label, grams]) => (
                     <button
                       key={grams}
@@ -1044,7 +1044,7 @@ export function ProductForm({
 
           {/* Variants Table */}
           {variants.length > 0 ? (
-            <div style={{ overflowX: 'auto' }}>
+            <div className="seller-table-wrapper">
               <table className="variant-table admin-table">
                 <thead>
                   <tr>

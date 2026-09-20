@@ -2,13 +2,14 @@ import React from 'react'
 import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
 import { SenoImage } from '@/components/SenoImage'
-import { getNewArrivals, getBestsellers } from '@/lib/catalog'
+import { getNewArrivals, getBestsellers, getCollectionProducts } from '@/lib/catalog'
 import { getActiveCategories } from '@/lib/categories'
 
 export default async function HomePage() {
   const newArrivals = await getNewArrivals(8)
   const bestsellers = await getBestsellers(8)
   const categories = await getActiveCategories()
+  const cosmeticsProducts = (await getCollectionProducts('cosmetics', { sort: 'Newest' })).slice(0, 8)
 
   const categoryPresentation: Record<string, { subtitle: string; className?: string }> = {
     'ethnic-traditional-wear': {
@@ -119,25 +120,39 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 5. FEATURED EDIT */}
+      {/* 5. BEAUTY EDIT */}
       <section className="featured-edit-banner">
-        <div className="featured-edit-content">
-          <span className="section-kicker">EDITORIAL EDIT</span>
-          <h2>THE SENO EDIT</h2>
-          <p>
-            Considered tactile layers engineered for seamless daily transitions. High density ribbing, unwashed Japanese raw denim, and fluid tropical wools designed to age with personality.
-          </p>
-          <Link href="/collections/all" className="dark-btn" style={{ display: 'inline-flex', padding: '14px 28px' }}>
-            EXPLORE THE EDIT <span>→</span>
-          </Link>
-        </div>
-        <div className="featured-edit-image">
-          <SenoImage
-            src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1000&q=80"
-            alt="The SENO Edit"
+        <div className="bg-image">
+          <img
+            src="/images/cosmetics_banner.png"
+            alt="The Beauty Edit"
           />
         </div>
+        
+        <div className="featured-edit-content">
+          <span className="section-kicker" style={{ color: 'var(--ink)' }}>CURATED BEAUTY</span>
+          <h2>
+            THE BEAUTY EDIT
+          </h2>
+          <p>
+            Elevate your everyday routine with our curated selection of premium beauty essentials.
+          </p>
+          <Link href="/collections/cosmetics" className="dark-btn" style={{ display: 'inline-flex', padding: '15px 32px', letterSpacing: '1px' }}>
+            SHOP COSMETICS <span>→</span>
+          </Link>
+        </div>
       </section>
+
+      {/* 5b. BEAUTY PRODUCTS RAIL */}
+      {cosmeticsProducts.length > 0 && (
+        <section className="section-padding" style={{ paddingTop: '24px' }}>
+          <div className="product-rail" aria-label="Beauty Edit" tabIndex={0}>
+            {cosmeticsProducts.map(product => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 6. BRAND STATEMENT */}
       <section className="brand-statement-section">

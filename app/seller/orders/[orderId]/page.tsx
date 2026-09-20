@@ -55,7 +55,7 @@ export default async function SellerOrderDetailPage({ params }: { params: Promis
         </Link>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.7fr', gap: '24px' }}>
+      <div className="seller-order-detail-grid-2col">
         <section style={{ display: 'grid', gap: '24px' }}>
           <div className="admin-table-card" style={{ padding: '24px' }}>
             <span className="section-kicker">SELLER ORDER</span>
@@ -77,15 +77,15 @@ export default async function SellerOrderDetailPage({ params }: { params: Promis
 
           <div className="admin-table-card" style={{ padding: '24px' }}>
             <h2 style={{ fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 18px' }}>Customer & shipping</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              <div style={{ display: 'grid', gap: '10px' }}>
-                <div><div style={{ color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase' }}>Customer name</div><div style={{ fontWeight: 600 }}>{customer.recipient_name || '—'}</div></div>
+            <div className="seller-order-detail-inner-grid">
+              <div style={{ display: 'grid', gap: '10px', minWidth: 0 }}>
+                <div style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}><div style={{ color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase' }}>Customer name</div><div style={{ fontWeight: 600 }}>{customer.recipient_name || '—'}</div></div>
                 <div><div style={{ color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase' }}>Phone</div><div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}><Phone size={14} /> {customer.phone || '—'}</div></div>
-                <div><div style={{ color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase' }}>Email</div><div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}><Mail size={14} /> {order.customer_email || 'Not provided'}</div></div>
+                <div style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}><div style={{ color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase' }}>Email</div><div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}><Mail size={14} /> {order.customer_email || 'Not provided'}</div></div>
               </div>
-              <div style={{ display: 'grid', gap: '8px' }}>
+              <div style={{ display: 'grid', gap: '8px', minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}><MapPin size={14} /> Shipping address</div>
-                <div style={{ lineHeight: 1.6, color: 'var(--ink)' }}>
+                <div style={{ lineHeight: 1.6, color: 'var(--ink)', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                   <div>{customer.address_line1 || '—'}</div>
                   {customer.address_line2 ? <div>{customer.address_line2}</div> : null}
                   <div>{customer.city || ''}{customer.city && customer.state ? ', ' : ''}{customer.state || ''} {customer.postal_code || ''}</div>
@@ -97,18 +97,18 @@ export default async function SellerOrderDetailPage({ params }: { params: Promis
 
           <div className="admin-table-card" style={{ padding: '24px' }}>
             <h2 style={{ fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 18px' }}>Items</h2>
-            <div style={{ display: 'grid', gap: '18px' }}>
+            <div style={{ display: 'grid', gap: '18px', minWidth: 0 }}>
               {order.order_items?.map((item: any) => (
-                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '72px 1fr auto', gap: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
+                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '72px 1fr auto', gap: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border)', minWidth: 0 }} className="seller-order-item-row">
                   <div style={{ width: '72px', height: '88px', borderRadius: '2px', overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface-subtle)' }}>
                     {item.image_url ? <img src={item.image_url} alt={item.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
                   </div>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{item.product_name}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>
+                  <div style={{ minWidth: 0, overflowWrap: 'break-word' }}>
+                    <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>{item.product_name}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px', overflowWrap: 'break-word' }}>
                       SKU: {item.sku} · Qty: {item.quantity} · Variant: {item.variant_details?.size || 'Default'}{item.variant_details?.colour ? ` / ${item.variant_details.colour}` : ''}
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '6px' }}>Unit price: {money(Number(item.unit_price))}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '6px', overflowWrap: 'break-word' }}>Unit price: {money(Number(item.unit_price))}</div>
                   </div>
                   <div style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{money(Number(item.total_price))}</div>
                 </div>

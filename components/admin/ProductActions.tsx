@@ -133,7 +133,7 @@ export function ProductActions({ product, onOptimisticUpdate }: ProductActionsPr
               This will remove this product from the active catalog. 
               If the product has historical orders, it will be archived instead to preserve commerce history.
             </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button 
                 type="button"
                 className="button button-outline"
@@ -145,7 +145,7 @@ export function ProductActions({ product, onOptimisticUpdate }: ProductActionsPr
               <button 
                 type="button"
                 className="button button-primary"
-                style={{ background: 'var(--error)', borderColor: 'var(--error)' }}
+                style={{ background: '#e53e3e', borderColor: '#e53e3e', color: 'white' }}
                 onClick={handleDelete}
                 disabled={isPending}
               >

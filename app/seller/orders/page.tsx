@@ -90,9 +90,9 @@ export default async function SellerOrdersPage() {
                       </span>
                     </div>
                   </div>
-                  <div>
+                  <div style={{ minWidth: 0, overflowWrap: 'break-word' }}>
                     <span style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', fontSize: '10px' }}>Ship To</span>
-                    <span style={{ fontWeight: 500 }}>{item.orders.shipping_address?.recipient_name}</span>
+                    <span style={{ fontWeight: 500, wordBreak: 'break-word' }}>{item.orders.shipping_address?.recipient_name}</span>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -112,12 +112,12 @@ export default async function SellerOrdersPage() {
                   </div>
                   
                   {item.orders.shipping_address && (
-                    <div style={{ fontSize: '12px', padding: '14px 16px', background: 'var(--surface-subtle)', border: '1px solid var(--border)', borderRadius: '2px', lineHeight: 1.5 }}>
+                    <div style={{ fontSize: '12px', padding: '14px 16px', background: 'var(--surface-subtle)', border: '1px solid var(--border)', borderRadius: '2px', lineHeight: 1.5, minWidth: 0, overflowWrap: 'break-word' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}>
                         <MapPin size={13} />
                         <span>Destination Address</span>
                       </div>
-                      <div>{item.orders.shipping_address.address_line1}, {item.orders.shipping_address.city}, {item.orders.shipping_address.state} {item.orders.shipping_address.postal_code}</div>
+                      <div className="seller-address-block">{item.orders.shipping_address.address_line1}, {item.orders.shipping_address.city}, {item.orders.shipping_address.state} {item.orders.shipping_address.postal_code}</div>
                       <div style={{ color: 'var(--muted)', marginTop: '4px' }}>Phone: {item.orders.shipping_address.phone}</div>
                     </div>
                   )}

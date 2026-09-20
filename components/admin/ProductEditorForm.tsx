@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { 
   ArrowLeft, 
+  ArrowRight,
   Plus, 
   Trash2, 
   Upload, 
@@ -370,6 +371,44 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
     })
   }
 
+  const validateCurrentTab = () => {
+    setError(null)
+    setSuccess(null)
+    if (activeTab === 'details') {
+      if (!name.trim()) {
+        setError('Please provide a product title.')
+        return false
+      }
+      if (!slug.trim()) {
+        setError('Please provide a URL slug.')
+        return false
+      }
+    } else if (activeTab === 'pricing') {
+      if (price === '' || Number(price) < 0) {
+        setError('Please provide a valid retail price.')
+        return false
+      }
+      if (!categoryId) {
+        setError('Please select a primary department/category.')
+        return false
+      }
+      if (!defaultWeightGrams || Number(defaultWeightGrams) <= 0) {
+        setError('Please provide a valid default shipping weight.')
+        return false
+      }
+      if (shippingMethod === 'custom' && (customDeliveryCharge === '' || Number(customDeliveryCharge) < 0)) {
+        setError('Please provide a valid custom delivery charge.')
+        return false
+      }
+    } else if (activeTab === 'media') {
+      if (images.length === 0) {
+        setError('Please add at least one product image.')
+        return false
+      }
+    }
+    return true
+  }
+
   return (
     <div className="product-editor-page" style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '80px' }}>
       {/* Top Header */}
@@ -460,7 +499,18 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => {
+                const tabOrder = ['details', 'pricing', 'media', 'variants']
+                const currentIndex = tabOrder.indexOf(activeTab)
+                const targetIndex = tabOrder.indexOf(tab.id)
+                if (targetIndex > currentIndex) {
+                  if (!validateCurrentTab()) {
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                    return
+                  }
+                }
+                setActiveTab(tab.id as any)
+              }}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -1314,34 +1364,64 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
           </Link>
 
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="dark-btn"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '14px 28px',
-                fontSize: '11px',
-                letterSpacing: '1.5px',
-                fontWeight: 600,
-                borderRadius: '2px',
-                opacity: isPending ? 0.7 : 1
-              }}
-            >
-              {isPending ? (
-                <>
-                  <RefreshCw size={14} className="animate-spin" />
-                  <span>SYNCHRONIZING WITH SUPABASE...</span>
-                </>
-              ) : (
-                <>
-                  <Check size={14} />
-                  <span>{mode === 'create' ? 'CREATE & PUBLISH PIECE' : 'SAVE CHANGES TO DATABASE'}</span>
-                </>
-              )}
-            </button>
+            {activeTab !== 'variants' ? (
+              <button
+                type="button"
+                className="dark-btn"
+                onClick={() => {
+                  if (!validateCurrentTab()) {
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                    return
+                  }
+                  if (activeTab === 'details') setActiveTab('pricing')
+                  else if (activeTab === 'pricing') setActiveTab('media')
+                  else if (activeTab === 'media') setActiveTab('variants')
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '14px 28px',
+                  fontSize: '11px',
+                  letterSpacing: '1.5px',
+                  fontWeight: 600,
+                  borderRadius: '2px'
+                }}
+              >
+                <span>CONTINUE</span>
+                <ArrowRight size={14} />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={isPending}
+                className="dark-btn"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '14px 28px',
+                  fontSize: '11px',
+                  letterSpacing: '1.5px',
+                  fontWeight: 600,
+                  borderRadius: '2px',
+                  opacity: isPending ? 0.7 : 1
+                }}
+              >
+                {isPending ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>SYNCHRONIZING WITH SUPABASE...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} />
+                    <span>{mode === 'create' ? 'CREATE & PUBLISH PIECE' : 'SAVE CHANGES TO DATABASE'}</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </form>

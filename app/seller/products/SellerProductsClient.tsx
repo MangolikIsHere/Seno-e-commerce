@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { ArrowUpRight, Filter, Package, Plus, Search } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Filter, Package, Plus, Search } from 'lucide-react'
 import { money } from '@/lib/catalog'
 import { SenoImage } from '@/components/SenoImage'
 import { ProductActions } from '@/components/admin/ProductActions'
@@ -36,10 +36,27 @@ export function SellerProductsClient({ products, categories }: { products: any[]
 
   return (
     <section>
+      <div style={{ marginBottom: '24px' }}>
+        <Link 
+          href="/seller/dashboard" 
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '12px',
+            color: 'var(--muted)',
+            textDecoration: 'none',
+            letterSpacing: '0.5px'
+          }}
+        >
+          <ArrowLeft size={14} />
+          <span>Back to Seller Dashboard</span>
+        </Link>
+      </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '18px', flexWrap: 'wrap', marginBottom: '24px' }}>
-        <div>
+        <div style={{ minWidth: 0, flex: '1 1 200px', overflowWrap: 'break-word' }}>
           <span className="section-kicker">SELLER STUDIO / CATALOG</span>
-          <h1 className="static-page-title" style={{ margin: '4px 0 6px', fontSize: '28px' }}>Product Library</h1>
+          <h1 className="static-page-title" style={{ margin: '4px 0 6px', fontSize: 'clamp(24px, 4vw, 28px)', wordBreak: 'break-word', overflowWrap: 'break-word' }}>Product Library</h1>
           <p style={{ color: 'var(--muted)', margin: 0, fontSize: '13px' }}>
             Manage submitted listings, catalog pricing, live inventory, and SENO review statuses.
           </p>
@@ -123,7 +140,7 @@ export function SellerProductsClient({ products, categories }: { products: any[]
           </Link>
         </div>
       ) : (
-        <div className="admin-table-card" style={{ overflowX: 'auto' }}>
+        <div className="admin-table-card seller-table-wrapper" style={{ overflowX: 'auto' }}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--muted)', fontSize: '12px' }}>
             <span>Showing {filteredProducts.length} products</span>
             <span style={{ fontSize: '11px' }}>Updated in real-time</span>
