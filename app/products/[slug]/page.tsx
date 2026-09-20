@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     }
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seno-luxury.com'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
   const productUrl = `${siteUrl}/products/${product.slug}`
   const primaryImage = product.images[0] || product.image
 
@@ -62,7 +62,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   const relatedProducts = await getRelatedProducts(product, 4)
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seno-luxury.com'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
   // Schema.org Product Structured Data
   const jsonLd = {

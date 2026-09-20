@@ -43,8 +43,10 @@ export interface VerifyPaymentResult {
  * Secrets remain strictly server-side.
  */
 export async function getPaymentConfigAction(): Promise<PaymentConfig> {
+  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+  if (!keyId) throw new Error('NEXT_PUBLIC_RAZORPAY_KEY_ID is not configured.')
   return {
-    keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_seno_demo_key',
+    keyId: keyId,
     currency: 'INR'
   }
 }
@@ -123,8 +125,9 @@ export async function createRazorpayOrderAction(orderId: string): Promise<Razorp
     }
 
     // 3. Create Razorpay order via REST API or test simulator
-    const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_seno_demo_key'
-    const keySecret = process.env.RAZORPAY_KEY_SECRET || 'seno_demo_secret_key_12345'
+    const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+    const keySecret = process.env.RAZORPAY_KEY_SECRET
+    if (!keyId || !keySecret) throw new Error('Razorpay credentials are not configured.')
 
     let generatedRazorpayOrderId = ''
 
@@ -259,7 +262,8 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ve
     }
 
     // 3. Cryptographic Signature Verification
-    const keySecret = process.env.RAZORPAY_KEY_SECRET || 'seno_demo_secret_key_12345'
+    const keySecret = process.env.RAZORPAY_KEY_SECRET
+    if (!keySecret) throw new Error('Razorpay Secret is not configured.')
     const expectedSignature = crypto
       .createHmac('sha256', keySecret)
       .update(`${input.razorpayOrderId}|${input.razorpayPaymentId}`)

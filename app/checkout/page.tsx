@@ -75,7 +75,7 @@ export default function CheckoutPage() {
 
   // Razorpay public config & active order tracking
   const [paymentConfig, setPaymentConfig] = useState<{ keyId: string; currency: string }>({
-    keyId: 'rzp_test_seno_demo_key',
+    keyId: '',
     currency: 'INR'
   })
   const [activeOrder, setActiveOrder] = useState<ActiveOrderState | null>(null)
@@ -372,8 +372,8 @@ export default function CheckoutPage() {
       const simPaymentId = `pay_sim_${Date.now()}`
       const simOrderId = activeOrder.razorpay_order_id || `order_sim_${Date.now()}`
 
-      // Create valid HMAC SHA256 signature using secret
-      const keySecret = 'seno_demo_secret_key_12345'
+      // Simulator now fails gracefully since server lacks demo key
+      const keySecret = 'removed_demo_secret'
       const crypto = await import('crypto')
       const simSignature = crypto.createHmac('sha256', keySecret).update(`${simOrderId}|${simPaymentId}`).digest('hex')
 

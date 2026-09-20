@@ -824,8 +824,9 @@ export async function cancelAndRefundOrderItemAction(orderItemId: string, reason
   }
 
   // 2. Call Razorpay Refund API
-  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_seno_demo_key'
-  const keySecret = process.env.RAZORPAY_KEY_SECRET || 'seno_demo_secret_key_12345'
+  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+  const keySecret = process.env.RAZORPAY_KEY_SECRET
+  if (!keyId || !keySecret) throw new Error('Razorpay credentials are not configured.')
   const isMock = keyId.startsWith('rzp_test_seno_demo') || keySecret.startsWith('seno_demo')
 
   const amountPaise = Math.round(Number(refundable_amount) * 100)
