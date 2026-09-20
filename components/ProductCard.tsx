@@ -72,7 +72,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', flexDirection: 'column', gap: '4px', zIndex: 2 }}>
             {product.soldOut ? (
               <span className="badge sold-out-badge" style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                Archived / Sold Out
+                Sold Out
               </span>
             ) : product.isNew ? (
               <span className="badge new-badge" style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>

@@ -3,6 +3,7 @@
 import crypto from 'crypto'
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { revalidateStorefrontForOrder } from './storefront-revalidation'
 
 export interface PaymentConfig {
   keyId: string
@@ -301,6 +302,7 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ve
     revalidatePath('/seller/dashboard')
     revalidatePath('/admin/orders')
     revalidatePath('/account')
+    await revalidateStorefrontForOrder(order.id, supabase)
 
     return {
       success: true,
@@ -343,6 +345,7 @@ export async function cancelUnpaidOrderAction(orderId: string, reason?: string) 
     revalidatePath('/seller/dashboard')
     revalidatePath('/admin/orders')
     revalidatePath('/account')
+    await revalidateStorefrontForOrder(orderId, supabase)
 
     return {
       success: true,
@@ -378,6 +381,8 @@ export async function recordPaymentFailureAction(
     if (error) {
       return { success: false, error: error.message }
     }
+
+    await revalidateStorefrontForOrder(orderId, supabase)
 
     return { success: true, ...data }
   } catch (err: unknown) {

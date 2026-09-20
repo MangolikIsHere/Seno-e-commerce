@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { revalidateStorefrontForOrder } from './storefront-revalidation'
 
 export interface OrderAddress {
   recipient_name: string
@@ -238,6 +239,10 @@ export async function placeOrderAction(
       total_amount: number
       total_weight_grams: number
       is_duplicate: boolean
+    }
+
+    if (result.success && result.order_id) {
+      await revalidateStorefrontForOrder(result.order_id, supabase)
     }
 
     return {

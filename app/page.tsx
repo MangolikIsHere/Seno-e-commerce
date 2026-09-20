@@ -5,6 +5,8 @@ import { SenoImage } from '@/components/SenoImage'
 import { getNewArrivals, getBestsellers, getCollectionProducts } from '@/lib/catalog'
 import { getActiveCategories } from '@/lib/categories'
 
+export const revalidate = 300
+
 export default async function HomePage() {
   const newArrivals = await getNewArrivals(8)
   const bestsellers = await getBestsellers(8)

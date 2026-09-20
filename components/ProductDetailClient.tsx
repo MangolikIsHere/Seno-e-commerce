@@ -192,7 +192,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
           {/* Inventory Availability Status */}
           <div className="inventory-status-notice">
             {product.soldOut ? (
-              <span className="status-soldout">ARCHIVED / SOLD OUT</span>
+              <span className="status-soldout">SOLD OUT</span>
             ) : selectedVariant ? (
               selectedVariant.inventoryQuantity > 0 ? (
                 <span className="status-instock">
