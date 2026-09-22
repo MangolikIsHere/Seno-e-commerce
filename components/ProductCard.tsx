@@ -18,12 +18,6 @@ export function ProductCard({ product, returnContext }: ProductCardProps) {
 
   const wishlisted = isWishlisted(product.slug)
 
-  const handleNavigationStart = () => {
-    // Save return context (WHERE TO GO BACK TO) - completely separate from the product destination
-    const context = returnContext || window.location.pathname + window.location.search + window.location.hash
-    sessionStorage.setItem('seno_return_context', context)
-  }
-
   const handleWishlistClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -51,7 +45,7 @@ export function ProductCard({ product, returnContext }: ProductCardProps) {
         href={`/products/${product.slug}`}
         className="product-visual-wrapper"
         style={{ display: 'block', position: 'relative' }}
-        onClick={handleNavigationStart}
+        data-return-context={returnContext || undefined}
       >
         <div className="product-visual" style={{ position: 'relative', overflow: 'hidden', aspectRatio: '3 / 4', background: 'var(--card-bg)' }}>
           <SenoImage
@@ -120,7 +114,11 @@ export function ProductCard({ product, returnContext }: ProductCardProps) {
       </Link>
 
       {/* Text section: navigates to product */}
-      <Link href={`/products/${product.slug}`} style={{ display: 'block' }} onClick={handleNavigationStart}>
+      <Link 
+        href={`/products/${product.slug}`} 
+        style={{ display: 'block' }} 
+        data-return-context={returnContext || undefined}
+      >
         <div className="product-details-info" style={{ marginTop: '12px' }}>
           <span className="product-category-label" style={{ fontSize: '9.5px', letterSpacing: '1.4px', textTransform: 'uppercase', color: 'var(--muted)' }}>
             {product.category}
@@ -143,3 +141,4 @@ export function ProductCard({ product, returnContext }: ProductCardProps) {
     </article>
   )
 }
+

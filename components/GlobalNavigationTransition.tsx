@@ -98,6 +98,15 @@ export function GlobalNavigationTransition() {
         isPopstateRef.current = false
         pendingHashRef.current = destUrl.hash ? destUrl.hash.slice(1) : null
 
+        // Capture section-specific return context on product navigation
+        if (destUrl.pathname.startsWith('/products/')) {
+          if (!window.location.pathname.startsWith('/products/')) {
+            const explicitContext = anchor.getAttribute('data-return-context')
+            const fallbackContext = window.location.pathname + window.location.search + window.location.hash
+            sessionStorage.setItem('seno_return_context', explicitContext || fallbackContext)
+          }
+        }
+
         if (revealTimerRef.current) clearTimeout(revealTimerRef.current)
         setTransitionState('covering')
 
@@ -105,7 +114,7 @@ export function GlobalNavigationTransition() {
         if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current)
         safetyTimerRef.current = setTimeout(() => {
           setTransitionState('idle')
-        }, 2000)
+        }, 5000)
       } catch {
         // Ignore URL parsing errors
       }
@@ -169,13 +178,16 @@ export function GlobalNavigationTransition() {
         if (document.body) document.body.scrollTop = 0
       }
       requestAnimationFrame(() => {
-        // Transition to revealing state (triggers 200ms opacity fade out in CSS)
-        setTransitionState('revealing')
+        // Add a 50ms delay to guarantee the browser has painted the new layout and scroll position
+        setTimeout(() => {
+          // Transition to revealing state (triggers 200ms opacity fade out in CSS)
+          setTransitionState('revealing')
 
-        // Once the 200ms fade completes, unmount the overlay
-        revealTimerRef.current = setTimeout(() => {
-          setTransitionState('idle')
-        }, 220)
+          // Once the 200ms fade completes, unmount the overlay
+          revealTimerRef.current = setTimeout(() => {
+            setTransitionState('idle')
+          }, 220)
+        }, 50)
       })
     })
   }, [pathname, searchParams])
