@@ -87,7 +87,7 @@ export default async function HomePage() {
       </section>
 
       {/* 3. NEW ARRIVALS */}
-      <section className="section-padding">
+      <section className="section-padding" id="new-arrivals">
         <div className="section-header-flex">
           <div>
             <span className="section-kicker">CURATED RELEASES</span>
@@ -100,13 +100,13 @@ export default async function HomePage() {
 
         <div className="product-rail" aria-label="New arrivals" tabIndex={0}>
           {newArrivals.map(product => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard key={product.id} product={product} returnContext="/#new-arrivals" />
           ))}
         </div>
       </section>
 
       {/* 4. BESTSELLERS */}
-      <section className="section-padding bestseller-section">
+      <section className="section-padding bestseller-section" id="bestsellers">
         <div className="section-header-flex">
           <div>
             <span className="section-kicker">ESSENTIAL STAPLES</span>
@@ -117,7 +117,7 @@ export default async function HomePage() {
 
         <div className="product-rail" aria-label="Bestsellers" tabIndex={0}>
           {bestsellers.map(product => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard key={product.id} product={product} returnContext="/#bestsellers" />
           ))}
         </div>
       </section>
@@ -147,10 +147,10 @@ export default async function HomePage() {
 
       {/* 5b. BEAUTY PRODUCTS RAIL */}
       {cosmeticsProducts.length > 0 && (
-        <section className="section-padding" style={{ paddingTop: '24px' }}>
+        <section className="section-padding" id="beauty-edit" style={{ paddingTop: '24px' }}>
           <div className="product-rail" aria-label="Beauty Edit" tabIndex={0}>
             {cosmeticsProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard key={product.id} product={product} returnContext="/#beauty-edit" />
             ))}
           </div>
         </section>

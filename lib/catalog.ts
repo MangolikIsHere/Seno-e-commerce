@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { cache } from 'react'
 
 export type Category = 'Ethnic & Traditional Wear' | 'Western' | 'Topwear' | 'Bottomwear' | 'Cosmetics' | string
 
@@ -179,7 +180,7 @@ const selectQuery = `
   product_variants(id, size, colour, sku, price_override, weight_grams_override, is_active, inventory(quantity))
 `
 
-export const getProduct = async (slug: string): Promise<Product | undefined> => {
+export const getProduct = cache(async (slug: string): Promise<Product | undefined> => {
   const { data, error } = await supabase
     .from('products')
     .select(selectQuery)
@@ -191,7 +192,7 @@ export const getProduct = async (slug: string): Promise<Product | undefined> => 
     
   if (error || !data) return undefined
   return mapProductRow(data)
-}
+})
 
 export const getRelatedProducts = async (product: Product, limit = 4): Promise<Product[]> => {
   let matchedRows: any[] = []
@@ -295,12 +296,13 @@ export const getCollectionProducts = async (
   let list = data.map(mapProductRow)
 
   if (category && category !== 'All' && category !== 'All products' && category !== '' && category !== 'all') {
-    if (category === 'New arrivals' || category === 'new-arrivals') {
+    const normalizedCategory = category.toLowerCase()
+    if (normalizedCategory === 'new arrivals' || normalizedCategory === 'new-arrivals') {
        list = list.filter(p => p.isNew)
-    } else if (category === 'Bestsellers' || category === 'bestsellers') {
+    } else if (normalizedCategory === 'bestsellers') {
        list = list.filter(p => p.isBestseller)
     } else {
-       list = list.filter(p => p.category.toLowerCase() === category.toLowerCase())
+       list = list.filter(p => p.category.toLowerCase() === normalizedCategory)
     }
   }
 

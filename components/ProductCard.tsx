@@ -9,13 +9,20 @@ import { SenoImage } from '@/components/SenoImage'
 
 interface ProductCardProps {
   product: Product
+  returnContext?: string
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, returnContext }: ProductCardProps) {
   const { toggleWishlist, isWishlisted, addToCart } = useStore()
   const [added, setAdded] = useState(false)
 
   const wishlisted = isWishlisted(product.slug)
+
+  const handleNavigationStart = () => {
+    // Save return context (WHERE TO GO BACK TO) - completely separate from the product destination
+    const context = returnContext || window.location.pathname + window.location.search + window.location.hash
+    sessionStorage.setItem('seno_return_context', context)
+  }
 
   const handleWishlistClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -38,19 +45,20 @@ export function ProductCard({ product }: ProductCardProps) {
   const secondaryImg = product.hoverImage && product.hoverImage !== product.image ? product.hoverImage : null
 
   return (
-    <article className="product-card group">
-      <Link href={`/products/${product.slug}`} className="product-visual-wrapper">
+    <article className="product-card group" style={{ position: 'relative' }}>
+      {/* Image section: navigates to product */}
+      <Link
+        href={`/products/${product.slug}`}
+        className="product-visual-wrapper"
+        style={{ display: 'block', position: 'relative' }}
+        onClick={handleNavigationStart}
+      >
         <div className="product-visual" style={{ position: 'relative', overflow: 'hidden', aspectRatio: '3 / 4', background: 'var(--card-bg)' }}>
           <SenoImage
             src={primaryImg}
             alt={product.name}
             className="product-primary-img"
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              display: 'block'
-            }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
 
           {secondaryImg && (
@@ -58,13 +66,7 @@ export function ProductCard({ product }: ProductCardProps) {
               src={secondaryImg}
               alt=""
               className="product-secondary-img"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                position: 'absolute',
-                inset: 0
-              }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }}
             />
           )}
 
@@ -80,40 +82,45 @@ export function ProductCard({ product }: ProductCardProps) {
               </span>
             ) : product.isSale ? (
               <span className="badge sale-badge" style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                Privé
+                Prive
               </span>
             ) : null}
           </div>
 
-          {/* Wishlist Button */}
-          <button
-            className={`wishlist-btn ${wishlisted ? 'liked' : ''}`}
-            aria-label={wishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
-            onClick={handleWishlistClick}
-            type="button"
-          >
-            <Heart size={15} fill={wishlisted ? 'currentColor' : 'none'} />
-          </button>
-
-          {/* Quick Add Button */}
+          {/* Quick Add - inside image block, absolute positioned, stops propagation, marked data-no-navigation */}
           {!product.soldOut && (
             <button
               className="quick-add-btn"
               onClick={handleQuickAdd}
               aria-label={`Quick add ${product.name} to cart`}
               type="button"
+              data-no-navigation="true"
             >
               {added ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                   <Check size={12} /> ADDED
                 </span>
               ) : (
-                <span>QUICK ADD +</span>
+                <span>ADD +</span>
               )}
             </button>
           )}
-        </div>
 
+          {/* Wishlist - inside image block, absolute positioned, stops propagation, marked data-no-navigation */}
+          <button
+            className={`wishlist-btn ${wishlisted ? 'liked' : ''}`}
+            aria-label={wishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
+            onClick={handleWishlistClick}
+            type="button"
+            data-no-navigation="true"
+          >
+            <Heart size={15} fill={wishlisted ? 'currentColor' : 'none'} />
+          </button>
+        </div>
+      </Link>
+
+      {/* Text section: navigates to product */}
+      <Link href={`/products/${product.slug}`} style={{ display: 'block' }} onClick={handleNavigationStart}>
         <div className="product-details-info" style={{ marginTop: '12px' }}>
           <span className="product-category-label" style={{ fontSize: '9.5px', letterSpacing: '1.4px', textTransform: 'uppercase', color: 'var(--muted)' }}>
             {product.category}

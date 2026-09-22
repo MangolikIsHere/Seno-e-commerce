@@ -27,7 +27,9 @@
 
 html {
   background: var(--bg);
-  scroll-behavior: smooth;
+  /* scroll-behavior: smooth removed — causes visible bottom→top animation on mobile
+     when Next.js App Router calls its native scrollTo(0,0) on route change.
+     Smooth scrolling for hash anchors is handled via JS where needed. */
   color: var(--ink);
 }
 
@@ -771,11 +773,20 @@ a {
   backdrop-filter: blur(4px);
   color: var(--ink);
   padding: 7px;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(4px);
+  color: var(--ink);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2;
-  transition: transform 0.2s ease, color 0.2s ease, background 0.2s ease;
+  z-index: 4;
+  transition: transform 0.2s ease, background 0.2s ease;
+  /* Positioned relative to .product-visual */
 }
 
 .wishlist-btn:hover {
@@ -791,20 +802,22 @@ a {
 .quick-add-btn {
   position: absolute;
   bottom: 12px;
-  left: 12px;
   right: 12px;
-  background: rgba(23, 23, 23, 0.92);
-  color: #ffffff;
-  padding: 12px;
-  font-size: 9px;
-  letter-spacing: 1.8px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--ink);
+  padding: 6px 12px;
+  font-size: 8.5px;
+  letter-spacing: 1.4px;
   text-transform: uppercase;
   font-weight: 600;
   text-align: center;
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   opacity: 0;
   transform: translateY(6px);
-  transition: opacity 0.25s ease, transform 0.25s ease, background 0.2s ease;
-  z-index: 2;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.15s ease, color 0.15s ease;
+  z-index: 4;
+  /* Inside product-visual so positioned relative to image */
 }
 
 .product-card:hover .quick-add-btn {
@@ -819,8 +832,10 @@ a {
   }
 }
 
-.quick-add-btn:hover {
-  background: #000000;
+.quick-add-btn:hover,
+.quick-add-btn:active {
+  background: var(--ink);
+  color: #ffffff;
 }
 
 /* Product Info */
@@ -3627,16 +3642,46 @@ textarea.input-field {
   }
 }
 
-@media (max-width: 640px) {
-  .seller-order-detail-inner-grid {
-    grid-template-columns: 1fr !important;
-  }
+/* ==========================================================================
+   NAVIGATION LOADING FEEDBACK (S ANIMATION)
+   ========================================================================== */
+
+.seno-nav-loader-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  /* Fully opaque and instant — old page must NEVER show through, even for 1ms */
+  background-color: #fbfbfa;
+  opacity: 1;
+  /* Block all touch/click interaction with old page while navigating */
+  pointer-events: all;
+  transition: opacity 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: opacity;
 }
 
-@media (max-width: 480px) {
-  .seller-kpi-grid {
-    grid-template-columns: 1fr !important;
-  }
+.seno-nav-loader-container.revealing {
+  opacity: 0;
+  pointer-events: none;
 }
 
+.seno-nav-loader-s {
+  font-family: var(--font-outfit), sans-serif;
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -1px;
+  opacity: 0.8;
+  animation: pulseRotate 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
 
+@keyframes pulseRotate {
+  0%   { transform: scale(0.95); opacity: 0.5; }
+  50%  { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.5; }
+}

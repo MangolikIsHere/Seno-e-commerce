@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Heart, Minus, Plus, ShoppingBag, Check, RotateCcw } from 'lucide-react'
@@ -29,16 +29,38 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
   const [openAccordion, setOpenAccordion] = useState<string>('Details')
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false)
   const [addedNotice, setAddedNotice] = useState(false)
+  const [backUrl, setBackUrl] = useState('/collections/all')
+
+  // Read return context saved by ProductCard when navigating to this product
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('seno_return_context')
+      if (saved && saved.startsWith('/') && !saved.startsWith('/products/')) {
+        setBackUrl(saved)
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, [])
+
+  const handleBackToShop = () => {
+    try {
+      // Consume/clear return context so subsequent navigations don't use stale context
+      sessionStorage.removeItem('seno_return_context')
+    } catch {
+      // Ignore storage errors
+    }
+  }
 
   const wishlisted = isWishlisted(product.slug)
   const galleryImages = product.images.length > 0 ? product.images : [product.image]
-  
+
   // Find currently selected variant
-  const selectedVariant = product.variants.find(v => 
-    (!selectedSize || v.size === selectedSize) && 
+  const selectedVariant = product.variants.find(v =>
+    (!selectedSize || v.size === selectedSize) &&
     (!selectedColour || v.colour === selectedColour)
   )
-  
+
   const displayPrice = selectedVariant?.priceOverride ?? product.price
 
   const handleAddToCart = () => {
@@ -68,7 +90,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
 
   return (
     <div className="product-detail-container">
-      <Link href="/collections/all" className="breadcrumb-back-link">
+      <Link href={backUrl} onClick={handleBackToShop} className="breadcrumb-back-link">
         <ArrowLeft size={13} /> BACK TO SHOP
       </Link>
 
@@ -83,21 +105,21 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
                 onClick={() => setActiveImgIndex(idx)}
               >
                 <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-                  <SenoImage 
-                    src={imgUrl} 
-                    alt={`${product.name} view ${idx + 1}`} 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  <SenoImage
+                    src={imgUrl}
+                    alt={`${product.name} view ${idx + 1}`}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
                 </div>
               </button>
             ))}
           </div>
 
-          <div 
-            className="main-gallery-image" 
-            style={{ 
-              position: 'relative', 
-              overflow: 'hidden', 
+          <div
+            className="main-gallery-image"
+            style={{
+              position: 'relative',
+              overflow: 'hidden',
               background: 'var(--card-bg)',
               aspectRatio: galleryRatio ? `${galleryRatio}` : undefined,
               maxHeight: '82vh',
@@ -107,9 +129,9 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
               transition: 'aspect-ratio 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           >
-            <SenoImage 
-              src={galleryImages[activeImgIndex] || product.image} 
-              alt={product.name} 
+            <SenoImage
+              src={galleryImages[activeImgIndex] || product.image}
+              alt={product.name}
               onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
                 const img = e.currentTarget
                 if (img.naturalWidth && img.naturalHeight) {
@@ -340,7 +362,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
 
           <div className="product-grid columns-4">
             {relatedProducts.map(rp => (
-              <ProductCard key={rp.id} product={rp} />
+              <ProductCard key={rp.id} product={rp} returnContext={backUrl} />
             ))}
           </div>
         </section>
