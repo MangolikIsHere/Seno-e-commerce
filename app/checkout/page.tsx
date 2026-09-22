@@ -15,7 +15,7 @@ import {
   getPaymentConfigAction,
   createRazorpayOrderAction,
   verifyPaymentAction,
-  recordPaymentFailureAction
+  cancelAndReleaseCheckoutAction
 } from '@/lib/payments'
 
 interface ActiveOrderState {
@@ -78,7 +78,6 @@ export default function CheckoutPage() {
     keyId: '',
     currency: 'INR'
   })
-  const [activeOrder, setActiveOrder] = useState<ActiveOrderState | null>(null)
   const razorpayScriptLoaded = useRef(false)
 
   // Generate unique idempotency key on initial load
@@ -162,14 +161,10 @@ export default function CheckoutPage() {
 
       const rzpOrderId = rzpRes.razorpay_order_id
 
-      // Update active order state with linked Razorpay Order ID
-      setActiveOrder({
-        order_id: orderId,
-        order_number: orderNumber,
-        total_amount: rzpRes.amount ? rzpRes.amount / 100 : grandTotal,
-        purchased_variant_ids: purchasedVariantIds,
-        razorpay_order_id: rzpOrderId
-      })
+      // Update tracking variable (no longer visually locking the UI)
+      const currentOrderId = orderId
+      const currentOrderNumber = orderNumber
+      const currentVariantIds = purchasedVariantIds
 
       // 2. Open Razorpay modal if script loaded and in browser
       if (typeof window !== 'undefined' && window.Razorpay) {
@@ -225,11 +220,13 @@ export default function CheckoutPage() {
             }
           },
           modal: {
-            ondismiss: () => {
+            ondismiss: async () => {
               setIsSubmitting(false)
               setInfoMessage(
-                'Payment attempt was not completed. Your inventory reservation is held temporarily. You may retry payment, or your order will automatically expire.'
+                'PAYMENT NOT COMPLETED. Your payment was not completed and no inventory has been held. You can try again whenever you\'re ready.'
               )
+              // Authoritative server-side check and release
+              await cancelAndReleaseCheckoutAction(currentOrderId, rzpOrderId)
             }
           }
         }
@@ -238,14 +235,8 @@ export default function CheckoutPage() {
         rzp.on('payment.failed', async (response: any) => {
           setIsSubmitting(false)
           const reason = response.error?.description || 'Payment rejected by gateway.'
-          setErrorMessage(`Payment failed: ${reason}. Your inventory reservation has been released. You can try again if the item is still available.`)
-          await recordPaymentFailureAction(
-            orderId,
-            rzpOrderId,
-            response.error?.metadata?.payment_id || 'failed',
-            reason
-          )
-          setActiveOrder(null)
+          setErrorMessage(`Payment failed: ${reason}. Your payment was not completed and no inventory has been held.`)
+          await cancelAndReleaseCheckoutAction(currentOrderId, rzpOrderId)
         })
         rzp.open()
       } else {
@@ -270,18 +261,8 @@ export default function CheckoutPage() {
     setErrorMessage(null)
     setInfoMessage(null)
 
-    // CASE 1: PAYMENT RETRY (Reuse existing unpaid SENO order)
-    if (activeOrder) {
-      await launchRazorpayModal(
-        activeOrder.order_id,
-        activeOrder.order_number,
-        activeOrder.purchased_variant_ids,
-        activeOrder.razorpay_order_id
-      )
-      return
-    }
-
     // CASE 2: NEW ORDER CREATION
+    // (Retries are treated as new orders now, checking stock fresh)
     setIsSubmitting(true)
 
     try {
@@ -361,43 +342,6 @@ export default function CheckoutPage() {
 
 
 
-  // Dev Test Simulator Handler
-  const handleSimulatePayment = async () => {
-    if (!activeOrder) return
-    setIsVerifying(true)
-    setErrorMessage(null)
-
-    try {
-      // Simulate client payment response
-      const simPaymentId = `pay_sim_${Date.now()}`
-      const simOrderId = activeOrder.razorpay_order_id || `order_sim_${Date.now()}`
-
-      // Simulator now fails gracefully since server lacks demo key
-      const keySecret = 'removed_demo_secret'
-      const crypto = await import('crypto')
-      const simSignature = crypto.createHmac('sha256', keySecret).update(`${simOrderId}|${simPaymentId}`).digest('hex')
-
-      const verifyRes = await verifyPaymentAction({
-        orderId: activeOrder.order_id,
-        razorpayOrderId: simOrderId,
-        razorpayPaymentId: simPaymentId,
-        razorpaySignature: simSignature
-      })
-
-      if (!verifyRes.success) {
-        setErrorMessage(verifyRes.error || 'Simulated payment verification failed.')
-        setIsVerifying(false)
-        return
-      }
-
-      clearOrderedItems(activeOrder.purchased_variant_ids)
-      router.push(`/checkout/success?order_id=${activeOrder.order_id}&order_number=${activeOrder.order_number}`)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Simulation error.'
-      setErrorMessage(msg)
-      setIsVerifying(false)
-    }
-  }
 
   // Unauthenticated Guard
   if (authLoading || (user && loadingAddresses)) {
@@ -433,8 +377,8 @@ export default function CheckoutPage() {
     )
   }
 
-  // Empty Cart Guard (unless user has active pending order they are retrying)
-  if (cart.length === 0 && !activeOrder) {
+  // Empty Cart Guard
+  if (cart.length === 0) {
     return (
       <main className="static-page-container" style={{ minHeight: '50vh', textAlign: 'center', padding: '70px 20px' }}>
         <ShoppingBag size={38} strokeWidth={1.2} color="var(--muted)" style={{ margin: '0 auto 16px' }} />
@@ -507,32 +451,6 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        {/* Active Pending Order Banner (Retry State) */}
-        {activeOrder && (
-          <div style={{
-            background: '#fffbf0',
-            border: '1px solid #fceec5',
-            padding: '20px 24px',
-            marginBottom: '32px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '16px'
-          }}>
-            <div>
-              <span style={{ fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', color: '#b7791f', fontWeight: 600, display: 'block' }}>
-                RESERVATION ACTIVE (UNPAID)
-              </span>
-              <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '2px' }}>
-                Order #{activeOrder.order_number}
-              </div>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
-                Your items are reserved. Retrying will not duplicate your order or re-decrement stock.
-              </p>
-            </div>
-          </div>
-        )}
 
         <style dangerouslySetInnerHTML={{__html: `
           .checkout-grid { display: grid; grid-template-columns: 1fr 380px; gap: 48px; alignItems: start; }
@@ -584,14 +502,12 @@ export default function CheckoutPage() {
                           padding: '16px',
                           border: selectedAddressId === addr.id && !useNewAddress ? '1px solid var(--ink)' : '1px solid var(--border)',
                           background: selectedAddressId === addr.id && !useNewAddress ? 'var(--soft)' : '#fff',
-                          cursor: activeOrder ? 'not-allowed' : 'pointer',
-                          opacity: activeOrder ? 0.7 : 1
+                          cursor: 'pointer'
                         }}
                       >
                         <input
                           type="radio"
                           name="address_choice"
-                          disabled={!!activeOrder}
                           checked={selectedAddressId === addr.id && !useNewAddress}
                           onChange={() => {
                             setSelectedAddressId(addr.id)
@@ -622,14 +538,12 @@ export default function CheckoutPage() {
                         padding: '16px',
                         border: useNewAddress ? '1px solid var(--ink)' : '1px solid var(--border)',
                         background: useNewAddress ? 'var(--soft)' : '#fff',
-                        cursor: activeOrder ? 'not-allowed' : 'pointer',
-                        opacity: activeOrder ? 0.7 : 1
+                        cursor: 'pointer'
                       }}
                     >
                       <input
                         type="radio"
                         name="address_choice"
-                        disabled={!!activeOrder}
                         checked={useNewAddress}
                         onChange={() => setUseNewAddress(true)}
                         style={{ marginTop: '3px' }}
@@ -645,7 +559,6 @@ export default function CheckoutPage() {
                     <input
                       type="text"
                       placeholder="Recipient Full Name *"
-                      disabled={!!activeOrder}
                       className="form-input-field"
                       value={newAddress.recipient_name}
                       onChange={e => setNewAddress({ ...newAddress, recipient_name: e.target.value })}
@@ -654,7 +567,6 @@ export default function CheckoutPage() {
                     <input
                       type="text"
                       placeholder="Phone Number (for courier contact) *"
-                      disabled={!!activeOrder}
                       className="form-input-field"
                       value={newAddress.phone}
                       onChange={e => setNewAddress({ ...newAddress, phone: e.target.value })}
@@ -663,7 +575,6 @@ export default function CheckoutPage() {
                     <input
                       type="text"
                       placeholder="Address Line 1 (House/Flat, Street) *"
-                      disabled={!!activeOrder}
                       className="form-input-field"
                       value={newAddress.address_line1}
                       onChange={e => setNewAddress({ ...newAddress, address_line1: e.target.value })}
@@ -672,7 +583,6 @@ export default function CheckoutPage() {
                     <input
                       type="text"
                       placeholder="Address Line 2 (Apartment, Suite, Landmark - Optional)"
-                      disabled={!!activeOrder}
                       className="form-input-field"
                       value={newAddress.address_line2 || ''}
                       onChange={e => setNewAddress({ ...newAddress, address_line2: e.target.value })}
@@ -681,7 +591,6 @@ export default function CheckoutPage() {
                       <input
                         type="text"
                         placeholder="City *"
-                        disabled={!!activeOrder}
                         className="form-input-field"
                         value={newAddress.city}
                         onChange={e => setNewAddress({ ...newAddress, city: e.target.value })}
@@ -690,7 +599,6 @@ export default function CheckoutPage() {
                       <input
                         type="text"
                         placeholder="State *"
-                        disabled={!!activeOrder}
                         className="form-input-field"
                         value={newAddress.state}
                         onChange={e => setNewAddress({ ...newAddress, state: e.target.value })}
@@ -701,7 +609,6 @@ export default function CheckoutPage() {
                       <input
                         type="text"
                         placeholder="PIN / Postal Code *"
-                        disabled={!!activeOrder}
                         className="form-input-field"
                         value={newAddress.postal_code}
                         onChange={e => setNewAddress({ ...newAddress, postal_code: e.target.value })}
@@ -719,7 +626,6 @@ export default function CheckoutPage() {
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', marginTop: '4px', cursor: 'pointer' }}>
                       <input
                         type="checkbox"
-                        disabled={!!activeOrder}
                         checked={saveNewAddress}
                         onChange={e => setSaveNewAddress(e.target.checked)}
                         style={{ width: 'auto', margin: 0 }}
@@ -737,7 +643,6 @@ export default function CheckoutPage() {
                 </h2>
                 <textarea
                   placeholder="Special instructions for delivery (e.g. gate code, leave with concierge)"
-                  disabled={!!activeOrder}
                   className="form-input-field"
                   rows={3}
                   value={orderNotes}
@@ -817,7 +722,7 @@ export default function CheckoutPage() {
                 marginBottom: '24px'
               }}>
                 <span>Total Amount</span>
-                <span>{money(activeOrder ? activeOrder.total_amount : grandTotal)}</span>
+                <span>{money(grandTotal)}</span>
               </div>
 
               {/* Action Buttons */}
@@ -848,36 +753,11 @@ export default function CheckoutPage() {
                     <RefreshCw size={14} className="animate-spin" />
                     OPENING RAZORPAY GATEWAY...
                   </>
-                ) : activeOrder ? (
-                  'RETRY RAZORPAY PAYMENT →'
                 ) : (
                   'PROCEED TO RAZORPAY PAYMENT →'
                 )}
               </button>
 
-              {/* Dev Simulator Trigger (when in test/mock mode with active order) */}
-              {activeOrder && (
-                <button
-                  type="button"
-                  onClick={handleSimulatePayment}
-                  disabled={isVerifying || isSubmitting}
-                  className="outline-btn"
-                  style={{
-                    width: '100%',
-                    marginTop: '12px',
-                    padding: '12px',
-                    fontSize: '10px',
-                    letterSpacing: '1px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <ShieldCheck size={13} />
-                  SIMULATE VERIFIED PAYMENT (TEST MODE)
-                </button>
-              )}
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '16px', fontSize: '11px', color: 'var(--muted)' }}>
                 <ShieldCheck size={14} />

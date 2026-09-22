@@ -390,3 +390,36 @@ export async function recordPaymentFailureAction(
     return { success: false, error: msg }
   }
 }
+
+/**
+ * Server-authoritative cancellation: Checks Razorpay status before releasing inventory.
+ */
+export async function cancelAndReleaseCheckoutAction(orderId: string, razorpayOrderId: string) {
+  try {
+    const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+    const keySecret = process.env.RAZORPAY_KEY_SECRET
+    
+    if (keyId && keySecret && !keyId.startsWith('rzp_test_seno_demo')) {
+      const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString('base64')
+      const rzpResponse = await fetch(`https://api.razorpay.com/v1/orders/${razorpayOrderId}`, {
+        headers: {
+          'Authorization': `Basic ${basicAuth}`
+        }
+      })
+
+      if (rzpResponse.ok) {
+        const rzpData = await rzpResponse.json()
+        if (rzpData.status === 'paid' || rzpData.status === 'attempted' && rzpData.amount_paid > 0) {
+          // It's paid! Let the webhook or verifyPaymentAction handle confirmation. Do not release inventory.
+          return { success: false, reason: 'paid', message: 'Payment successfully captured on gateway.' }
+        }
+      }
+    }
+    
+    // Authoritatively release inventory and cancel the order
+    return await cancelUnpaidOrderAction(orderId, 'checkout_dismissed_or_failed')
+  } catch (err: unknown) {
+    // Failsafe: Release inventory so it doesn't get permanently stuck
+    return await cancelUnpaidOrderAction(orderId, 'checkout_dismissed_or_failed')
+  }
+}
