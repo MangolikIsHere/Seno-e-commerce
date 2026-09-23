@@ -23,10 +23,13 @@ export default function RegisterPage() {
     setError(null)
     setLoading(true)
 
+    const redirectUrl = `${window.location.origin}/auth/callback?next=/account`
+    
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo: redirectUrl,
         data: {
           full_name: `${firstName} ${lastName}`.trim(),
         },

@@ -1,8 +1,33 @@
 import { createClient } from '@supabase/supabase-js'
 
-const SUPABASE_URL = 'https://syvcrznkpisganlzkndq.supabase.co'
-const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5dmNyem5rcGlzZ2FubHprbmRxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTA1NDIzNSwiZXhwIjoyMTA0NjMwMjM1fQ.M-mwKs_V9a0ai3Mceg1yNKRXsETU0gdKGoXpUaOhDHw'
-const ANON_KEY = 'sb_publishable_i318fqT-qhppwqERoA32Tw_yIob1ltB'
+import * as dotenv from 'dotenv'
+
+// Load environment variables from .env.local if present in development / local testing
+try {
+  dotenv.config({ path: '.env.local' })
+  dotenv.config()
+} catch {
+  // dotenv optional if environment variables are injected externally
+}
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+
+if (!SUPABASE_URL) {
+  console.error('FATAL CONFIGURATION ERROR: NEXT_PUBLIC_SUPABASE_URL environment variable is missing.')
+  process.exit(1)
+}
+
+if (!SERVICE_KEY) {
+  console.error('FATAL CONFIGURATION ERROR: SUPABASE_SERVICE_ROLE_KEY environment variable is required to execute server-level security isolation tests. Refusing to run with fallback or hardcoded credentials.')
+  process.exit(1)
+}
+
+if (!ANON_KEY) {
+  console.error('FATAL CONFIGURATION ERROR: NEXT_PUBLIC_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY environment variable is missing.')
+  process.exit(1)
+}
 
 async function runSecurityVerification() {
   console.log('==================================================')

@@ -423,3 +423,58 @@ export async function cancelAndReleaseCheckoutAction(orderId: string, razorpayOr
     return await cancelUnpaidOrderAction(orderId, 'checkout_dismissed_or_failed')
   }
 }
+/**
+ * Safe server-authoritative reconciliation when user returns to app.
+ * Only acts on definitively paid or expired orders. Leaves unresolved orders alone.
+ */
+export async function reconcilePendingOrderAction(orderId: string, razorpayOrderId: string) {
+  try {
+    const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+    const keySecret = process.env.RAZORPAY_KEY_SECRET
+    
+    if (keyId && keySecret && !keyId.startsWith('rzp_test_seno_demo')) {
+      const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString('base64')
+      const rzpResponse = await fetch(`https://api.razorpay.com/v1/orders/${razorpayOrderId}`, {
+        headers: {
+          'Authorization': `Basic ${basicAuth}`
+        }
+      })
+
+      if (rzpResponse.ok) {
+        const rzpData = await rzpResponse.json()
+        
+        // Definitively Paid
+        if (rzpData.status === 'paid' || (rzpData.status === 'attempted' && rzpData.amount_paid > 0)) {
+          const supabase = await createClient()
+          const { data: confirmRes, error: confirmError } = await supabase.rpc('confirm_order_payment', {
+            p_order_id: orderId,
+            p_razorpay_order_id: razorpayOrderId,
+            p_razorpay_payment_id: rzpData.attempts > 0 ? (rzpData.id || razorpayOrderId) : razorpayOrderId
+          })
+          
+          if (confirmError) {
+             return { success: false, action: 'error', error: confirmError.message }
+          }
+          
+          return { success: true, action: 'paid', message: 'Payment successfully captured on gateway.', data: confirmRes }
+        }
+        
+        // Definitively Failed / Cancelled at Gateway (if gateway supports such status for orders)
+        if (rzpData.status === 'failed' || rzpData.status === 'cancelled') {
+           await cancelUnpaidOrderAction(orderId, 'gateway_marked_failed')
+           return { success: true, action: 'cancelled', message: 'Order was failed/cancelled at gateway. Inventory released.' }
+        }
+        
+        // If it's still 'created' or 'attempted' (but not paid), we MUST leave it pending
+        // to preserve concurrency and allow the user to retry inside the UPI app or modal.
+        return { success: true, action: 'pending', message: 'Payment unresolved. Leaving pending for cron expiration.' }
+      }
+    }
+    
+    return { success: false, action: 'unknown', error: 'Unable to fetch Razorpay status.' }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error reconciling payment.'
+    return { success: false, action: 'error', error: msg }
+  }
+}
+

@@ -15,7 +15,8 @@ import {
   getPaymentConfigAction,
   createRazorpayOrderAction,
   verifyPaymentAction,
-  cancelAndReleaseCheckoutAction
+  cancelAndReleaseCheckoutAction,
+  reconcilePendingOrderAction
 } from '@/lib/payments'
 
 interface ActiveOrderState {
@@ -78,6 +79,7 @@ export default function CheckoutPage() {
     keyId: '',
     currency: 'INR'
   })
+  const [activeOrderTracker, setActiveOrderTracker] = useState<{ orderId: string, razorpayOrderId: string } | null>(null)
   const razorpayScriptLoaded = useRef(false)
 
   // Generate unique idempotency key on initial load
@@ -120,6 +122,35 @@ export default function CheckoutPage() {
       setLoadingAddresses(false)
     }
   }, [user, profile, authLoading])
+
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && activeOrderTracker) {
+        // App returned to foreground (e.g., from UPI app). Securely ask server to reconcile order status.
+        try {
+          const res = await reconcilePendingOrderAction(activeOrderTracker.orderId, activeOrderTracker.razorpayOrderId)
+          if (res.success) {
+            if (res.action === 'paid') {
+               setErrorMessage(null)
+               setInfoMessage('Payment was completed successfully. Redirecting...')
+               router.push(`/checkout/success?order_id=${activeOrderTracker.orderId}`)
+               setActiveOrderTracker(null)
+               clearCart()
+            } else if (res.action === 'cancelled') {
+               setErrorMessage(res.message || 'Payment failed or was cancelled at gateway.')
+               setActiveOrderTracker(null)
+            }
+            // If action === 'pending', we do nothing and wait for the user to retry or the cron to expire it.
+          }
+        } catch (err) {
+          console.error('Reconciliation error:', err)
+        }
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [activeOrderTracker, router, clearCart])
 
   // Shipping calculation preview
   const shippingFee = calculateShippingForLines(
@@ -165,6 +196,7 @@ export default function CheckoutPage() {
       const currentOrderId = orderId
       const currentOrderNumber = orderNumber
       const currentVariantIds = purchasedVariantIds
+      setActiveOrderTracker({ orderId: currentOrderId, razorpayOrderId: rzpOrderId })
 
       // 2. Open Razorpay modal if script loaded and in browser
       if (typeof window !== 'undefined' && window.Razorpay) {

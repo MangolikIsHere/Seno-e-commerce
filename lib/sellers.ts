@@ -24,8 +24,11 @@ export interface Seller {
 }
 
 function getAdminSupabase() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing Supabase admin credentials (NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY).')
+  }
   return createSupabaseClient(supabaseUrl, supabaseServiceKey)
 }
 
@@ -875,11 +878,7 @@ export async function cancelAndRefundOrderItemAction(orderItemId: string, reason
 
   // 3. Update refund status
   // We use the admin client since this updates payment events
-  const { createClient: createSupabaseClient } = require('@supabase/supabase-js')
-  const adminSupabase = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const adminSupabase = getAdminSupabase()
 
   await adminSupabase.rpc('update_refund_status', {
     p_refund_event_id: refund_event_id,
