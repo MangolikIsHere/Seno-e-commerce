@@ -23,7 +23,7 @@ export default function RegisterPage() {
     setError(null)
     setLoading(true)
 
-    const redirectUrl = `${window.location.origin}/auth/callback?next=/account`
+    const redirectUrl = `${window.location.origin}/auth/callback?next=/`
     
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
