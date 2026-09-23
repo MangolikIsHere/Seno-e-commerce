@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
+import { FooterInstallButton } from '@/components/PwaInstallPrompt'
 
 export function Footer({ categories = [] }: { categories?: { name: string; slug: string }[] }) {
   const [email, setEmail] = useState('')
@@ -54,6 +55,7 @@ export function Footer({ categories = [] }: { categories?: { name: string; slug:
             <li><Link href="/wishlist">Saved Wishlist</Link></li>
             <li><Link href="/cart">Shopping Bag</Link></li>
             <li><Link href="/seller/register">Sell with SENO</Link></li>
+            <FooterInstallButton />
           </ul>
         </div>
 

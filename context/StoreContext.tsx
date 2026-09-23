@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { Product, Variant } from '@/lib/catalog'
 import { fetchUserWishlistIds, addProductToWishlist, removeProductFromWishlist } from '@/lib/wishlist'
 import { useAuth } from './AuthContext'
@@ -51,6 +51,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false)
   const { user } = useAuth()
 
+  const inFlightWishlistRef = useRef<Set<string>>(new Set())
+  const wishlistRef = useRef<string[]>(wishlist)
+
+  useEffect(() => {
+    wishlistRef.current = wishlist
+  }, [wishlist])
+
   // Hydrate from localStorage
   useEffect(() => {
     try {
@@ -74,10 +81,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Sync wishlist from DB if authenticated
   useEffect(() => {
+    let cancelled = false
     if (user) {
       fetchUserWishlistIds(user.id).then(ids => {
-        setWishlist(ids)
+        if (!cancelled) {
+          setWishlist(ids)
+        }
       })
+    }
+    return () => {
+      cancelled = true
     }
   }, [user])
 
@@ -164,20 +177,60 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }
 
   const toggleWishlist = async (slug: string) => {
-    setWishlist(prev => {
-      const isCurrentlyWishlisted = prev.includes(slug)
-      
-      if (user) {
-        // Background DB sync
-        if (isCurrentlyWishlisted) {
-          removeProductFromWishlist(user.id, slug)
-        } else {
-          addProductToWishlist(user.id, slug)
-        }
+    if (!slug) return
+
+    // Guard against duplicate / in-flight wishlist operations for the same product
+    if (inFlightWishlistRef.current.has(slug)) {
+      return
+    }
+    inFlightWishlistRef.current.add(slug)
+
+    // Determine current state outside the state updater
+    const wasWishlisted = wishlistRef.current.includes(slug)
+
+    // Optimistically update React state (pure update, no side effects inside!)
+    setWishlist(prev =>
+      wasWishlisted ? prev.filter(s => s !== slug) : [...prev, slug]
+    )
+
+    // If guest, localStorage sync is handled by useEffect([wishlist, user])
+    if (!user) {
+      inFlightWishlistRef.current.delete(slug)
+      return
+    }
+
+    // Authenticated user: sync with Supabase in the background
+    try {
+      let success = false
+      if (wasWishlisted) {
+        success = await removeProductFromWishlist(user.id, slug)
+      } else {
+        success = await addProductToWishlist(user.id, slug)
       }
-      
-      return isCurrentlyWishlisted ? prev.filter(s => s !== slug) : [...prev, slug]
-    })
+
+      if (!success) {
+        // Roll back optimistic update if the database operation failed
+        setWishlist(prev => {
+          if (wasWishlisted) {
+            return prev.includes(slug) ? prev : [...prev, slug]
+          } else {
+            return prev.filter(s => s !== slug)
+          }
+        })
+      }
+    } catch (err) {
+      console.error('Wishlist sync error:', err)
+      // Roll back optimistic update on exception
+      setWishlist(prev => {
+        if (wasWishlisted) {
+          return prev.includes(slug) ? prev : [...prev, slug]
+        } else {
+          return prev.filter(s => s !== slug)
+        }
+      })
+    } finally {
+      inFlightWishlistRef.current.delete(slug)
+    }
   }
 
   const isWishlisted = (slug: string) => wishlist.includes(slug)
