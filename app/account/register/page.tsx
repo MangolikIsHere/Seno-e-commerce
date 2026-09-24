@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
@@ -15,36 +15,86 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<boolean>(false)
   const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [resendStatus, setResendStatus] = useState<string | null>(null)
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  const isSubmittingRef = useRef(false)
+  const isResendingRef = useRef(false)
   const router = useRouter()
   const supabase = createClient()
 
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setTimeout(() => {
+      setResendCooldown(c => c - 1)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [resendCooldown])
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isSubmittingRef.current) return
+    isSubmittingRef.current = true
     setError(null)
     setLoading(true)
 
-    const redirectUrl = `${window.location.origin}/auth/callback?next=/`
-    
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: `${firstName} ${lastName}`.trim(),
-        },
-      },
-    })
+    try {
+      const redirectUrl = `${window.location.origin}/auth/confirm?next=/`
 
-    if (signUpError) {
-      setError(signUpError.message)
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            full_name: `${firstName} ${lastName}`.trim(),
+          },
+        },
+      })
+
+      if (signUpError) {
+        setError(signUpError.message)
+      } else if (data?.user && data.user.identities && data.user.identities.length === 0) {
+        setError('An account with this email is already registered.')
+      } else {
+        setSuccess(true)
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Registration failed. Please try again.')
+    } finally {
+      isSubmittingRef.current = false
       setLoading(false)
-    } else if (data?.user && data.user.identities && data.user.identities.length === 0) {
-      setError('An account with this email is already registered.')
-      setLoading(false)
-    } else {
-      setSuccess(true)
-      setLoading(false)
+    }
+  }
+
+  const handleResendConfirmation = async () => {
+    if (isResendingRef.current || resendCooldown > 0) return
+    isResendingRef.current = true
+    setResending(true)
+    setResendStatus(null)
+
+    try {
+      const redirectUrl = `${window.location.origin}/auth/confirm?next=/`
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim().toLowerCase(),
+        options: {
+          emailRedirectTo: redirectUrl,
+        },
+      })
+
+      if (resendError) {
+        setResendStatus(`Error: ${resendError.message}`)
+      } else {
+        setResendStatus('A new confirmation email has been sent. Please check your inbox.')
+        setResendCooldown(30)
+      }
+    } catch (err: unknown) {
+      setResendStatus(err instanceof Error ? err.message : 'Failed to resend confirmation email.')
+    } finally {
+      isResendingRef.current = false
+      setResending(false)
     }
   }
 
@@ -56,7 +106,35 @@ export default function RegisterPage() {
         <p className="static-intro-lead" style={{ textAlign: 'center' }}>
           We&apos;ve sent a confirmation link to {email}. Please verify your email to continue.
         </p>
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '32px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', marginTop: '32px' }}>
+          <button
+            type="button"
+            onClick={handleResendConfirmation}
+            disabled={resending || resendCooldown > 0}
+            className="outline-btn"
+            style={{
+              padding: '14px 28px',
+              fontSize: '10px',
+              letterSpacing: '2px',
+              cursor: (resending || resendCooldown > 0) ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {resending
+              ? 'SENDING...'
+              : resendCooldown > 0
+              ? `RESEND EMAIL (${resendCooldown}S)`
+              : 'RESEND CONFIRMATION EMAIL'}
+          </button>
+          {resendStatus && (
+            <p style={{
+              fontSize: '12px',
+              color: resendStatus.startsWith('Error') ? 'red' : 'var(--ink)',
+              textAlign: 'center',
+              maxWidth: '400px'
+            }}>
+              {resendStatus}
+            </p>
+          )}
           <Link href="/account" className="dark-btn" style={{ padding: '16px 32px', fontSize: '10px', letterSpacing: '2px', textDecoration: 'none' }}>
             RETURN TO SIGN IN
           </Link>
