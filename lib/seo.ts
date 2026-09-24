@@ -4,6 +4,7 @@ export const DEFAULT_TITLE = 'SENO — Considered Clothing & Objects'
 export const DEFAULT_DESCRIPTION =
   "Considered clothing and objects for a life in motion. Discover SENO's collection of contemporary clothing and everyday essentials."
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/brand/seno-mark-512.png`
+export const GOOGLE_SITE_VERIFICATION = 'Tz05-jzj2ZcGfXgRVxWFUjHHTcIpmB36_ACRq0AGbLc'
 
 /**
  * Returns an absolute canonical URL using the production domain https://www.seno.co.in

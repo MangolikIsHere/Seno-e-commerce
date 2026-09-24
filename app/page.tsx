@@ -11,12 +11,16 @@ import {
   DEFAULT_TITLE,
   DEFAULT_DESCRIPTION,
   DEFAULT_OG_IMAGE,
+  GOOGLE_SITE_VERIFICATION,
   websiteJsonLd,
 } from '@/lib/seo'
 
 export const revalidate = 300
 
 export const metadata: Metadata = {
+  verification: {
+    google: GOOGLE_SITE_VERIFICATION,
+  },
   title: {
     absolute: DEFAULT_TITLE,
   },

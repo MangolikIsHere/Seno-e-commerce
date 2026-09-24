@@ -19,11 +19,15 @@ import {
   DEFAULT_TITLE,
   DEFAULT_DESCRIPTION,
   DEFAULT_OG_IMAGE,
+  GOOGLE_SITE_VERIFICATION,
 } from '@/lib/seo'
 import './globals.css'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  verification: {
+    google: GOOGLE_SITE_VERIFICATION,
+  },
   title: {
     default: DEFAULT_TITLE,
     template: '%s | SENO',
