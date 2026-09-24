@@ -1,81 +1,129 @@
 import { MetadataRoute } from 'next'
 import { supabase } from '@/lib/supabase'
+import { SITE_URL } from '@/lib/seo'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
   const currentDate = new Date().toISOString()
-  const { data: activeCategories } = await supabase
-    .from('categories')
-    .select('slug')
-    .eq('is_active', true)
-    .order('display_order', { ascending: true })
 
-  // 1. Static Storefront Routes
+  // 1. Static Public Storefront Routes
   const staticRoutes: MetadataRoute.Sitemap = [
     {
-      url: `${siteUrl}`,
+      url: `${SITE_URL}`,
       lastModified: currentDate,
       changeFrequency: 'daily',
-      priority: 1.0
+      priority: 1.0,
     },
     {
-      url: `${siteUrl}/collections/all`,
+      url: `${SITE_URL}/collections/all`,
       lastModified: currentDate,
       changeFrequency: 'daily',
-      priority: 0.9
+      priority: 0.9,
     },
     {
-      url: `${siteUrl}/collections/new-arrivals`,
+      url: `${SITE_URL}/collections/new-arrivals`,
       lastModified: currentDate,
       changeFrequency: 'daily',
-      priority: 0.8
+      priority: 0.8,
     },
     {
-      url: `${siteUrl}/collections/bestsellers`,
+      url: `${SITE_URL}/collections/bestsellers`,
       lastModified: currentDate,
       changeFrequency: 'daily',
-      priority: 0.8
+      priority: 0.8,
     },
     {
-      url: `${siteUrl}/about`,
+      url: `${SITE_URL}/about`,
       lastModified: currentDate,
       changeFrequency: 'monthly',
-      priority: 0.5
+      priority: 0.5,
     },
     {
-      url: `${siteUrl}/journal`,
+      url: `${SITE_URL}/journal`,
       lastModified: currentDate,
       changeFrequency: 'weekly',
-      priority: 0.6
+      priority: 0.6,
     },
     {
-      url: `${siteUrl}/contact`,
+      url: `${SITE_URL}/contact`,
       lastModified: currentDate,
       changeFrequency: 'monthly',
-      priority: 0.4
+      priority: 0.4,
     },
     {
-      url: `${siteUrl}/shipping`,
+      url: `${SITE_URL}/shipping`,
       lastModified: currentDate,
       changeFrequency: 'monthly',
-      priority: 0.4
+      priority: 0.4,
     },
     {
-      url: `${siteUrl}/faq`,
+      url: `${SITE_URL}/faq`,
       lastModified: currentDate,
       changeFrequency: 'monthly',
-      priority: 0.4
-    }
+      priority: 0.4,
+    },
+    {
+      url: `${SITE_URL}/returns`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.4,
+    },
+    {
+      url: `${SITE_URL}/privacy`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.3,
+    },
+    {
+      url: `${SITE_URL}/terms`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.3,
+    },
+    {
+      url: `${SITE_URL}/refund-policy`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.3,
+    },
+    {
+      url: `${SITE_URL}/cancellation-policy`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.3,
+    },
   ]
 
-  const categoryRoutes: MetadataRoute.Sitemap = (activeCategories || []).map(category => ({
-    url: `${siteUrl}/collections/${category.slug}`,
+  // 2. Category Routes (Database backed with fallback)
+  let categorySlugs = [
+    'ethnic-traditional-wear',
+    'western',
+    'topwear',
+    'bottomwear',
+    'cosmetics',
+  ]
+
+  try {
+    const { data: activeCategories } = await supabase
+      .from('categories')
+      .select('slug')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+
+    if (activeCategories && activeCategories.length > 0) {
+      categorySlugs = Array.from(new Set(activeCategories.map((c) => c.slug)))
+    }
+  } catch {
+    // Keep fallback slugs on database glitch
+  }
+
+  const categoryRoutes: MetadataRoute.Sitemap = categorySlugs.map((slug) => ({
+    url: `${SITE_URL}/collections/${slug}`,
     lastModified: currentDate,
     changeFrequency: 'weekly',
-    priority: 0.8
+    priority: 0.8,
   }))
 
-  // 2. Database-backed Public Product Routes
+  // 3. Database-backed Public Product Routes
   try {
     const { data: products } = await supabase
       .from('products')
@@ -84,18 +132,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .eq('approval_status', 'approved')
 
     if (products && products.length > 0) {
-      const productRoutes: MetadataRoute.Sitemap = products.map(p => ({
-        url: `${siteUrl}/products/${p.slug}`,
+      const productRoutes: MetadataRoute.Sitemap = products.map((p) => ({
+        url: `${SITE_URL}/products/${p.slug}`,
         lastModified: p.updated_at || currentDate,
         changeFrequency: 'weekly',
-        priority: 0.8
+        priority: 0.8,
       }))
 
       return [...staticRoutes, ...categoryRoutes, ...productRoutes]
     }
   } catch {
-    // If DB query fails during build time, return static routes fallback
+    // If DB query fails during build time, return static + category routes
   }
 
-  return staticRoutes
+  return [...staticRoutes, ...categoryRoutes]
 }

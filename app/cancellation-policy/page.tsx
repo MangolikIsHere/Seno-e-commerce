@@ -1,4 +1,14 @@
 import React from 'react'
+import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  title: 'Cancellation Policy',
+  description: 'Understand order cancellation rules and procedures at SENO prior to fulfillment.',
+  alternates: {
+    canonical: `${SITE_URL}/cancellation-policy`,
+  },
+}
 
 export default function CancellationPolicyPage() {
   return (

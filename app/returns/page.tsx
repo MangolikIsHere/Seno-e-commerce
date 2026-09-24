@@ -1,4 +1,14 @@
 import React from 'react'
+import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  title: 'Returns & Exchanges',
+  description: 'Understand the return, replacement, and exchange guidelines for SENO orders.',
+  alternates: {
+    canonical: `${SITE_URL}/returns`,
+  },
+}
 
 export default function ReturnsPage() {
   return (

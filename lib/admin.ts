@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+import { notifyOrderItemFulfillmentChanged } from '@/lib/notifications/service'
 
 function getAdminSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -334,6 +335,8 @@ export async function updateAdminOrderFulfillment(formData: FormData): Promise<v
   if (error) {
     throw new Error(error.message)
   }
+
+  notifyOrderItemFulfillmentChanged(orderItemId, status, trackingNumber, carrier).catch(() => {})
 
   revalidatePath('/admin/orders')
   revalidatePath('/seller/orders')

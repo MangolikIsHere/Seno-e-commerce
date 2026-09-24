@@ -1,4 +1,14 @@
 import React from 'react'
+import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  title: 'Refund Policy',
+  description: 'Details on the refund process, timelines, and payment source reversals for SENO orders.',
+  alternates: {
+    canonical: `${SITE_URL}/refund-policy`,
+  },
+}
 
 export default function RefundPolicyPage() {
   return (

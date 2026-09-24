@@ -1,5 +1,15 @@
 import React from 'react'
+import type { Metadata } from 'next'
 import Link from 'next/link'
+import { SITE_URL } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  title: 'Shipping & Returns Overview',
+  description: 'Detailed information on standard shipping across India, delivery timelines, and our returns policy.',
+  alternates: {
+    canonical: `${SITE_URL}/shipping-returns`,
+  },
+}
 
 export default function ShippingReturnsPage() {
   return (

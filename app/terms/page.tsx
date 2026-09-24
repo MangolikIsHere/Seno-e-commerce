@@ -1,4 +1,14 @@
 import React from 'react'
+import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  title: 'Terms of Service',
+  description: 'Terms and conditions governing orders, customer service, and access to the SENO marketplace.',
+  alternates: {
+    canonical: `${SITE_URL}/terms`,
+  },
+}
 
 export default function TermsPage() {
   return (

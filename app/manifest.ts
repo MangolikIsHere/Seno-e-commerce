@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'SENO',
     short_name: 'SENO',
-    description: 'Considered clothing and objects for a life in motion. Designed in Mumbai.',
+    description: "Considered clothing and objects for a life in motion. Discover SENO's collection of contemporary clothing and everyday essentials.",
     start_url: '/',
     scope: '/',
     display: 'standalone',

@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import { StoreProvider } from '@/context/StoreContext'
 import { AuthProvider } from '@/context/AuthContext'
+import { NotificationProvider } from '@/context/NotificationContext'
 import { AnnouncementBar } from '@/components/AnnouncementBar'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
@@ -12,11 +13,59 @@ import { BrandIntro } from '@/components/BrandIntro'
 import { GlobalNavigationTransition } from '@/components/GlobalNavigationTransition'
 import { getActiveCategories } from '@/lib/categories'
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister'
+import {
+  SITE_URL,
+  SITE_NAME,
+  DEFAULT_TITLE,
+  DEFAULT_DESCRIPTION,
+  DEFAULT_OG_IMAGE,
+} from '@/lib/seo'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'SENO — Everyday, Elevated.',
-  description: 'Considered clothing and objects for a life in motion. Designed in Mumbai.',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: DEFAULT_TITLE,
+    template: '%s | SENO',
+  },
+  description: DEFAULT_DESCRIPTION,
+  alternates: {
+    canonical: '/',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_IN',
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE,
+        width: 512,
+        height: 512,
+        alt: DEFAULT_TITLE,
+        type: 'image/png',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE],
+  },
   generator: 'SENO Studio',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
@@ -61,6 +110,7 @@ export default async function RootLayout({
         <BrandIntro />
         <AuthProvider>
           <StoreProvider>
+            <NotificationProvider>
             <Suspense fallback={null}>
               <GlobalNavigationTransition />
             </Suspense>
@@ -73,6 +123,7 @@ export default async function RootLayout({
               <SearchModal />
             </div>
             <ServiceWorkerRegister />
+            </NotificationProvider>
           </StoreProvider>
         </AuthProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}

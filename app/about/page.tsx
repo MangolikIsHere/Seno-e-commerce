@@ -1,5 +1,15 @@
 import React from 'react'
+import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/seo'
 
+export const metadata: Metadata = {
+  title: 'About',
+  description: 'Considered clothing and objects for a life in perpetual movement. Learn about the philosophy and craftsmanship behind SENO.',
+  alternates: {
+    canonical: `${SITE_URL}/about`,
+  },
+}
+ 
 export default function AboutPage() {
   return (
     <main className="static-page-container">

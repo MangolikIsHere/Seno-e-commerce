@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Search, User, Heart, ShoppingBag, Menu, X, ArrowRight } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
+import { NotificationBell } from '@/components/NotificationBell'
 
 export function Header({ categories = [] }: { categories?: { name: string; slug: string }[] }) {
   const pathname = usePathname()
@@ -49,6 +50,7 @@ export function Header({ categories = [] }: { categories?: { name: string; slug:
 
   const accountLinks = [
     { label: 'Account Overview', href: '/account' },
+    { label: 'Notifications', href: '/account/notifications' },
     { label: 'Wishlist', href: '/wishlist' },
     { label: 'Shopping Cart', href: '/cart' },
   ]
@@ -85,6 +87,7 @@ export function Header({ categories = [] }: { categories?: { name: string; slug:
           </div>
 
           <div className="top-right">
+            <NotificationBell />
             <Link href="/account" className="header-action-btn">
               <User size={17} />
               <span>ACCOUNT</span>
@@ -148,6 +151,7 @@ export function Header({ categories = [] }: { categories?: { name: string; slug:
         </div>
 
         <div className="mobile-header-right">
+          <NotificationBell isMobile />
           <Link href="/account" className="mobile-icon-btn" aria-label="Account">
             <User size={19} />
           </Link>

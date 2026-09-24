@@ -1,4 +1,14 @@
 import React from 'react'
+import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy',
+  description: 'Understand how SENO collects, uses, and protects your personal information.',
+  alternates: {
+    canonical: `${SITE_URL}/privacy`,
+  },
+}
 
 export default function PrivacyPage() {
   return (

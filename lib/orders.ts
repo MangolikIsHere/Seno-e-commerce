@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidateStorefrontForOrder } from './storefront-revalidation'
+import { notifyOrderPlaced } from '@/lib/notifications/service'
 
 export interface OrderAddress {
   recipient_name: string
@@ -243,6 +244,7 @@ export async function placeOrderAction(
 
     if (result.success && result.order_id) {
       await revalidateStorefrontForOrder(result.order_id, supabase)
+      notifyOrderPlaced(result.order_id).catch(() => {})
     }
 
     return {

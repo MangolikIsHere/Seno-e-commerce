@@ -163,3 +163,64 @@ self.addEventListener('message', (event) => {
     self.skipWaiting()
   }
 })
+
+// =========================================================================
+// PWA WEB PUSH & NOTIFICATION CLICK HANDLERS
+// =========================================================================
+self.addEventListener('push', (event) => {
+  if (!event.data) return
+
+  let payload = {
+    title: 'SENO Update',
+    body: 'You have a new notification from SENO.',
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-192x192.png',
+    data: { url: '/account' }
+  }
+
+  try {
+    const data = event.data.json()
+    payload = {
+      title: data.title || payload.title,
+      body: data.body || payload.body,
+      icon: data.icon || payload.icon,
+      badge: data.badge || payload.badge,
+      data: data.data || { url: data.url || '/account' }
+    }
+  } catch (err) {
+    payload.body = event.data.text()
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: payload.icon,
+      badge: payload.badge,
+      data: payload.data,
+      vibrate: [100, 50, 100],
+      tag: 'seno-notification'
+    })
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+
+  const targetUrl = event.notification.data?.url || '/account'
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If a window is already open on this origin, focus it and navigate
+      for (const client of clientList) {
+        if (client.url && 'focus' in client) {
+          client.navigate(targetUrl)
+          return client.focus()
+        }
+      }
+      // Otherwise open a new window
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl)
+      }
+    })
+  )
+})

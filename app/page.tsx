@@ -1,11 +1,64 @@
 import React from 'react'
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
 import { SenoImage } from '@/components/SenoImage'
 import { getNewArrivals, getBestsellers, getCollectionProducts } from '@/lib/catalog'
 import { getActiveCategories } from '@/lib/categories'
+import {
+  SITE_URL,
+  SITE_NAME,
+  DEFAULT_TITLE,
+  DEFAULT_DESCRIPTION,
+  DEFAULT_OG_IMAGE,
+  websiteJsonLd,
+} from '@/lib/seo'
 
 export const revalidate = 300
+
+export const metadata: Metadata = {
+  title: {
+    absolute: DEFAULT_TITLE,
+  },
+  description: DEFAULT_DESCRIPTION,
+  alternates: {
+    canonical: SITE_URL,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  openGraph: {
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    type: 'website',
+    locale: 'en_IN',
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE,
+        width: 512,
+        height: 512,
+        alt: DEFAULT_TITLE,
+        type: 'image/png',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE],
+  },
+}
 
 export default async function HomePage() {
   const newArrivals = await getNewArrivals(8)
@@ -43,6 +96,10 @@ export default async function HomePage() {
 
   return (
     <div className="homepage-storefront">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
       {/* 1. HERO */}
       <section className="hero-section">
         <div className="hero-image-wrapper">

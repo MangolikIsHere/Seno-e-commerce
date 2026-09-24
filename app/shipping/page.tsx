@@ -1,4 +1,14 @@
 import React from 'react'
+import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  title: 'Shipping Policy',
+  description: 'Information regarding SENO shipping rates, fulfillment timelines, and delivery coverage across India.',
+  alternates: {
+    canonical: `${SITE_URL}/shipping`,
+  },
+}
 
 export default function ShippingPage() {
   return (

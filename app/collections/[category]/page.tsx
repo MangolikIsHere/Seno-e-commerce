@@ -2,6 +2,7 @@ import React from 'react'
 import type { Metadata } from 'next'
 import { CollectionView } from '@/components/CollectionView'
 import { getActiveCategories } from '@/lib/categories'
+import { SITE_URL, SITE_NAME, DEFAULT_OG_IMAGE } from '@/lib/seo'
 
 interface PageProps {
   params: Promise<{ category: string }>
@@ -10,41 +11,41 @@ interface PageProps {
 function getCategoryMeta(slug: string) {
   const metaMap: Record<string, { title: string; description: string }> = {
     all: {
-      title: 'Complete Collection — SENO',
+      title: 'Complete Collection',
       description: 'Explore the complete SENO catalog of contemporary silhouettes and considered objects.'
     },
     topwear: {
-      title: 'Topwear Collection — SENO',
+      title: 'Topwear Collection',
       description: 'Shirts, overshirts, and tees crafted from structured organic cotton and linen.'
     },
     bottomwear: {
-      title: 'Bottomwear Collection — SENO',
+      title: 'Bottomwear Collection',
       description: 'Pleated trousers, denim, and relaxed trousers designed for effortless everyday motion.'
     },
     'ethnic-traditional-wear': {
-      title: 'Ethnic & Traditional Wear — SENO',
+      title: 'Ethnic & Traditional Wear',
       description: 'Heritage silhouettes and modern craft from the current SENO catalog.'
     },
     western: {
-      title: 'Western — SENO',
+      title: 'Western Collection',
       description: 'Contemporary everyday forms from the current SENO catalog.'
     },
     cosmetics: {
-      title: 'Cosmetics — SENO',
+      title: 'Cosmetics Collection',
       description: 'Beauty, care, and finishing touches from the current SENO catalog.'
     },
     'new-arrivals': {
-      title: 'New Arrivals — SENO',
+      title: 'New Arrivals',
       description: 'Discover the latest additions to the SENO seasonal collection.'
     },
     bestsellers: {
-      title: 'Bestselling Pieces — SENO',
+      title: 'Bestselling Pieces',
       description: 'The most appreciated garments and objects in the SENO marketplace.'
     }
   }
 
   return metaMap[slug] || {
-    title: `${slug.toUpperCase()} — SENO`,
+    title: slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
     description: 'Considered clothing and objects for a life in motion.'
   }
 }
@@ -53,21 +54,36 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const resolvedParams = await params
   const slug = resolvedParams.category.toLowerCase()
   const meta = getCategoryMeta(slug)
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const canonicalUrl = `${SITE_URL}/collections/${slug}`
+  const ogTitle = `${meta.title} — SENO`
 
   return {
     title: meta.title,
     description: meta.description,
     alternates: {
-      canonical: `${siteUrl}/collections/${slug}`
+      canonical: canonicalUrl,
     },
     openGraph: {
-      title: meta.title,
+      title: ogTitle,
       description: meta.description,
-      url: `${siteUrl}/collections/${slug}`,
-      siteName: 'SENO Luxury Marketplace',
-      type: 'website'
-    }
+      url: canonicalUrl,
+      siteName: SITE_NAME,
+      type: 'website',
+      images: [
+        {
+          url: DEFAULT_OG_IMAGE,
+          width: 512,
+          height: 512,
+          alt: ogTitle,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: ogTitle,
+      description: meta.description,
+      images: [DEFAULT_OG_IMAGE],
+    },
   }
 }
 

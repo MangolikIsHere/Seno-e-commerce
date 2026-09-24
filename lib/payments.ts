@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { revalidateStorefrontForOrder } from './storefront-revalidation'
+import { notifyPaymentConfirmed, notifyPaymentFailed, notifyOrderCancelled } from '@/lib/notifications/service'
 
 export interface PaymentConfig {
   keyId: string
@@ -279,6 +280,7 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ve
         p_error_message: 'Cryptographic signature mismatch.'
       })
 
+      notifyPaymentFailed(order.id, 'Invalid payment signature. Verification failed.').catch(() => {})
       return { success: false, error: 'Invalid payment signature. Verification failed.' }
     }
 
@@ -303,6 +305,7 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ve
     revalidatePath('/admin/orders')
     revalidatePath('/account')
     await revalidateStorefrontForOrder(order.id, supabase)
+    notifyPaymentConfirmed(order.id).catch(() => {})
 
     return {
       success: true,
@@ -346,6 +349,7 @@ export async function cancelUnpaidOrderAction(orderId: string, reason?: string) 
     revalidatePath('/admin/orders')
     revalidatePath('/account')
     await revalidateStorefrontForOrder(orderId, supabase)
+    notifyOrderCancelled(orderId, reason || 'customer_cancelled').catch(() => {})
 
     return {
       success: true,
@@ -456,6 +460,7 @@ export async function reconcilePendingOrderAction(orderId: string, razorpayOrder
              return { success: false, action: 'error', error: confirmError.message }
           }
           
+          notifyPaymentConfirmed(orderId).catch(() => {})
           return { success: true, action: 'paid', message: 'Payment successfully captured on gateway.', data: confirmRes }
         }
         

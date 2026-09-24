@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+import { notifyPaymentConfirmed, notifyPaymentFailed, notifyRefundEvent } from '@/lib/notifications/service'
 
 function getAdminSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -104,6 +105,7 @@ export async function POST(req: NextRequest) {
           p_razorpay_payment_id: razorpayPaymentId,
           p_paid_amount: paidAmount
         })
+        notifyPaymentConfirmed(senoOrderId).catch(() => {})
       }
     } else if (eventType === 'payment.failed') {
       // CRITICAL: A failed payment MUST NOT cancel the order or release inventory reservation.
@@ -116,6 +118,7 @@ export async function POST(req: NextRequest) {
           p_razorpay_payment_id: razorpayPaymentId,
           p_error_message: errDesc
         })
+        notifyPaymentFailed(senoOrderId, errDesc).catch(() => {})
       }
     } else if (eventType === 'refund.created' || eventType === 'refund.processed') {
       const refundReceipt = refundEntity.receipt || ''
@@ -130,6 +133,10 @@ export async function POST(req: NextRequest) {
           p_status: isProcessed ? 'processed' : 'pending',
           p_razorpay_refund_id: refundId
         })
+        if (senoOrderId) {
+          const refundAmount = refundEntity.amount ? Number(refundEntity.amount) / 100 : 0
+          notifyRefundEvent(senoOrderId, isProcessed ? 'refund_completed' : 'refund_initiated', refundAmount).catch(() => {})
+        }
       } else if (senoOrderId) {
         // Fallback for full order manual refunds
         const refundAmount = refundEntity.amount ? Number(refundEntity.amount) / 100 : 0
@@ -139,6 +146,7 @@ export async function POST(req: NextRequest) {
           p_refund_id: refundId,
           p_refund_amount: refundAmount
         })
+        notifyRefundEvent(senoOrderId, isProcessed ? 'refund_completed' : 'refund_initiated', refundAmount).catch(() => {})
       }
     }
     await supabase

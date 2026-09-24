@@ -1,10 +1,14 @@
 import React from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { SITE_URL } from '@/lib/seo'
 
 export const metadata: Metadata = {
-  title: 'Developer — Mangolik Debnath | SENO',
+  title: 'Developer — Mangolik Debnath',
   description: 'Building and maintaining the digital experience behind SENO. Connect with developer Mangolik Debnath via LinkedIn, phone, or WhatsApp.',
+  alternates: {
+    canonical: `${SITE_URL}/contact-developer`,
+  },
 }
 
 export default function ContactDeveloperPage() {

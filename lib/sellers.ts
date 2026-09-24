@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+import { notifyOrderItemFulfillmentChanged } from '@/lib/notifications/service'
 
 export type SellerStatus = 'pending' | 'commission_proposed' | 'commission_negotiation' | 'approved' | 'suspended' | 'rejected'
 
@@ -755,6 +756,8 @@ export async function updateSellerOrderFulfillment(formData: FormData): Promise<
     throw new Error(error.message)
   }
 
+  notifyOrderItemFulfillmentChanged(orderItemId, status, trackingNumber, carrier).catch(() => {})
+
   revalidatePath('/seller/orders')
   revalidatePath('/seller/dashboard')
   revalidatePath('/admin/orders')
@@ -781,6 +784,8 @@ export async function updateFulfillmentStatus(orderItemId: string, status: strin
     throw new Error(error.message)
   }
   
+  notifyOrderItemFulfillmentChanged(orderItemId, status, tracking, carrier).catch(() => {})
+
   revalidatePath('/seller/orders')
   revalidatePath('/seller/dashboard')
   revalidatePath('/admin/orders')

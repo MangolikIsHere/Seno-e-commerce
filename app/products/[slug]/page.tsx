@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getProduct, getRelatedProducts } from '@/lib/catalog'
 import { ProductDetailClient } from '@/components/ProductDetailClient'
+import { SITE_URL, SITE_NAME } from '@/lib/seo'
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>
@@ -17,41 +18,40 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   if (!product) {
     return {
       title: 'Product Not Found — SENO',
-      description: 'The requested piece was not found in the SENO luxury catalog.'
+      description: 'The requested piece was not found in the SENO luxury catalog.',
     }
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-  const productUrl = `${siteUrl}/products/${product.slug}`
+  const productUrl = `${SITE_URL}/products/${product.slug}`
   const primaryImage = product.images[0] || product.image
 
   return {
-    title: `${product.name} — SENO`,
+    title: product.name,
     description: product.description.slice(0, 160),
     alternates: {
-      canonical: productUrl
+      canonical: productUrl,
     },
     openGraph: {
       title: `${product.name} — SENO`,
       description: product.description,
       url: productUrl,
-      siteName: 'SENO Luxury Marketplace',
+      siteName: SITE_NAME,
       images: [
         {
           url: primaryImage,
           width: 1000,
           height: 1333,
-          alt: product.name
-        }
+          alt: product.name,
+        },
       ],
-      type: 'website'
+      type: 'website',
     },
     twitter: {
       card: 'summary_large_image',
       title: `${product.name} — SENO`,
       description: product.description.slice(0, 160),
-      images: [primaryImage]
-    }
+      images: [primaryImage],
+    },
   }
 }
 
@@ -64,7 +64,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   const relatedProducts = await getRelatedProducts(product, 4)
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
   // Schema.org Product Structured Data
   const jsonLd = {
@@ -76,11 +75,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
     sku: product.variants[0]?.sku || product.slug,
     brand: {
       '@type': 'Brand',
-      name: 'SENO'
+      name: 'SENO',
     },
     offers: {
       '@type': 'Offer',
-      url: `${siteUrl}/products/${product.slug}`,
+      url: `${SITE_URL}/products/${product.slug}`,
       priceCurrency: 'INR',
       price: product.price,
       itemCondition: 'https://schema.org/NewCondition',
@@ -89,9 +88,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
         : 'https://schema.org/InStock',
       seller: {
         '@type': 'Organization',
-        name: 'SENO'
-      }
-    }
+        name: 'SENO',
+      },
+    },
   }
 
   return (
