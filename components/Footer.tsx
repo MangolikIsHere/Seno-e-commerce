@@ -93,11 +93,19 @@ export function Footer({ categories = [] }: { categories?: { name: string; slug:
 
       <div className="footer-bottom">
         <div className="footer-socials">
-          <a href="https://instagram.com" target="_blank" rel="noopener noreferrer">INSTAGRAM</a>
-          <a href="https://pinterest.com" target="_blank" rel="noopener noreferrer">PINTEREST</a>
+          <a href="https://www.instagram.com/souravsaha887/" aria-label="Instagram" target="_blank" rel="noopener noreferrer">INSTAGRAM</a>
+          <a href="https://www.facebook.com/sourav.saha.585585" aria-label="Facebook" target="_blank" rel="noopener noreferrer">FACEBOOK</a>
         </div>
-        <div className="footer-copyright">
-          © 2026 SENO. All rights reserved.
+        <div className="footer-bottom-meta">
+          <div className="footer-dev-credit">
+            <span className="footer-dev-by">Developed by <strong className="footer-dev-name">MANGOLIK</strong></span>
+            <Link href="/contact-developer" className="footer-dev-link" aria-label="Contact Developer Mangolik Debnath">
+              Contact Developer <span className="footer-dev-arrow" aria-hidden="true">→</span>
+            </Link>
+          </div>
+          <div className="footer-copyright">
+            <span>© 2026 SENO. All rights reserved.</span>
+          </div>
         </div>
       </div>
     </footer>
