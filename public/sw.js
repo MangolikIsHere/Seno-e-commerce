@@ -12,7 +12,7 @@
  * - NAVIGATION: Network-first. If completely offline, fallback to the branded /offline page.
  */
 
-const CACHE_VERSION = 'seno-v1-static'
+const CACHE_VERSION = 'seno-v2-static'
 const OFFLINE_URL = '/offline'
 
 // Pre-cached shell & brand assets needed for the offline state
@@ -136,21 +136,21 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // 6. Static Brand Icons and Public UI Assets (/brand/*, /icons/*, /favicon.ico)
-  if (url.pathname.startsWith('/brand/') || url.pathname.startsWith('/icons/') || url.pathname === '/favicon.ico') {
+  // 6. Static Brand Icons and Public UI Assets (/brand/*, /icons/*, /favicon.ico, /manifest.webmanifest)
+  // Network-first strategy for icons and manifest to ensure PWA updates pick up new branding.
+  if (url.pathname.startsWith('/brand/') || url.pathname.startsWith('/icons/') || url.pathname === '/favicon.ico' || url.pathname === '/manifest.webmanifest') {
     event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        const fetchPromise = fetch(request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const responseClone = networkResponse.clone()
-            caches.open(CACHE_VERSION).then((cache) => {
-              cache.put(request, responseClone)
-            })
-          }
-          return networkResponse
-        }).catch(() => cachedResponse)
-
-        return cachedResponse || fetchPromise
+      fetch(request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseClone = networkResponse.clone()
+          caches.open(CACHE_VERSION).then((cache) => {
+            cache.put(request, responseClone)
+          })
+        }
+        return networkResponse
+      }).catch(async () => {
+        const cachedResponse = await caches.match(request)
+        return cachedResponse
       })
     )
     return
