@@ -24,6 +24,8 @@ const PRECACHE_ASSETS = [
   '/icons/icon-maskable-512x512.png',
   '/brand/seno-mark-512.png',
   '/favicon.ico',
+  '/icons/notification-icon.png',
+  '/icons/notification-badge.png',
 ]
 
 // Patterns that MUST NEVER be cached
@@ -173,8 +175,8 @@ self.addEventListener('push', (event) => {
   let payload = {
     title: 'SENO Update',
     body: 'You have a new notification from SENO.',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-192x192.png',
+    icon: '/icons/notification-icon.png',
+    badge: '/icons/notification-badge.png',
     data: { url: '/account' }
   }
 

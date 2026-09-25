@@ -3321,7 +3321,7 @@ textarea.input-field {
   position: fixed;
   inset: 0;
   z-index: 99999;
-  background: var(--bg);
+  background: #f5eee7;
   color: var(--ink);
   display: flex;
   flex-direction: column;
@@ -3348,8 +3348,8 @@ textarea.input-field {
 }
 
 .intro-mark {
-  width: 58px;
-  height: 58px;
+  width: clamp(90px, 11vw, 150px);
+  height: auto;
   margin-bottom: 22px;
   object-fit: contain;
 }

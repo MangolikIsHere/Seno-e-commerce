@@ -44,7 +44,7 @@ export function BrandIntro() {
       onClick={() => setPhase('removed')}
     >
       <div className="intro-stage">
-        <img className="intro-mark" src="/brand/seno-mark.svg" alt="SENO" />
+        <img className="intro-mark" src="/seno-splash-logo.png" alt="SENO" />
         <div className="intro-wordmark-wrap">
           <span className="intro-wordmark">SENO</span>
           <div className="intro-divider" />
