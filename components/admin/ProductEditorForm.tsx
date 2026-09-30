@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useTransition } from 'react'
+import React, { useState, useTransition, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { 
@@ -56,6 +56,7 @@ interface ProductEditorFormProps {
 export function ProductEditorForm({ initialData, categories, collections, mode }: ProductEditorFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const isSubmittingRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isDirty, setIsDirty] = useState(false)
@@ -296,30 +297,108 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
     }))
   }
 
-  // Form Submit
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // Explicit Final Save Action (Only trigger for persisting product)
+  const handleExplicitSave = async () => {
+    if (isSubmittingRef.current || isPending) return
+    isSubmittingRef.current = true
     setError(null)
     setSuccess(null)
 
+    // 1. Validate Basic details
     if (!name.trim()) {
+      setActiveTab('details')
       setError('Please provide a product title.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      isSubmittingRef.current = false
       return
     }
 
-    if (price === '' || Number(price) < 0) {
-      setError('Please provide a valid price.')
+    if (!slug.trim()) {
+      setActiveTab('details')
+      setError('Please provide a URL slug.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      isSubmittingRef.current = false
       return
     }
 
+    // 2. Validate Pricing & Logistics
+    if (price === '' || Number(price) < 0 || isNaN(Number(price))) {
+      setActiveTab('pricing')
+      setError('Please provide a valid retail price.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      isSubmittingRef.current = false
+      return
+    }
+
+    if (!categoryId) {
+      setActiveTab('pricing')
+      setError('Please select a primary department/category.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      isSubmittingRef.current = false
+      return
+    }
+
+    if (!defaultWeightGrams || Number(defaultWeightGrams) <= 0 || isNaN(Number(defaultWeightGrams))) {
+      setActiveTab('pricing')
+      setError('Please provide a valid default shipping weight.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      isSubmittingRef.current = false
+      return
+    }
+
+    if (shippingMethod === 'custom' && (customDeliveryCharge === '' || Number(customDeliveryCharge) < 0 || isNaN(Number(customDeliveryCharge)))) {
+      setActiveTab('pricing')
+      setError('Please provide a valid custom delivery charge.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      isSubmittingRef.current = false
+      return
+    }
+
+    // 3. Validate Media & Gallery
     if (images.length === 0) {
+      setActiveTab('media')
       setError('Please add at least one product image.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      isSubmittingRef.current = false
       return
     }
 
+    // 4. Validate Variants & Stock
     if (variants.length === 0) {
+      setActiveTab('variants')
       setError('Please configure at least one variant.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      isSubmittingRef.current = false
       return
+    }
+
+    const seenSkus = new Set<string>()
+    for (let i = 0; i < variants.length; i++) {
+      const v = variants[i]
+      const cleanSku = (v.sku || '').trim().toUpperCase()
+      if (!cleanSku) {
+        setActiveTab('variants')
+        setError(`Variant #${i + 1} (${v.size || 'Size'} / ${v.colour || 'Colour'}) is missing an SKU.`)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        isSubmittingRef.current = false
+        return
+      }
+      if (seenSkus.has(cleanSku)) {
+        setActiveTab('variants')
+        setError(`Duplicate SKU "${cleanSku}" found. Every variant must have a unique SKU.`)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        isSubmittingRef.current = false
+        return
+      }
+      seenSkus.add(cleanSku)
+
+      if (v.quantity === undefined || v.quantity === null || isNaN(Number(v.quantity)) || Number(v.quantity) < 0) {
+        setActiveTab('variants')
+        setError(`Variant #${i + 1} (${cleanSku}) must have a valid non-negative stock quantity.`)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        isSubmittingRef.current = false
+        return
+      }
     }
 
     startTransition(async () => {
@@ -350,7 +429,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
         }
 
         if (mode === 'create') {
-          const res = await createAdminProduct(payload)
+          await createAdminProduct(payload)
           setSuccess(`Product "${name}" successfully published to live catalog!`)
           setIsDirty(false)
           setTimeout(() => {
@@ -367,6 +446,8 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
       } catch (err: any) {
         console.error('Submit error:', err)
         setError(err.message || 'An error occurred while saving the product.')
+      } finally {
+        isSubmittingRef.current = false
       }
     })
   }
@@ -533,7 +614,19 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
         })}
       </div>
 
-      <form onSubmit={handleSubmit} onChange={() => setIsDirty(true)}>
+      <form
+        onSubmit={(e) => {
+          // Explicitly block standard form submissions — product persistence requires explicit button click
+          e.preventDefault()
+        }}
+        onKeyDown={(e) => {
+          // Prevent accidental form submission when pressing Enter in text/number inputs
+          if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+            e.preventDefault()
+          }
+        }}
+        onChange={() => setIsDirty(true)}
+      >
         {/* TAB 1: BASIC DETAILS */}
         {activeTab === 'details' && (
           <div className="admin-table-card" style={{ padding: '24px' }}>
@@ -1366,6 +1459,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
           <div style={{ display: 'flex', gap: '12px' }}>
             {activeTab !== 'variants' ? (
               <button
+                key="btn-continue"
                 type="button"
                 className="dark-btn"
                 onClick={() => {
@@ -1394,8 +1488,10 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
               </button>
             ) : (
               <button
-                type="submit"
+                key="btn-explicit-save"
+                type="button"
                 disabled={isPending}
+                onClick={handleExplicitSave}
                 className="dark-btn"
                 style={{
                   display: 'inline-flex',

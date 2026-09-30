@@ -270,15 +270,21 @@ export async function getAdminCatalogProducts(filters?: {
  * Fetch a single product by ID for editing.
  */
 export async function getAdminProductById(id: string) {
+  const cleanId = (id || '').trim()
+  if (!cleanId) return null
+
   const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
 
-  const { data, error } = await supabase
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId)
+
+  let query = supabase
     .from('products')
     .select(`
       *,
       categories(id, name, slug),
+      sellers(id, store_name, seller_type),
       product_images(id, url, alt_text, display_order, is_primary),
       product_variants(
         id, size, colour, sku, price_override, weight_grams_override, is_active,
@@ -286,10 +292,19 @@ export async function getAdminProductById(id: string) {
       ),
       collection_products(collection_id)
     `)
-    .eq('id', id)
-    .single()
 
-  if (error || !data) return null
+  if (isUuid) {
+    query = query.eq('id', cleanId)
+  } else {
+    query = query.eq('slug', cleanId)
+  }
+
+  const { data, error } = await query.maybeSingle()
+
+  if (error || !data) {
+    if (error) console.error('Error fetching admin product by ID:', error)
+    return null
+  }
 
   const variants = (data.product_variants || []).map((v: any) => {
     let qty = 10
@@ -604,7 +619,7 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
 
         // Upsert inventory
         const qty = Math.max(0, Number(v.quantity || 0))
-        const { data: invRow } = await supabase.from('inventory').select('id').eq('variant_id', v.id).single()
+        const { data: invRow } = await supabase.from('inventory').select('id').eq('variant_id', v.id).maybeSingle()
         if (invRow) {
           await supabase.from('inventory').update({ quantity: qty, updated_at: new Date().toISOString() }).eq('variant_id', v.id)
         } else {

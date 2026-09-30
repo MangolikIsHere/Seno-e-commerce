@@ -91,7 +91,7 @@ export function ProductActions({ product, onOptimisticUpdate }: ProductActionsPr
             overflow: 'hidden'
           }}>
             <Link 
-              href={`/seller/products/${product.id}`}
+              href={`/admin/products/${product.id}/edit`}
               className="dropdown-item"
               style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', fontSize: '13px', color: 'var(--ink)', textDecoration: 'none', borderBottom: '1px solid var(--border)' }}
             >
