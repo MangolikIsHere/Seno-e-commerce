@@ -128,14 +128,16 @@ export function Header({ categories = [] }: { categories?: { name: string; slug:
       <div className="mobile-header">
         <div className="mobile-header-left">
           <button
-            className="mobile-icon-btn"
+            className="mobile-icon-btn header-nav-hamburger"
+            data-header-nav="hamburger"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <button
-            className="mobile-icon-btn"
+            className="mobile-icon-btn header-nav-search"
+            data-header-nav="search"
             onClick={() => setSearchOpen(true)}
             aria-label="Search"
           >
@@ -151,18 +153,21 @@ export function Header({ categories = [] }: { categories?: { name: string; slug:
         </div>
 
         <div className="mobile-header-right">
-          <NotificationBell isMobile />
-          <Link href="/account" className="mobile-icon-btn" aria-label="Account">
+          <div className="header-nav-notifications" data-header-nav="notifications">
+            <NotificationBell isMobile />
+          </div>
+          <Link href="/account" className="mobile-icon-btn header-nav-account" data-header-nav="account" aria-label="Account">
             <User size={19} />
           </Link>
 
-          <Link href="/wishlist" className="mobile-icon-btn" aria-label="Wishlist">
+          <Link href="/wishlist" className="mobile-icon-btn header-nav-wishlist" data-header-nav="wishlist" aria-label="Wishlist">
             <Heart size={19} />
             {wishlistCount > 0 && <span className="action-badge">{wishlistCount}</span>}
           </Link>
 
           <button
-            className="mobile-icon-btn"
+            className="mobile-icon-btn header-nav-cart"
+            data-header-nav="cart"
             onClick={() => setCartOpen(true)}
             aria-label="Cart"
           >

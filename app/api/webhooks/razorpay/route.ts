@@ -99,12 +99,23 @@ export async function POST(req: NextRequest) {
     if (eventType === 'order.paid' || eventType === 'payment.captured') {
       if (senoOrderId) {
         const paidAmount = paymentEntity.amount ? Number(paymentEntity.amount) / 100 : null
-        await supabase.rpc('confirm_order_payment', {
+        const { data: confirmRes, error: confirmErr } = await supabase.rpc('confirm_order_payment', {
           p_order_id: senoOrderId,
           p_razorpay_order_id: razorpayOrderId,
           p_razorpay_payment_id: razorpayPaymentId,
           p_paid_amount: paidAmount
         })
+
+        if (confirmErr || !confirmRes || !confirmRes.success) {
+          const errMsg = confirmRes?.error || confirmErr?.message || 'Database payment confirmation failed'
+          console.error('[RazorpayWebhook] confirm_order_payment failed:', errMsg)
+          await supabase.from('payment_events').update({
+            processing_status: 'failed',
+            error_message: errMsg
+          }).eq('event_id', eventId)
+          return NextResponse.json({ error: errMsg }, { status: 500 })
+        }
+
         notifyPaymentConfirmed(senoOrderId).catch(() => {})
       }
     } else if (eventType === 'payment.failed') {

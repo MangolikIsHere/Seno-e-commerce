@@ -4388,3 +4388,444 @@ textarea.input-field {
 .notif-view-all-link:hover {
   color: var(--clay);
 }
+
+/* ==========================================================================
+   SENO ANDROID HYBRID APP ENHANCEMENTS (.seno-android-app)
+   Only active inside the native Android APK wrapper.
+   Desktop, mobile web, and PWA instances remain completely unaffected.
+   ========================================================================== */
+
+.seno-android-app {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Smooth momentum scrolling and overscroll behavior */
+.seno-android-app html,
+.seno-android-app body {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* Native-feel selection: Prevent accidental text dragging on UI chrome */
+.seno-android-app .site-header,
+.seno-android-app .desktop-header,
+.seno-android-app .mobile-header,
+.seno-android-app .announcement-bar,
+.seno-android-app .btn,
+.seno-android-app button {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Inputs, textareas, and prose remain fully selectable */
+.seno-android-app input,
+.seno-android-app textarea,
+.seno-android-app [contenteditable="true"] {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Native tactile response for interactive elements */
+.seno-android-app .product-card:active,
+.seno-android-app .category-card:active {
+  transform: scale(0.985);
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.seno-android-app button:active:not(:disabled),
+.seno-android-app .action-btn:active {
+  opacity: 0.82;
+  transform: scale(0.97);
+  transition: transform 0.08s ease, opacity 0.08s ease;
+}
+
+/* Optimize image rendering and hardware acceleration */
+.seno-android-app img {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* ==========================================================================
+   SENO ANDROID APK EXCLUSIVE COMPACT HEADER & ZERO-GAP LAYOUT
+   Scope: .seno-android-app ONLY
+   Web / PWA / Desktop remain completely untouched.
+   ========================================================================== */
+
+/* Zero out double safe-area padding and margins in Android APK.
+   Native SenoMainActivity already applies window statusBars insets to the container. */
+.seno-android-app .site-header {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+  border-top: none !important;
+}
+
+.seno-android-app .announcement-bar {
+  height: 28px !important;
+  font-size: 8.5px !important;
+  letter-spacing: 1.4px !important;
+  margin: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* Force mobile-header and hide desktop-header completely in Android APK */
+.seno-android-app .desktop-header {
+  display: none !important;
+}
+
+.seno-android-app .mobile-header {
+  display: flex !important;
+  height: 48px !important;
+  padding: 0 12px !important;
+  position: relative !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  background: var(--background, #fbfbfa) !important;
+  margin: 0 !important;
+}
+
+/* Redundant elements in Android APK: hamburger, search, account, wishlist in header */
+.seno-android-app .mobile-header-left,
+.seno-android-app [data-header-nav="hamburger"],
+.seno-android-app [data-header-nav="search"],
+.seno-android-app [data-header-nav="account"],
+.seno-android-app [data-header-nav="wishlist"] {
+  display: none !important;
+}
+
+/* Center luxury SENO branding without horizontal offset */
+.seno-android-app .mobile-header-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.seno-android-app .mobile-header .logo-wordmark {
+  font-size: 24px !important;
+  letter-spacing: -1.4px !important;
+  line-height: 0.95 !important;
+  margin: 0 !important;
+}
+
+.seno-android-app .mobile-header .logo-subtext {
+  font-size: 6.5px !important;
+  letter-spacing: 1.3px !important;
+  margin-top: 1px !important;
+  line-height: 1 !important;
+}
+
+/* Top-right header actions: Cart + Notification side-by-side */
+.seno-android-app .mobile-header-right {
+  position: absolute;
+  right: 8px;
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.seno-android-app [data-header-nav="notifications"],
+.seno-android-app [data-header-nav="cart"] {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  min-height: 38px;
+}
+
+/* Never show web splash in Android APK (native splash handles cold boot) */
+.seno-android-app .seno-brand-intro,
+.seno-android-app #seno-brand-intro {
+  display: none !important;
+}
+
+/* ==========================================================================
+   ANDROID APK: SUPPRESS WEB TRANSITION OVERLAY
+   The native Kotlin WebView handles page rendering natively.
+   The full-screen "S" overlay is redundant and disruptive inside the APK.
+   ========================================================================== */
+
+.seno-android-app .seno-nav-loader-container {
+  display: none !important;
+}
+
+/* Pad main content so native bottom navigation bar never overlaps page content.
+   The native bar is 56dp + system nav insets (approx 72px total on most devices). */
+.seno-android-app .main-content {
+  padding-bottom: 76px;
+}
+
+/* Footer is hidden on Android APK - navigation is entirely by the native bottom bar */
+.seno-android-app .site-footer {
+  display: none !important;
+}
+
+/* ==========================================================================
+   CATEGORIES PAGE STYLING
+   ========================================================================== */
+.categories-page-container {
+  min-height: calc(100vh - 120px);
+  background: var(--background, #fbfbfa);
+}
+
+.categories-page-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.categories-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .categories-card-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+}
+
+.category-hero-card {
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--card-bg, #f5f5f2);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.category-hero-card:active {
+  transform: scale(0.985);
+}
+
+.category-hero-img-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #eae8e3;
+}
+
+.category-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s ease;
+}
+
+.category-hero-card:hover .category-hero-img {
+  transform: scale(1.03);
+}
+
+.category-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.45) 100%);
+}
+
+.category-hero-body {
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  flex: 1;
+}
+
+.category-hero-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.category-hero-title {
+  font-family: Georgia, serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+.category-hero-arrow {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.category-hero-desc {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin: 4px 0 8px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.category-hero-footer {
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.category-hero-count {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--clay, #8c7355);
+}
+
+/* Category Filter Chips Bar */
+.categories-filter-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 4px 0;
+}
+
+.categories-filter-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.category-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1px solid var(--border, #e5e5e0);
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.category-filter-chip:active {
+  transform: scale(0.97);
+}
+
+.category-filter-chip.active {
+  background: var(--ink, #111111);
+  color: #ffffff;
+  border-color: var(--ink, #111111);
+}
+
+.catalog-grid-2col {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .catalog-grid-2col {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+  }
+}
+
+/* Card Entrance / Arrival Animation */
+@keyframes senoCardArrival {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.seno-cat-card {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  display: block;
+  text-decoration: none;
+  background: #1a1a1a;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease;
+  animation: senoCardArrival 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.seno-cat-card:active {
+  transform: scale(0.975);
+}
+
+.seno-cat-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.seno-cat-card:hover img {
+  transform: scale(1.04);
+}
+
+.seno-cat-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.25) 42%, rgba(0,0,0,0.88) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 14px 12px;
+  color: #ffffff;
+  box-sizing: border-box;
+}
+
+.seno-cat-kicker {
+  font-size: 8.5px;
+  letter-spacing: 1.6px;
+  color: #e5c7a3;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.seno-cat-title {
+  font-family: Georgia, serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: -0.2px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.seno-cat-action {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  color: rgba(255, 255, 255, 0.9);
+  text-transform: uppercase;
+}

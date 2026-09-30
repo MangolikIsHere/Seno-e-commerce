@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { Eye, EyeOff } from 'lucide-react'
+import { isSenoAndroidApp, getSenoOAuthDiagnosticContext } from '@/lib/platform'
 
 export default function RegisterPage() {
   const [firstName, setFirstName] = useState('')
@@ -68,18 +69,66 @@ export default function RegisterPage() {
     }
   }
 
+  // Reset loading state when returning to the window (e.g. cancelled Google OAuth)
+  useEffect(() => {
+    const handleFocus = () => {
+      setLoading(false)
+      isSubmittingRef.current = false
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
+
   const handleGoogleSignIn = async () => {
     setError(null)
     setLoading(true)
-    const { error: signInError } = await supabase.auth.signInWithOAuth({
+
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+    const nextParam = searchParams?.get('next') || searchParams?.get('redirect')
+    const returnUrl = (nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//')) ? nextParam : '/account'
+
+    const isAndroid = isSenoAndroidApp()
+    const redirectTo = isAndroid
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(returnUrl)}&platform=android&native=android`
+      : `${window.location.origin}/auth/callback?next=${encodeURIComponent(returnUrl)}`
+
+    // Diagnostic logging before calling signInWithOAuth
+    console.log('[SENO OAUTH DEBUG] Register Pre-flight Check:', getSenoOAuthDiagnosticContext(redirectTo))
+
+    const { data, error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/`,
+        redirectTo,
+        skipBrowserRedirect: true,
       },
     })
 
     if (signInError) {
+      console.error('[SENO OAUTH DEBUG] Register signInWithOAuth returned error:', signInError.message)
       setError(signInError.message)
+      setLoading(false)
+      return
+    }
+
+    if (data?.url) {
+      let decodedRedirectTo: string | null = null
+      try {
+        const parsedUrl = new URL(data.url)
+        decodedRedirectTo = parsedUrl.searchParams.get('redirect_to')
+      } catch {
+        // ignore
+      }
+
+      console.log('[SENO OAUTH DEBUG] Register Supabase OAuth URL =', {
+        provider: data.provider,
+        baseUrl: data.url.split('?')[0],
+        redirect_to: decodedRedirectTo,
+      })
+
+      // Navigate to authorize URL
+      window.location.assign(data.url)
+    } else {
+      console.warn('[SENO OAUTH DEBUG] Register no data.url returned by Supabase signInWithOAuth')
       setLoading(false)
     }
   }

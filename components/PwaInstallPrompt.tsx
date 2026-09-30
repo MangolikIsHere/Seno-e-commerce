@@ -21,10 +21,12 @@ export function usePwaInstall() {
   const [isSupported, setIsSupported] = useState(false)
 
   useEffect(() => {
-    // Check if already running as installed PWA
+    // Check if already running as installed PWA or native Android APK
     const standaloneMode =
       (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
+      (typeof window !== 'undefined' && (window as unknown as { SenoNativeApp?: unknown }).SenoNativeApp !== undefined) ||
+      (typeof navigator !== 'undefined' && navigator.userAgent.includes('SenoAndroidApp'))
     setIsStandalone(Boolean(standaloneMode))
     if (standaloneMode) return
 

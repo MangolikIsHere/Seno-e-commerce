@@ -16,8 +16,9 @@ function CheckoutSuccessContent() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (orderId) {
-      getCustomerOrderById(orderId).then(({ order: loadedOrder }) => {
+    const ref = orderId || orderNumberParam
+    if (ref) {
+      getCustomerOrderById(ref).then(({ order: loadedOrder }) => {
         if (loadedOrder) {
           setOrder(loadedOrder)
         }
@@ -26,10 +27,10 @@ function CheckoutSuccessContent() {
     } else {
       setLoading(false)
     }
-  }, [orderId])
+  }, [orderId, orderNumberParam])
 
   const displayOrderNumber = order?.order_number || orderNumberParam || 'Confirmed'
-  const isPaid = order?.payment_status === 'paid'
+  const isPaid = order?.payment_status === 'paid' || order?.status === 'confirmed'
 
   return (
     <main className="static-page-container" style={{ maxWidth: '720px', padding: '60px 20px 100px' }}>

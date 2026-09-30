@@ -66,6 +66,7 @@ export interface Order {
     | 'refunded'
   payment_status: 'unpaid' | 'authorized' | 'paid' | 'refund_processing' | 'failed' | 'refunded'
   payment_method?: string | null
+  payment_reference?: string | null
   subtotal_amount: number
   shipping_amount: number
   discount_amount: number
@@ -290,6 +291,9 @@ export async function getCustomerOrders(): Promise<{ orders: Order[]; error?: st
         status,
         payment_status,
         payment_method,
+        payment_reference,
+        razorpay_order_id,
+        razorpay_payment_id,
         subtotal_amount,
         shipping_amount,
         discount_amount,
@@ -320,7 +324,7 @@ export async function getCustomerOrders(): Promise<{ orders: Order[]; error?: st
         )
       `)
       .eq('customer_id', user.id)
-      .in('payment_status', ['paid', 'refund_processing', 'refunded'])
+      .or('payment_status.in.(paid,authorized,refunded,refund_processing),status.in.(confirmed,processing,partially_shipped,shipped,delivered)')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -336,11 +340,18 @@ export async function getCustomerOrders(): Promise<{ orders: Order[]; error?: st
 
 /**
  * Server action: fetches a single order for the authenticated customer.
+ * Supports canonical lookup by either database order UUID or public order_number.
+ * Uses maybeSingle() to cleanly handle missing rows without PGRST116 coercion errors.
  */
 export async function getCustomerOrderById(
-  orderId: string
+  orderIdentifier: string
 ): Promise<{ order: Order | null; error?: string }> {
   try {
+    const cleanIdentifier = (orderIdentifier || '').trim()
+    if (!cleanIdentifier) {
+      return { order: null, error: 'Order reference required.' }
+    }
+
     const supabase = await createClient()
     const {
       data: { user },
@@ -351,7 +362,9 @@ export async function getCustomerOrderById(
       return { order: null, error: 'Authentication required.' }
     }
 
-    const { data, error } = await supabase
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanIdentifier)
+
+    let query = supabase
       .from('orders')
       .select(`
         id,
@@ -360,6 +373,9 @@ export async function getCustomerOrderById(
         status,
         payment_status,
         payment_method,
+        payment_reference,
+        razorpay_order_id,
+        razorpay_payment_id,
         subtotal_amount,
         shipping_amount,
         discount_amount,
@@ -389,13 +405,22 @@ export async function getCustomerOrderById(
           created_at
         )
       `)
-      .eq('id', orderId)
       .eq('customer_id', user.id)
-      .in('payment_status', ['paid', 'refund_processing', 'refunded'])
-      .single()
+
+    if (isUuid) {
+      query = query.eq('id', cleanIdentifier)
+    } else {
+      query = query.eq('order_number', cleanIdentifier.replace(/^#/, ''))
+    }
+
+    const { data, error } = await query.maybeSingle()
 
     if (error) {
       return { order: null, error: error.message }
+    }
+
+    if (!data) {
+      return { order: null, error: 'Order not found or unauthorized.' }
     }
 
     return { order: data as unknown as Order }

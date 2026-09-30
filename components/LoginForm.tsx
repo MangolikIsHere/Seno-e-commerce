@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { Eye, EyeOff } from 'lucide-react'
+import { isSenoAndroidApp, getSenoOAuthDiagnosticContext } from '@/lib/platform'
 
 export function LoginForm() {
   const [email, setEmail] = useState('')
@@ -16,6 +17,15 @@ export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
+
+  // Reset loading state when the window regains focus (e.g., user cancelled Custom Tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      setLoading(false)
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,7 +42,7 @@ export function LoginForm() {
       setLoading(false)
     } else {
       const next = searchParams.get('next') || searchParams.get('redirect')
-      const returnUrl = (next && next.startsWith('/')) ? next : '/'
+      const returnUrl = (next && next.startsWith('/') && !next.startsWith('//')) ? next : '/account'
       router.push(returnUrl)
       router.refresh()
     }
@@ -41,15 +51,52 @@ export function LoginForm() {
   const handleGoogleSignIn = async () => {
     setError(null)
     setLoading(true)
-    const { error: signInError } = await supabase.auth.signInWithOAuth({
+
+    const next = searchParams.get('next') || searchParams.get('redirect')
+    const returnUrl = (next && next.startsWith('/') && !next.startsWith('//')) ? next : '/account'
+
+    const isAndroid = isSenoAndroidApp()
+    const redirectTo = isAndroid
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(returnUrl)}&platform=android&native=android`
+      : `${window.location.origin}/auth/callback?next=${encodeURIComponent(returnUrl)}`
+
+    // Diagnostic logging before calling signInWithOAuth
+    console.log('[SENO OAUTH DEBUG] Pre-flight Check:', getSenoOAuthDiagnosticContext(redirectTo))
+
+    const { data, error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/`,
+        redirectTo,
+        skipBrowserRedirect: true,
       },
     })
 
     if (signInError) {
+      console.error('[SENO OAUTH DEBUG] signInWithOAuth returned error:', signInError.message)
       setError(signInError.message)
+      setLoading(false)
+      return
+    }
+
+    if (data?.url) {
+      let decodedRedirectTo: string | null = null
+      try {
+        const parsedUrl = new URL(data.url)
+        decodedRedirectTo = parsedUrl.searchParams.get('redirect_to')
+      } catch {
+        // ignore
+      }
+
+      console.log('[SENO OAUTH DEBUG] Supabase OAuth URL =', {
+        provider: data.provider,
+        baseUrl: data.url.split('?')[0],
+        redirect_to: decodedRedirectTo,
+      })
+
+      // Navigate to authorize URL
+      window.location.assign(data.url)
+    } else {
+      console.warn('[SENO OAUTH DEBUG] No data.url returned by Supabase signInWithOAuth')
       setLoading(false)
     }
   }

@@ -81,7 +81,7 @@ export async function createRazorpayOrderAction(orderId: string): Promise<Razorp
       .from('orders')
       .select('id, order_number, customer_id, status, payment_status, total_amount, razorpay_order_id, expires_at')
       .eq('id', orderId)
-      .single()
+      .maybeSingle()
 
     if (orderError || !order) {
       return { success: false, error: 'Order not found.' }
@@ -231,7 +231,7 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ve
       .from('orders')
       .select('id, order_number, customer_id, status, payment_status, total_amount, razorpay_order_id')
       .eq('id', input.orderId)
-      .single()
+      .maybeSingle()
 
     if (orderError || !order) {
       return { success: false, error: 'Order not found.' }
@@ -400,6 +400,19 @@ export async function recordPaymentFailureAction(
  */
 export async function cancelAndReleaseCheckoutAction(orderId: string, razorpayOrderId: string) {
   try {
+    const supabase = await createClient()
+
+    // 1. Check our own authoritative database first! If order is already confirmed or paid, NEVER cancel!
+    const { data: currentOrder } = await supabase
+      .from('orders')
+      .select('status, payment_status')
+      .eq('id', orderId)
+      .maybeSingle()
+
+    if (currentOrder && (currentOrder.payment_status === 'paid' || currentOrder.status === 'confirmed')) {
+      return { success: false, reason: 'already_paid', message: 'Order is already confirmed and paid.' }
+    }
+
     const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
     const keySecret = process.env.RAZORPAY_KEY_SECRET
     

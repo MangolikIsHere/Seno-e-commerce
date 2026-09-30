@@ -71,7 +71,7 @@ export default function TrackingPage() {
             <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '30px', margin: '8px 0 8px', fontWeight: 400 }}>#{order.order_number}</h1>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <span className="status-pill paid">Payment: {order.payment_status}</span>
+            <span className={`status-pill ${order.payment_status === 'paid' ? 'paid' : 'pending'}`}>Payment: {order.payment_status}</span>
             <span className="status-pill processing">Status: {labelMap[currentStatus] || 'Processing'}</span>
           </div>
         </div>

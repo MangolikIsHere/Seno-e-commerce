@@ -200,6 +200,7 @@ export default function CheckoutPage() {
 
       // 2. Open Razorpay modal if script loaded and in browser
       if (typeof window !== 'undefined' && window.Razorpay) {
+        let paymentHandled = false
         const options = {
           key: paymentConfig.keyId,
           amount: rzpRes.amount,
@@ -219,6 +220,7 @@ export default function CheckoutPage() {
             razorpay_order_id: string
             razorpay_signature: string
           }) => {
+            paymentHandled = true
             setIsVerifying(true)
             setIsSubmitting(false)
             setErrorMessage(null)
@@ -253,6 +255,7 @@ export default function CheckoutPage() {
           },
           modal: {
             ondismiss: async () => {
+              if (paymentHandled) return
               setIsSubmitting(false)
               setInfoMessage(
                 'PAYMENT NOT COMPLETED. Your payment was not completed and no inventory has been held. You can try again whenever you\'re ready.'

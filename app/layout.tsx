@@ -13,6 +13,7 @@ import { BrandIntro } from '@/components/BrandIntro'
 import { GlobalNavigationTransition } from '@/components/GlobalNavigationTransition'
 import { getActiveCategories } from '@/lib/categories'
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister'
+import { AndroidAppEnhancer } from '@/components/AndroidAppEnhancer'
 import {
   SITE_URL,
   SITE_NAME,
@@ -21,6 +22,7 @@ import {
   DEFAULT_OG_IMAGE,
   GOOGLE_SITE_VERIFICATION,
 } from '@/lib/seo'
+import { cookies } from 'next/headers'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -106,14 +108,17 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   const categories = await getActiveCategories()
+  const cookieStore = await cookies()
+  const isAndroid = cookieStore.get('seno_platform')?.value === 'android'
 
   return (
-    <html lang="en" className="bg-background">
+    <html lang="en" className={`bg-background ${isAndroid ? 'seno-android-app' : ''}`} suppressHydrationWarning>
       <body className="antialiased">
         <BrandIntro />
         <AuthProvider>
           <StoreProvider>
             <NotificationProvider>
+            <AndroidAppEnhancer />
             <Suspense fallback={null}>
               <GlobalNavigationTransition />
             </Suspense>

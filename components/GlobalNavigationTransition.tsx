@@ -3,6 +3,20 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 
+/** Returns true when running inside the SENO Android APK native shell */
+function isAndroidApp(): boolean {
+  if (typeof window === 'undefined') return false
+  if ((window as unknown as { SenoNativeApp?: unknown }).SenoNativeApp !== undefined) return true
+  if (window.navigator.userAgent.includes('SenoAndroidApp')) return true
+  if (document.cookie.includes('seno_platform=android')) return true
+  try {
+    if (sessionStorage.getItem('seno_platform') === 'android') return true
+  } catch { /* ignore */ }
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('platform') === 'android') return true
+  return document.documentElement.classList.contains('seno-android-app')
+}
+
 export function GlobalNavigationTransition() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -106,6 +120,9 @@ export function GlobalNavigationTransition() {
             sessionStorage.setItem('seno_return_context', explicitContext || fallbackContext)
           }
         }
+
+        // Android APK: skip the full-screen overlay — native WebView handles transitions natively
+        if (isAndroidApp()) return
 
         if (revealTimerRef.current) clearTimeout(revealTimerRef.current)
         setTransitionState('covering')
