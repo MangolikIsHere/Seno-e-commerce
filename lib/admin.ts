@@ -23,9 +23,14 @@ export async function checkIsAdmin() {
       .from('profiles')
       .select('role')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
-    if (data?.role === 'admin' || user.email === 'admin@seno-luxury.com') {
+    if (
+      data?.role === 'admin' ||
+      user.email === 'admin@seno-luxury.com' ||
+      user.email === 'admin.seno@gmail.com' ||
+      user.email === 'debnathmangolik@gmail.com'
+    ) {
       return true
     }
   }

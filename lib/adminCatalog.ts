@@ -670,7 +670,7 @@ export async function toggleProductActive(id: string, is_active: boolean) {
     .update({ is_active, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select('slug')
-    .single()
+    .maybeSingle()
 
   if (error) throw new Error(error.message)
 

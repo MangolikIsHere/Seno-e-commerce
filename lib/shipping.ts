@@ -96,6 +96,11 @@ export function calculateShippingFee(
     return 0.00
   }
 
+  // If no weight-based items to ship, weight-based shipping is 0
+  if (totalWeightGrams <= 0) {
+    return 0.00
+  }
+
   // 2. Base + incremental mode
   if (settings.calculation_mode === 'base_incremental') {
     if (totalWeightGrams <= settings.base_weight_grams) {
@@ -138,11 +143,26 @@ export function calculateShippingForLines(
   settings: ShippingSettings = DEFAULT_SHIPPING_SETTINGS,
   rules: ShippingWeightRule[] = []
 ): number {
-  if (settings.free_shipping_threshold !== null && subtotal >= settings.free_shipping_threshold) return 0
-  const weightBasedLines = lines.filter(line => line.shippingMethod !== 'custom')
-  const customCharge = lines
-    .filter(line => line.shippingMethod === 'custom')
-    .reduce((sum, line) => sum + Math.max(0, Number(line.customDeliveryCharge || 0)), 0)
-  const weight = weightBasedLines.reduce((sum, line) => sum + line.unitWeightGrams * line.quantity, 0)
-  return Number((calculateShippingFee(weightBasedLines.length > 0 ? subtotal : 0, weight, settings, rules) + customCharge).toFixed(2))
+  if (settings.free_shipping_threshold !== null && subtotal >= settings.free_shipping_threshold) {
+    return 0.00
+  }
+
+  const weightBasedLines = lines.filter(line => (line.shippingMethod || 'weight_based') !== 'custom')
+  const customLines = lines.filter(line => (line.shippingMethod || 'weight_based') === 'custom')
+
+  const customCharge = customLines.reduce(
+    (sum, line) => sum + Math.max(0, Number(line.customDeliveryCharge || 0)),
+    0
+  )
+
+  const weight = weightBasedLines.reduce(
+    (sum, line) => sum + (Number(line.unitWeightGrams) || 0) * (Number(line.quantity) || 1),
+    0
+  )
+
+  const weightBasedShipping = weightBasedLines.length > 0
+    ? calculateShippingFee(subtotal, weight, settings, rules)
+    : 0.00
+
+  return Number((weightBasedShipping + customCharge).toFixed(2))
 }

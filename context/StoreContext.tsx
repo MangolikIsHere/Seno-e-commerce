@@ -64,7 +64,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const savedCart = localStorage.getItem('seno_cart')
       if (savedCart) {
         const parsed = JSON.parse(savedCart)
-        if (Array.isArray(parsed)) setCart(parsed)
+        if (Array.isArray(parsed)) {
+          const normalized = parsed.map(item => ({
+            ...item,
+            shipping_method: (item.shipping_method || item.product?.shippingMethod || (item.product as any)?.shipping_method || 'weight_based') as 'weight_based' | 'custom',
+            custom_delivery_charge: item.custom_delivery_charge !== undefined
+              ? item.custom_delivery_charge
+              : (item.product?.customDeliveryCharge !== undefined ? item.product.customDeliveryCharge : (item.product as any)?.custom_delivery_charge)
+          }))
+          setCart(normalized)
+        }
       }
       
       if (!user) {
@@ -140,8 +149,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         sku: variant.sku,
         unit_price: price,
         unit_weight_grams: weight,
-        shipping_method: product.shippingMethod,
-        custom_delivery_charge: product.customDeliveryCharge,
+        shipping_method: (product.shippingMethod || (product as any).shipping_method || 'weight_based') as 'weight_based' | 'custom',
+        custom_delivery_charge: product.customDeliveryCharge !== undefined ? product.customDeliveryCharge : (product as any).custom_delivery_charge,
         size: variant.size,
         colour: variant.colour,
         qty

@@ -23,9 +23,11 @@ export default function CartPage() {
   const progressPercent = Math.min(100, (subtotal / freeShippingThreshold) * 100)
   const shippingFee = calculateShippingForLines(subtotal, cart.map(item => ({
     quantity: item.qty,
-    unitWeightGrams: item.unit_weight_grams,
-    shippingMethod: item.shipping_method,
-    customDeliveryCharge: item.custom_delivery_charge
+    unitWeightGrams: item.unit_weight_grams || item.product?.defaultWeightGrams || 500,
+    shippingMethod: item.shipping_method || item.product?.shippingMethod || (item.product as any)?.shipping_method || 'weight_based',
+    customDeliveryCharge: item.custom_delivery_charge !== undefined
+      ? item.custom_delivery_charge
+      : (item.product?.customDeliveryCharge !== undefined ? item.product.customDeliveryCharge : (item.product as any)?.custom_delivery_charge)
   })), shippingConfig.settings, shippingConfig.rules)
   const estimatedTotal = subtotal + shippingFee
 

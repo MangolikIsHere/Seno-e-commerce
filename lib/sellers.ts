@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { notifyOrderItemFulfillmentChanged } from '@/lib/notifications/service'
+import { checkIsAdmin } from '@/lib/admin'
 
 export type SellerStatus = 'pending' | 'commission_proposed' | 'commission_negotiation' | 'approved' | 'suspended' | 'rejected'
 
@@ -907,10 +908,11 @@ export async function cancelAndRefundOrderItemAction(orderItemId: string, reason
  */
 export async function setProductSoldOutAction(productId: string, isSoldOut: boolean): Promise<void> {
   const supabase = await createClient()
-  const seller = await getMySellerRecord()
+  const isAdmin = await checkIsAdmin()
+  const seller = !isAdmin ? await getMySellerRecord() : null
   
-  if (!seller) {
-    throw new Error('Unauthorized: You must have an active seller account.')
+  if (!isAdmin && !seller) {
+    throw new Error('Unauthorized: You must have an active seller account or administrator privileges.')
   }
 
   // Authoritative validation of ownership
@@ -918,18 +920,15 @@ export async function setProductSoldOutAction(productId: string, isSoldOut: bool
     .from('products')
     .select('id, seller_id')
     .eq('id', productId)
-    .single()
+    .maybeSingle()
 
   if (fetchError || !product) {
     throw new Error('Product not found.')
   }
 
-  // Must be the owner, OR the user is an admin acting as SENO platform.
-  // We can just rely on the RLS policy, but we'll enforce strict seller_id check here.
-  // Wait, if it's admin, they might be updating a product they don't own?
-  // The prompt said: "Admin is also a seller for products owned by the SENO/admin seller account. Admin may manage those products as the seller. Do not automatically treat admin as permission to modify every seller's product unless existing platform-admin authorization allows."
-  // RLS already handles admin platform access. So we will just let RLS do the final enforcement, but we will pass the update.
-  // Let's do the update. If RLS fails, it returns an error.
+  if (!isAdmin && seller && product.seller_id !== seller.id) {
+    throw new Error('Unauthorized: You can only modify your own products.')
+  }
   
   const { error: updateError } = await supabase
     .from('products')
