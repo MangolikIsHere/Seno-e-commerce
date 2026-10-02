@@ -3,18 +3,22 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, LayoutGrid, Search, Heart, User } from 'lucide-react'
+import { Home, LayoutGrid, Search, ShoppingBag, User } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
 
 export function MobileBottomNav() {
   const pathname = usePathname()
-  const { wishlistCount, setSearchOpen, searchOpen } = useStore()
+  const { cartCount, setSearchOpen, searchOpen } = useStore()
 
   const isHomeActive = pathname === '/'
-  const isCollectionsActive = pathname.startsWith('/collections') || pathname.startsWith('/categories')
+  const isCategoriesActive =
+    pathname === '/categories' ||
+    pathname.startsWith('/categories') ||
+    pathname.startsWith('/collections') ||
+    pathname.startsWith('/catalog')
   const isSearchActive = searchOpen
-  const isWishlistActive = pathname === '/wishlist'
-  const isAccountActive = pathname.startsWith('/account')
+  const isCartActive = pathname === '/cart' || pathname.startsWith('/cart') || pathname.startsWith('/checkout')
+  const isAccountActive = pathname.startsWith('/account') || pathname.startsWith('/orders')
 
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile Bottom Navigation">
@@ -28,12 +32,12 @@ export function MobileBottomNav() {
       </Link>
 
       <Link
-        href="/collections/all"
-        className={`bottom-nav-item ${isCollectionsActive ? 'active' : ''}`}
-        aria-label="Collections"
+        href="/categories"
+        className={`bottom-nav-item ${isCategoriesActive ? 'active' : ''}`}
+        aria-label="Categories"
       >
-        <LayoutGrid size={20} strokeWidth={isCollectionsActive ? 2 : 1.5} />
-        <span>Collections</span>
+        <LayoutGrid size={20} strokeWidth={isCategoriesActive ? 2 : 1.5} />
+        <span>Categories</span>
       </Link>
 
       <button
@@ -47,15 +51,15 @@ export function MobileBottomNav() {
       </button>
 
       <Link
-        href="/wishlist"
-        className={`bottom-nav-item ${isWishlistActive ? 'active' : ''}`}
-        aria-label="Wishlist"
+        href="/cart"
+        className={`bottom-nav-item ${isCartActive ? 'active' : ''}`}
+        aria-label="Cart"
       >
         <div style={{ position: 'relative', display: 'inline-flex' }}>
-          <Heart size={20} strokeWidth={isWishlistActive ? 2 : 1.5} />
-          {wishlistCount > 0 && <span className="bottom-nav-badge">{wishlistCount}</span>}
+          <ShoppingBag size={20} strokeWidth={isCartActive ? 2 : 1.5} />
+          {cartCount > 0 && <span className="bottom-nav-badge">{cartCount}</span>}
         </div>
-        <span>Wishlist</span>
+        <span>Cart</span>
       </Link>
 
       <Link

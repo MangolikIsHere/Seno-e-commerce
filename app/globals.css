@@ -311,12 +311,12 @@ a {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 0;
+    gap: 2px;
     z-index: 2;
   }
   .mobile-icon-btn {
     position: relative;
-    min-width: 38px;
+    min-width: 40px;
     min-height: 44px;
     padding: 0 4px;
     display: inline-flex;
@@ -333,6 +333,10 @@ a {
     position: absolute;
     top: 7px;
     right: 3px;
+  }
+  /* Cart is relocated to mobile bottom navigation on normal mobile web */
+  .mobile-header [data-header-nav="cart"] {
+    display: none !important;
   }
   .logo-wordmark {
     font-size: 24px;
@@ -4623,7 +4627,8 @@ textarea.input-field {
 }
 
 .seno-android-app [data-header-nav="notifications"],
-.seno-android-app [data-header-nav="cart"] {
+.seno-android-app [data-header-nav="cart"],
+.seno-android-app .mobile-header [data-header-nav="cart"] {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;

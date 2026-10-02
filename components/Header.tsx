@@ -156,13 +156,14 @@ export function Header({ categories = [] }: { categories?: { name: string; slug:
           <div className="header-nav-notifications" data-header-nav="notifications">
             <NotificationBell isMobile />
           </div>
-          <Link href="/account" className="mobile-icon-btn header-nav-account" data-header-nav="account" aria-label="Account">
-            <User size={19} />
-          </Link>
 
           <Link href="/wishlist" className="mobile-icon-btn header-nav-wishlist" data-header-nav="wishlist" aria-label="Wishlist">
             <Heart size={19} />
             {wishlistCount > 0 && <span className="action-badge">{wishlistCount}</span>}
+          </Link>
+
+          <Link href="/account" className="mobile-icon-btn header-nav-account" data-header-nav="account" aria-label="Account">
+            <User size={19} />
           </Link>
 
           <button
