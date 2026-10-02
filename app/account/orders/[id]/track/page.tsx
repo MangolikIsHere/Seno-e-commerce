@@ -246,7 +246,7 @@ export default function TrackingPage() {
     return getStageIndex(backendStatus)
   }, [backendStatus])
 
-  // Map events to stage timestamps
+  // Map events to stage timestamps — strictly for stages that have actually occurred in this active lifecycle
   const stageTimestamps = useMemo(() => {
     const map: Record<string, string | null> = {
       order_placed: order?.created_at || null,
@@ -257,26 +257,41 @@ export default function TrackingPage() {
       delivered: null
     }
 
-    const events = (trackedItem?.fulfillment_events || []) as FulfillmentEvent[]
-    for (const evt of events) {
-      const s = (evt.status || '').toLowerCase()
+    if (isCancelled) {
+      return map
+    }
+
+    // Sort events chronologically to find the earliest authoritative transition timestamp for each stage
+    const rawEvents = ((trackedItem?.fulfillment_events || []) as FulfillmentEvent[])
+      .slice()
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+
+    for (const evt of rawEvents) {
+      const s = (evt.status || '').toLowerCase().trim()
       if ((s === 'unfulfilled' || s === 'order_placed') && !map.order_placed) {
         map.order_placed = evt.created_at
-      } else if (s === 'processing') {
+      } else if (s === 'processing' && currentStageIndex >= 1 && !map.processing) {
         map.processing = evt.created_at
-      } else if (s === 'dispatched' || s === 'shipped') {
+      } else if ((s === 'dispatched' || s === 'shipped') && currentStageIndex >= 2 && !map.dispatched) {
         map.dispatched = evt.created_at
-      } else if (s === 'in_transit') {
+      } else if (s === 'in_transit' && currentStageIndex >= 3 && !map.in_transit) {
         map.in_transit = evt.created_at
-      } else if (s === 'out_for_delivery') {
+      } else if (s === 'out_for_delivery' && currentStageIndex >= 4 && !map.out_for_delivery) {
         map.out_for_delivery = evt.created_at
-      } else if (s === 'delivered') {
+      } else if (s === 'delivered' && currentStageIndex >= 5 && !map.delivered) {
         map.delivered = evt.created_at
       }
     }
 
+    // Strictly enforce null timestamp on any future stage (index > currentStageIndex)
+    TRACKING_STAGES.forEach((stage, idx) => {
+      if (idx > currentStageIndex) {
+        map[stage.key] = null
+      }
+    })
+
     return map
-  }, [trackedItem, order])
+  }, [trackedItem, order, currentStageIndex, isCancelled])
 
   // Contextual status message
   const statusMessage = useMemo(() => {
@@ -523,8 +538,10 @@ export default function TrackingPage() {
               const isCurrentStage = index === currentStageIndex && !isDelivered && !isCancelled
               const isUpcomingStage = index > currentStageIndex && !isDelivered
 
-              const stageTimestamp = stageTimestamps[stage.key]
-              const formattedTime = formatStageTimestamp(stageTimestamp)
+              // Strict occurrence gate: Only past/current stages may display timestamps
+              const hasStageOccurred = (isPastStage || isCurrentStage) && !isCancelled
+              const stageTimestamp = hasStageOccurred ? stageTimestamps[stage.key] : null
+              const formattedTime = stageTimestamp ? formatStageTimestamp(stageTimestamp) : ''
               const isLast = index === TRACKING_STAGES.length - 1
 
               return (
