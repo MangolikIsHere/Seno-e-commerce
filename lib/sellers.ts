@@ -83,9 +83,31 @@ export async function registerSeller(formData: FormData) {
 }
 
 /**
- * Fetch the authenticated user's seller record.
+ * Retrieve the official SENO platform seller record.
  */
-export async function getMySellerRecord() {
+export async function getPlatformSellerRecord(): Promise<Seller | null> {
+  const adminSupabase = getAdminSupabase()
+  const { data, error } = await adminSupabase
+    .from('sellers')
+    .select('*')
+    .eq('seller_type', 'platform')
+    .eq('seller_status', 'approved')
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data) {
+    console.error('Failed to resolve SENO platform seller record:', error)
+    return null
+  }
+  return data as Seller
+}
+
+/**
+ * Fetch the authenticated user's seller record.
+ * If the user is an administrator without a separate reseller record,
+ * resolves to the official SENO platform seller.
+ */
+export async function getMySellerRecord(): Promise<Seller | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -95,14 +117,23 @@ export async function getMySellerRecord() {
     .from('sellers')
     .select('*')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
   if (error && error.code !== 'PGRST116') {
     console.error('Error fetching seller record:', error)
-    return null
   }
 
-  return data as Seller | null
+  if (data) {
+    return data as Seller
+  }
+
+  // If user is Admin without a personal reseller record, treat them as the SENO platform seller
+  const isAdmin = await checkIsAdmin()
+  if (isAdmin) {
+    return await getPlatformSellerRecord()
+  }
+
+  return null
 }
 
 // -------------------------------------------------------------
@@ -564,38 +595,46 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
  * Bypasses the full product edit lifecycle to allow instant stock updates without review resets.
  */
 export async function updateSellerVariantInventory(variantId: string, quantity: number) {
-  const supabase = await createClient()
-  const seller = await getMySellerRecord()
-  if (!seller) throw new Error('Unauthorized: No seller record found.')
+  const isAdmin = await checkIsAdmin()
+  const seller = !isAdmin ? await getMySellerRecord() : await getPlatformSellerRecord()
+  if (!isAdmin && (!seller || seller.seller_status !== 'approved')) {
+    throw new Error('Unauthorized: You must have an active seller account.')
+  }
 
-  // Verify the variant belongs to the authenticated seller
-  const { data: variant, error: varError } = await supabase
+  const adminSupabase = getAdminSupabase()
+
+  // Verify the variant exists and check ownership if not admin
+  const { data: variant, error: varError } = await adminSupabase
     .from('product_variants')
     .select('id, products!inner(seller_id, slug)')
     .eq('id', variantId)
     .single()
 
-  if (varError || !variant || (variant.products as any).seller_id !== seller.id) {
-    throw new Error('Unauthorized or variant not found.')
+  if (varError || !variant) {
+    throw new Error('Variant not found.')
+  }
+
+  if (!isAdmin && seller && (variant.products as any).seller_id !== seller.id) {
+    throw new Error('Unauthorized: You can only modify your own variants.')
   }
 
   const qty = Math.max(0, Number(quantity))
 
   // Upsert inventory
-  const { data: invRow } = await supabase
+  const { data: invRow } = await adminSupabase
     .from('inventory')
     .select('id')
     .eq('variant_id', variantId)
     .single()
 
   if (invRow) {
-    const { error } = await supabase
+    const { error } = await adminSupabase
       .from('inventory')
       .update({ quantity: qty, updated_at: new Date().toISOString() })
       .eq('variant_id', variantId)
     if (error) throw new Error(error.message)
   } else {
-    const { error } = await supabase
+    const { error } = await adminSupabase
       .from('inventory')
       .insert({ variant_id: variantId, quantity: qty, low_stock_threshold: 5 })
     if (error) throw new Error(error.message)
@@ -603,6 +642,7 @@ export async function updateSellerVariantInventory(variantId: string, quantity: 
 
   const slug = (variant.products as any).slug
   revalidatePath('/seller/products')
+  revalidatePath('/admin/products')
   if (slug) revalidatePath(`/products/${slug}`)
   
   return { success: true, quantity: qty }
@@ -907,18 +947,19 @@ export async function cancelAndRefundOrderItemAction(orderItemId: string, reason
  * Update the is_sold_out override for a specific product.
  */
 export async function setProductSoldOutAction(productId: string, isSoldOut: boolean): Promise<void> {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
-  const seller = !isAdmin ? await getMySellerRecord() : null
+  const seller = !isAdmin ? await getMySellerRecord() : await getPlatformSellerRecord()
   
-  if (!isAdmin && !seller) {
-    throw new Error('Unauthorized: You must have an active seller account or administrator privileges.')
+  if (!isAdmin && (!seller || seller.seller_status !== 'approved')) {
+    throw new Error('Unauthorized: You must have an active seller account.')
   }
 
+  const adminSupabase = getAdminSupabase()
+
   // Authoritative validation of ownership
-  const { data: product, error: fetchError } = await supabase
+  const { data: product, error: fetchError } = await adminSupabase
     .from('products')
-    .select('id, seller_id')
+    .select('id, seller_id, slug')
     .eq('id', productId)
     .maybeSingle()
 
@@ -930,7 +971,7 @@ export async function setProductSoldOutAction(productId: string, isSoldOut: bool
     throw new Error('Unauthorized: You can only modify your own products.')
   }
   
-  const { error: updateError } = await supabase
+  const { error: updateError } = await adminSupabase
     .from('products')
     .update({ is_sold_out: isSoldOut })
     .eq('id', productId)
@@ -941,49 +982,52 @@ export async function setProductSoldOutAction(productId: string, isSoldOut: bool
 
   revalidatePath('/seller/products')
   revalidatePath('/admin/products')
-  revalidatePath(`/products/${productId}`) // Though we'd normally revalidate by slug, the slug isn't fetched here. We rely on time/revalidation elsewhere or we can fetch slug.
+  if (product.slug) {
+    revalidatePath(`/products/${product.slug}`)
+  }
 }
 
 /**
  * Attempt to delete a product. If historical commerce dependencies exist, safely archive it instead.
  */
 export async function deleteProductAction(productId: string): Promise<{ deleted: boolean, archived: boolean }> {
-  const supabase = await createClient()
-  const seller = await getMySellerRecord()
+  const isAdmin = await checkIsAdmin()
+  const seller = !isAdmin ? await getMySellerRecord() : await getPlatformSellerRecord()
   
-  if (!seller) {
+  if (!isAdmin && (!seller || seller.seller_status !== 'approved')) {
     throw new Error('Unauthorized: You must have an active seller account.')
-  }
-
-  // We use admin supabase to bypass RLS for reading dependencies to ensure we don't miss anything due to RLS,
-  // but we MUST first verify the current user is ALLOWED to delete this product via the regular client (RLS).
-  const { data: productVerify, error: verifyError } = await supabase
-    .from('products')
-    .select('id, seller_id')
-    .eq('id', productId)
-    .single()
-
-  if (verifyError || !productVerify) {
-    throw new Error('Product not found or access denied.')
   }
 
   const adminSupabase = getAdminSupabase()
 
-  // 1. Dependency Audit
-  // Check order_items
+  // 1. Authoritative validation of product existence
+  const { data: product, error: fetchError } = await adminSupabase
+    .from('products')
+    .select('id, seller_id, slug, name')
+    .eq('id', productId)
+    .maybeSingle()
+
+  if (fetchError || !product) {
+    throw new Error('Product not found.')
+  }
+
+  // 2. Strict seller isolation: normal seller can only delete their own products
+  if (!isAdmin && seller && product.seller_id !== seller.id) {
+    throw new Error('Unauthorized: You can only delete your own products.')
+  }
+
+  // 3. Dependency Audit: check if product is referenced in historical orders
   const { data: orderItems, error: oiError } = await adminSupabase
     .from('order_items')
     .select('id')
     .eq('product_id', productId)
     .limit(1)
 
-  // Check cart_items (assuming a cart_items table exists, if not, it will just fail to query and we catch it, but wait, if it fails, it might throw error. Let's stick to known tables: order_items, inventory (which is safe to delete if we own it), but wait, inventory history? If there's orders, that covers historical commerce. Let's check order_items.
-  
-  const hasDependencies = (orderItems && orderItems.length > 0)
+  const hasDependencies = Boolean(orderItems && orderItems.length > 0)
 
   if (hasDependencies) {
-    // Cannot hard delete. Archive instead.
-    const { error: archiveError } = await supabase
+    // Historical commerce records exist. Archive instead of hard delete.
+    const { error: archiveError } = await adminSupabase
       .from('products')
       .update({ is_active: false })
       .eq('id', productId)
@@ -994,30 +1038,36 @@ export async function deleteProductAction(productId: string): Promise<{ deleted:
 
     revalidatePath('/seller/products')
     revalidatePath('/admin/products')
+    if (product.slug) {
+      revalidatePath(`/products/${product.slug}`)
+    }
     return { deleted: false, archived: true }
   }
 
-  // Safe to hard delete. 
-  // We must first delete variants, images, etc if they don't CASCADE.
-  // Actually, Supabase usually has CASCADE on variants/images for product_id.
-  // We will issue a delete via the user's client so RLS is respected.
-  const { error: deleteError } = await supabase
+  // 4. Safe to hard delete: no historical order dependencies
+  const { error: deleteError } = await adminSupabase
     .from('products')
     .delete()
     .eq('id', productId)
 
   if (deleteError) {
-    // If it fails (maybe due to a foreign key we missed that doesn't cascade), fallback to archive
+    // If a foreign key restriction occurs, fallback to safe archival
     if (deleteError.code === '23503') { // foreign_key_violation
-       await supabase.from('products').update({ is_active: false }).eq('id', productId)
-       revalidatePath('/seller/products')
-       revalidatePath('/admin/products')
-       return { deleted: false, archived: true }
+      await adminSupabase.from('products').update({ is_active: false }).eq('id', productId)
+      revalidatePath('/seller/products')
+      revalidatePath('/admin/products')
+      if (product.slug) {
+        revalidatePath(`/products/${product.slug}`)
+      }
+      return { deleted: false, archived: true }
     }
     throw new Error(`Failed to delete product: ${deleteError.message}`)
   }
 
   revalidatePath('/seller/products')
   revalidatePath('/admin/products')
+  if (product.slug) {
+    revalidatePath(`/products/${product.slug}`)
+  }
   return { deleted: true, archived: false }
 }

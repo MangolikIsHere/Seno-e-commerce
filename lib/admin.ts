@@ -29,7 +29,8 @@ export async function checkIsAdmin() {
       data?.role === 'admin' ||
       user.email === 'admin@seno-luxury.com' ||
       user.email === 'admin.seno@gmail.com' ||
-      user.email === 'debnathmangolik@gmail.com'
+      user.email === 'debnathmangolik@gmail.com' ||
+      user.email === 'officialsenostore@gmail.com'
     ) {
       return true
     }
