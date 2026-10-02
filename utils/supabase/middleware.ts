@@ -7,17 +7,46 @@ export async function updateSession(request: NextRequest) {
   })
 
   // 1. Detect Next.js Router Prefetch requests.
-  // Prefetch requests must NOT trigger expensive network calls to Supabase Auth.
+  // Prefetch requests must NEVER trigger blocking external network calls to Supabase Auth.
   const isPrefetch =
     request.headers.get('next-router-prefetch') === '1' ||
+    request.headers.has('next-router-segment-prefetch') ||
     request.headers.get('purpose') === 'prefetch' ||
+    request.headers.get('sec-purpose') === 'prefetch' ||
     request.headers.has('x-middleware-prefetch')
 
   if (isPrefetch) {
     return supabaseResponse
   }
 
-  // 2. Initialize Supabase SSR client to validate and refresh session for all REAL navigations.
+  // 2. Determine route sensitivity
+  const pathname = request.nextUrl.pathname
+  const isProtectedOrAuthSensitive =
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/seller') ||
+    pathname.startsWith('/checkout') ||
+    pathname.startsWith('/account') ||
+    pathname.startsWith('/api/admin') ||
+    pathname.startsWith('/api/seller')
+
+  // 3. Fast-path optimization for unauthenticated visitors on public routes.
+  // If the visitor has no Supabase auth token cookies, there is no session to refresh.
+  if (!isProtectedOrAuthSensitive) {
+    const hasAuthTokenCookie = request.cookies
+      .getAll()
+      .some(
+        (c) =>
+          c.name.startsWith('sb-') &&
+          c.name.includes('-auth-token') &&
+          !c.name.endsWith('-code-verifier')
+      )
+
+    if (!hasAuthTokenCookie) {
+      return supabaseResponse
+    }
+  }
+
+  // 4. Initialize Supabase SSR client to validate or refresh session for authenticated users or protected routes
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -39,43 +68,12 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // 3. Fast-path optimization for unauthenticated visitors on PUBLIC routes ONLY.
-  // Do not apply this to protected routes. Protected routes must always run getUser() to redirect securely.
-  const pathname = request.nextUrl.pathname
-  const isProtectedOrAuthSensitive =
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/seller') ||
-    pathname.startsWith('/checkout') ||
-    (pathname.startsWith('/account') &&
-      !pathname.startsWith('/account/register') &&
-      !pathname.startsWith('/account/forgot-password') &&
-      !pathname.startsWith('/account/reset-password'))
-
-  if (!isProtectedOrAuthSensitive) {
-    // If it's a public route, and the user has no session cookies, we don't need to call getUser()
-    // because there is no session to refresh.
-    const hasAuthTokenCookie = request.cookies
-      .getAll()
-      .some(
-        (cookie) =>
-          cookie.name.startsWith('sb-') &&
-          cookie.name.includes('-auth-token') &&
-          !cookie.name.endsWith('-code-verifier')
-      )
-
-    if (!hasAuthTokenCookie) {
-      // Completely unauthenticated visitor on a public page (e.g. /, /products).
-      // Skip the network call.
-      return supabaseResponse
-    }
-  }
-
-  // 4. Execute getUser() to validate/refresh the session for authenticated users or anyone hitting protected routes.
+  // 5. Authoritatively validate and refresh the session
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // 5. Enforce protection for strictly protected routes
+  // 6. Enforce protection for strictly protected routes
   const isStrictlyProtected = pathname.startsWith('/admin') || pathname.startsWith('/seller')
   if (!user && isStrictlyProtected) {
     const loginUrl = new URL('/account', request.url)

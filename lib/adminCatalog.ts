@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { checkIsAdmin } from '@/lib/admin'
 import { revalidatePath } from 'next/cache'
+import { invalidateProductCache } from '@/lib/catalog-server'
 import fs from 'fs'
 import path from 'path'
 
@@ -55,10 +56,11 @@ export interface UpdateProductInput extends CreateProductInput {
 }
 
 /**
- * Revalidate all storefront routes that depend on the catalog.
+ * Revalidate all storefront routes and catalog cache tags that depend on the catalog.
  */
 export async function revalidateCatalogPaths(slug?: string) {
   try {
+    invalidateProductCache(slug)
     revalidatePath('/')
     revalidatePath('/products')
     revalidatePath('/collections/[category]', 'page')

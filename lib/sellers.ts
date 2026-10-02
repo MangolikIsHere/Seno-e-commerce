@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+import { invalidateProductCache } from '@/lib/catalog-server'
 import { notifyOrderItemFulfillmentChanged } from '@/lib/notifications/service'
 import { checkIsAdmin } from '@/lib/admin'
 
@@ -303,6 +304,7 @@ export async function toggleProductSoldOutAction(formData: FormData) {
     revalidatePath(`/products/${data.slug}`)
   }
   revalidatePath('/') // catalog home
+  invalidateProductCache(data.slug)
   
   return { success: true }
 }
@@ -584,6 +586,7 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
   }
 
   revalidatePath('/seller/products')
+  invalidateProductCache()
   if (finalProductId) {
     revalidatePath(`/seller/products/${finalProductId}`)
   }
@@ -643,7 +646,10 @@ export async function updateSellerVariantInventory(variantId: string, quantity: 
   const slug = (variant.products as any).slug
   revalidatePath('/seller/products')
   revalidatePath('/admin/products')
-  if (slug) revalidatePath(`/products/${slug}`)
+  invalidateProductCache(slug)
+  if (slug) {
+    revalidatePath(`/products/${slug}`)
+  }
   
   return { success: true, quantity: qty }
 }
@@ -1051,6 +1057,7 @@ export async function deleteProductAction(productId: string): Promise<{ deleted:
 
     revalidatePath('/seller/products')
     revalidatePath('/admin/products')
+    invalidateProductCache(product.slug)
     if (product.slug) {
       revalidatePath(`/products/${product.slug}`)
     }
@@ -1069,6 +1076,7 @@ export async function deleteProductAction(productId: string): Promise<{ deleted:
       await adminSupabase.from('products').update({ is_active: false }).eq('id', productId)
       revalidatePath('/seller/products')
       revalidatePath('/admin/products')
+      invalidateProductCache(product.slug)
       if (product.slug) {
         revalidatePath(`/products/${product.slug}`)
       }
@@ -1079,6 +1087,7 @@ export async function deleteProductAction(productId: string): Promise<{ deleted:
 
   revalidatePath('/seller/products')
   revalidatePath('/admin/products')
+  invalidateProductCache(product.slug)
   if (product.slug) {
     revalidatePath(`/products/${product.slug}`)
   }

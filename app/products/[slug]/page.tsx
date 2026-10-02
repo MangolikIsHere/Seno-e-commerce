@@ -1,7 +1,7 @@
 import React from 'react'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { getProduct, getRelatedProducts } from '@/lib/catalog'
+import { getCachedProduct, getCachedRelatedProducts, getAllProductSlugs } from '@/lib/catalog-server'
 import { ProductDetailClient } from '@/components/ProductDetailClient'
 import { SITE_URL, SITE_NAME } from '@/lib/seo'
 
@@ -10,10 +10,16 @@ interface ProductPageProps {
 }
 
 export const revalidate = 300
+export const dynamicParams = true
+
+export async function generateStaticParams() {
+  const slugs = await getAllProductSlugs()
+  return slugs.map((slug) => ({ slug }))
+}
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { slug } = await params
-  const product = await getProduct(slug)
+  const product = await getCachedProduct(slug)
 
   if (!product) {
     return {
@@ -57,13 +63,13 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params
-  const product = await getProduct(slug)
+  const product = await getCachedProduct(slug)
 
   if (!product) {
     notFound()
   }
 
-  const relatedProducts = await getRelatedProducts(product, 4)
+  const relatedProducts = await getCachedRelatedProducts(product, 4)
 
   // Schema.org Product Structured Data
   const jsonLd = {
