@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { isSenoAndroidApp } from '@/lib/platform'
 
 export function AndroidAppEnhancer() {
   const router = useRouter()
@@ -9,49 +10,30 @@ export function AndroidAppEnhancer() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    // Expose Next.js SPA router to Android Native Bottom Navigation for instantaneous, zero-reload transitions
-    const globalObj = window as unknown as { __senoNavigate?: (path: string) => void }
-    globalObj.__senoNavigate = (path: string) => {
-      try {
-        router.push(path)
-      } catch {
-        window.location.href = path
-      }
-    }
+    const isApp = isSenoAndroidApp()
 
-    const checkIsAndroidApp = (): boolean => {
-      // 1. Injected JS Bridge
-      if ((window as unknown as { SenoNativeApp?: unknown }).SenoNativeApp !== undefined) {
-        return true
-      }
-      // 2. User Agent custom token
-      if (window.navigator.userAgent.includes('SenoAndroidApp')) {
-        return true
-      }
-      // 3. Cookie check
-      if (document.cookie.includes('seno_platform=android')) {
-        return true
-      }
-      // 4. Query param check
-      const urlParams = new URLSearchParams(window.location.search)
-      if (urlParams.get('platform') === 'android') {
-        return true
-      }
-      // 5. Session storage persisted state
-      try {
-        if (sessionStorage.getItem('seno_platform') === 'android') {
-          return true
-        }
-      } catch {
-        // ignore
-      }
-      return false
-    }
-
-    if (checkIsAndroidApp()) {
+    if (isApp) {
       document.documentElement.classList.add('seno-android-app')
+
+      // Expose Next.js SPA router to Android Native Bottom Navigation for instantaneous, zero-reload transitions
+      const globalObj = window as unknown as { __senoNavigate?: (path: string) => void }
+      globalObj.__senoNavigate = (path: string) => {
+        try {
+          router.push(path)
+        } catch {
+          window.location.href = path
+        }
+      }
+    } else {
+      // Normal mobile web / desktop / PWA: ensure seno-android-app is NOT applied
+      document.documentElement.classList.remove('seno-android-app')
+
+      // Clean up legacy cookies or session storage that may have leaked from past tests
       try {
-        sessionStorage.setItem('seno_platform', 'android')
+        if (document.cookie.includes('seno_platform=')) {
+          document.cookie = 'seno_platform=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT;'
+        }
+        sessionStorage.removeItem('seno_platform')
       } catch {
         // ignore
       }

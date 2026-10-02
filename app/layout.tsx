@@ -22,7 +22,8 @@ import {
   DEFAULT_OG_IMAGE,
   GOOGLE_SITE_VERIFICATION,
 } from '@/lib/seo'
-import { cookies } from 'next/headers'
+import { headers } from 'next/headers'
+import { MobileBottomNav } from '@/components/MobileBottomNav'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -108,8 +109,9 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   const categories = await getActiveCategories()
-  const cookieStore = await cookies()
-  const isAndroid = cookieStore.get('seno_platform')?.value === 'android'
+  const headerList = await headers()
+  const userAgent = headerList.get('user-agent') || ''
+  const isAndroid = userAgent.includes('SenoAndroidApp')
 
   return (
     <html lang="en" className={`bg-background ${isAndroid ? 'seno-android-app' : ''}`} suppressHydrationWarning>
@@ -127,6 +129,7 @@ export default async function RootLayout({
               <Header categories={categories} />
               <main className="main-content">{children}</main>
               <Footer categories={categories} />
+              <MobileBottomNav />
               <CartDrawer />
               <SearchModal />
             </div>

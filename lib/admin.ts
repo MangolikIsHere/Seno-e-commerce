@@ -328,7 +328,7 @@ export async function updateAdminOrderFulfillment(formData: FormData): Promise<v
     throw new Error('Invalid fulfillment status.')
   }
 
-  const { error } = await supabase
+  const { data: itemData, error } = await supabase
     .from('order_items')
     .update({
       fulfillment_status: status,
@@ -337,6 +337,8 @@ export async function updateAdminOrderFulfillment(formData: FormData): Promise<v
       estimated_delivery_date: estimatedDeliveryDate ? new Date(estimatedDeliveryDate).toISOString() : null
     })
     .eq('id', orderItemId)
+    .select('order_id')
+    .single()
 
   if (error) {
     throw new Error(error.message)
@@ -347,6 +349,11 @@ export async function updateAdminOrderFulfillment(formData: FormData): Promise<v
   revalidatePath('/admin/orders')
   revalidatePath('/seller/orders')
   revalidatePath('/account')
+  if (itemData?.order_id) {
+    revalidatePath(`/admin/orders/${itemData.order_id}`)
+    revalidatePath(`/account/orders/${itemData.order_id}`)
+    revalidatePath(`/account/orders/${itemData.order_id}/track`)
+  }
 }
 
 export interface AdminOverviewStats {

@@ -23,39 +23,6 @@ export function isSenoAndroidApp(): boolean {
     return true
   }
 
-  // 4. HTML root class check
-  if (typeof document !== 'undefined' && document.documentElement.classList.contains('seno-android-app')) {
-    return true
-  }
-
-  // 5. SessionStorage platform marker
-  try {
-    if (typeof window.sessionStorage !== 'undefined' && window.sessionStorage.getItem('seno_platform') === 'android') {
-      return true
-    }
-  } catch {
-    // ignore
-  }
-
-  // 6. Cookie check
-  try {
-    if (typeof document !== 'undefined' && document.cookie.includes('seno_platform=android')) {
-      return true
-    }
-  } catch {
-    // ignore
-  }
-
-  // 7. URL query param check (e.g. ?platform=android)
-  try {
-    const urlParams = new URLSearchParams(window.location.search)
-    if (urlParams.get('platform') === 'android') {
-      return true
-    }
-  } catch {
-    // ignore
-  }
-
   return false
 }
 

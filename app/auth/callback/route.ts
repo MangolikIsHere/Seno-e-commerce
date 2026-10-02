@@ -15,19 +15,7 @@ export async function GET(request: Request) {
   const redirectPath = (next.startsWith('/') && !next.startsWith('//') && !next.includes('://')) ? next : '/account'
   const isNativeAndroidCallback = platform === 'android' && searchParams.get('native') === 'android'
 
-  // If request indicates Android platform, set seno_platform cookie
-  if (platform === 'android') {
-    try {
-      const cookieStore = await cookies()
-      cookieStore.set('seno_platform', 'android', {
-        path: '/',
-        maxAge: 31536000,
-        sameSite: 'lax',
-      })
-    } catch {
-      // ignore
-    }
-  }
+  // Native Android APK deep link handling for OAuth completion
 
   // Return the OAuth code to the APK through its registered deep link. The
   // HTTPS callback is used first so Supabase can validate an allowlisted URL.

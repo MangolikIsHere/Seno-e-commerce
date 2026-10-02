@@ -26,6 +26,18 @@ export type FulfillmentState =
   | 'returned'
   | 'delivery_failed'
 
+export interface FulfillmentEvent {
+  id: string
+  order_item_id: string
+  status: string
+  actor_type?: string | null
+  note?: string | null
+  carrier?: string | null
+  tracking_number?: string | null
+  estimated_delivery_date?: string | null
+  created_at: string
+}
+
 export interface OrderItem {
   id: string
   order_id: string
@@ -49,6 +61,12 @@ export interface OrderItem {
   carrier?: string | null
   estimated_delivery_date?: string | null
   created_at: string
+  fulfillment_events?: FulfillmentEvent[]
+  sellers?: {
+    id?: string
+    store_name?: string
+    slug?: string
+  } | null
 }
 
 export interface Order {
@@ -402,7 +420,18 @@ export async function getCustomerOrderById(
           tracking_number,
           carrier,
           estimated_delivery_date,
-          created_at
+          created_at,
+          fulfillment_events (
+            id,
+            order_item_id,
+            status,
+            actor_type,
+            note,
+            carrier,
+            tracking_number,
+            estimated_delivery_date,
+            created_at
+          )
         )
       `)
       .eq('customer_id', user.id)
@@ -423,7 +452,38 @@ export async function getCustomerOrderById(
       return { order: null, error: 'Order not found or unauthorized.' }
     }
 
-    return { order: data as unknown as Order }
+    // Resolve sellers details from sellers_public for display
+    const rawOrder = data as any
+    if (rawOrder.order_items && rawOrder.order_items.length > 0) {
+      const sellerIds = Array.from(new Set(rawOrder.order_items.map((i: any) => i.seller_id).filter(Boolean))) as string[]
+      let sellerMap = new Map<string, { id?: string; store_name?: string; slug?: string }>()
+
+      if (sellerIds.length > 0) {
+        const { data: sellersData } = await supabase
+          .from('sellers_public')
+          .select('id, store_name, slug')
+          .in('id', sellerIds)
+
+        if (sellersData) {
+          sellerMap = new Map(sellersData.map((s: any) => [s.id, s]))
+        }
+      }
+
+      for (const item of rawOrder.order_items) {
+        if (item.seller_id && sellerMap.has(item.seller_id)) {
+          const s = sellerMap.get(item.seller_id)
+          item.sellers = {
+            id: s?.id,
+            store_name: s?.store_name === 'SENO' ? 'SENO Official' : s?.store_name || 'SENO Official',
+            slug: s?.slug || 'seno-official'
+          }
+        } else {
+          item.sellers = { store_name: 'SENO Official', slug: 'seno-official' }
+        }
+      }
+    }
+
+    return { order: rawOrder as unknown as Order }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to retrieve order.'
     return { order: null, error: message }

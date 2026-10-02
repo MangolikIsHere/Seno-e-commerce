@@ -1,24 +1,13 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { isSenoAndroidApp } from '@/lib/platform'
 
 export function BrandIntro() {
   const [phase, setPhase] = useState<'playing' | 'exiting' | 'removed'>('playing')
   useEffect(() => {
     // Android APK has native Android 12+ splash and overlay; do not show web splash.
-    // Use all available signals — the page may have just returned from a Google OAuth Custom Tabs
-    // redirect, so the html class may not yet be set, but cookie / sessionStorage / UA always are.
-    const isAndroid =
-      document.documentElement.classList.contains('seno-android-app') ||
-      window.navigator.userAgent.includes('SenoAndroidApp') ||
-      (window as unknown as { SenoNativeApp?: unknown }).SenoNativeApp !== undefined ||
-      document.cookie.includes('seno_platform=android') ||
-      (() => {
-        try { return sessionStorage.getItem('seno_platform') === 'android' } catch { return false }
-      })() ||
-      new URLSearchParams(window.location.search).get('platform') === 'android'
-
-    if (isAndroid) {
+    if (isSenoAndroidApp()) {
       setPhase('removed')
       return
     }

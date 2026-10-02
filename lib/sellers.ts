@@ -782,7 +782,7 @@ export async function updateSellerOrderFulfillment(formData: FormData): Promise<
     throw new Error('Invalid fulfillment status.')
   }
 
-  const { error } = await supabase
+  const { data: itemData, error } = await supabase
     .from('order_items')
     .update({
       fulfillment_status: status,
@@ -792,6 +792,8 @@ export async function updateSellerOrderFulfillment(formData: FormData): Promise<
     })
     .eq('id', orderItemId)
     .eq('seller_id', seller.id)
+    .select('order_id')
+    .single()
 
   if (error) {
     throw new Error(error.message)
@@ -804,6 +806,11 @@ export async function updateSellerOrderFulfillment(formData: FormData): Promise<
   revalidatePath('/admin/orders')
   revalidatePath('/account')
   revalidatePath(`/seller/orders/${orderItemId}`)
+  if (itemData?.order_id) {
+    revalidatePath(`/admin/orders/${itemData.order_id}`)
+    revalidatePath(`/account/orders/${itemData.order_id}`)
+    revalidatePath(`/account/orders/${itemData.order_id}/track`)
+  }
 }
 
 export async function updateFulfillmentStatus(orderItemId: string, status: string, tracking: string, carrier: string) {
@@ -811,7 +818,7 @@ export async function updateFulfillmentStatus(orderItemId: string, status: strin
   const seller = await getMySellerRecord()
   if (!seller) throw new Error('Unauthorized: No active seller account.')
   
-  const { error } = await supabase
+  const { data: itemData, error } = await supabase
     .from('order_items')
     .update({ 
       fulfillment_status: status,
@@ -820,6 +827,8 @@ export async function updateFulfillmentStatus(orderItemId: string, status: strin
     })
     .eq('id', orderItemId)
     .eq('seller_id', seller.id)
+    .select('order_id')
+    .single()
     
   if (error) {
     throw new Error(error.message)
@@ -830,8 +839,12 @@ export async function updateFulfillmentStatus(orderItemId: string, status: strin
   revalidatePath('/seller/orders')
   revalidatePath('/seller/dashboard')
   revalidatePath('/admin/orders')
-  revalidatePath('/admin/orders')
   revalidatePath('/account')
+  if (itemData?.order_id) {
+    revalidatePath(`/admin/orders/${itemData.order_id}`)
+    revalidatePath(`/account/orders/${itemData.order_id}`)
+    revalidatePath(`/account/orders/${itemData.order_id}/track`)
+  }
 }
 
 export async function cancelAndRefundOrderItemAction(orderItemId: string, reason: string): Promise<void> {

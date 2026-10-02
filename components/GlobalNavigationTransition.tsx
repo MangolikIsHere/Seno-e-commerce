@@ -3,18 +3,11 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 
+import { isSenoAndroidApp } from '@/lib/platform'
+
 /** Returns true when running inside the SENO Android APK native shell */
 function isAndroidApp(): boolean {
-  if (typeof window === 'undefined') return false
-  if ((window as unknown as { SenoNativeApp?: unknown }).SenoNativeApp !== undefined) return true
-  if (window.navigator.userAgent.includes('SenoAndroidApp')) return true
-  if (document.cookie.includes('seno_platform=android')) return true
-  try {
-    if (sessionStorage.getItem('seno_platform') === 'android') return true
-  } catch { /* ignore */ }
-  const params = new URLSearchParams(window.location.search)
-  if (params.get('platform') === 'android') return true
-  return document.documentElement.classList.contains('seno-android-app')
+  return isSenoAndroidApp()
 }
 
 export function GlobalNavigationTransition() {
