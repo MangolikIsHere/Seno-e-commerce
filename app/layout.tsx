@@ -14,6 +14,7 @@ import { GlobalNavigationTransition } from '@/components/GlobalNavigationTransit
 import { getActiveCategories } from '@/lib/categories'
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister'
 import { AndroidAppEnhancer } from '@/components/AndroidAppEnhancer'
+import { PwaInstallProvider, SenoAppInstallExperience } from '@/components/PwaInstallPrompt'
 import {
   SITE_URL,
   SITE_NAME,
@@ -85,8 +86,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/favicon-48x48.png', sizes: '48x48', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
     ],
     apple: [
       { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
@@ -120,20 +124,23 @@ export default async function RootLayout({
         <AuthProvider>
           <StoreProvider>
             <NotificationProvider>
-            <AndroidAppEnhancer />
-            <Suspense fallback={null}>
-              <GlobalNavigationTransition />
-            </Suspense>
-            <div className="app-viewport-wrapper">
-              <AnnouncementBar />
-              <Header categories={categories} />
-              <main className="main-content">{children}</main>
-              <Footer categories={categories} />
-              <MobileBottomNav />
-              <CartDrawer />
-              <SearchModal />
-            </div>
-            <ServiceWorkerRegister />
+              <PwaInstallProvider>
+                <AndroidAppEnhancer />
+                <Suspense fallback={null}>
+                  <GlobalNavigationTransition />
+                </Suspense>
+                <div className="app-viewport-wrapper">
+                  <AnnouncementBar />
+                  <Header categories={categories} />
+                  <main className="main-content">{children}</main>
+                  <Footer categories={categories} />
+                  <MobileBottomNav />
+                  <CartDrawer />
+                  <SearchModal />
+                  <SenoAppInstallExperience />
+                </div>
+                <ServiceWorkerRegister />
+              </PwaInstallProvider>
             </NotificationProvider>
           </StoreProvider>
         </AuthProvider>

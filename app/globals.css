@@ -2957,6 +2957,304 @@ textarea.input-field {
 }
 
 /* ==========================================================================
+   SENO PWA APP INSTALL EXPERIENCE (POPUP & PERSISTENT BUTTON)
+   ========================================================================== */
+
+/* Keyframe Micro-Animations */
+@keyframes senoPopupEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes senoMarkArrival {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes senoPillEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 1. Main Install Popup Card */
+.seno-install-popup-card {
+  position: fixed;
+  z-index: 44;
+  background: var(--bg, #fbfbfa);
+  border: 1px solid var(--border, #e2e1dc);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.04);
+  animation: senoPopupEntrance 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  box-sizing: border-box;
+}
+
+/* Desktop positioning: bottom-right floating card */
+@media (min-width: 901px) {
+  .seno-install-popup-card {
+    bottom: 24px;
+    right: 24px;
+    width: 320px;
+    padding: 20px;
+    border-radius: 4px;
+  }
+}
+
+/* Mobile positioning: bottom-sheet card floating above mobile bottom navigation */
+@media (max-width: 900px) {
+  .seno-install-popup-card {
+    left: 14px;
+    right: 14px;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 12px);
+    max-width: 380px;
+    margin: 0 auto;
+    padding: 20px 18px 16px;
+    border-radius: 12px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.14), 0 3px 10px rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* Popup Header & Close */
+.seno-install-popup-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.seno-install-popup-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  margin: -4px -4px 0 0;
+  color: var(--muted, #676767);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+  line-height: 1;
+}
+
+.seno-install-popup-close:hover {
+  color: var(--ink, #171717);
+}
+
+/* Popup S Mark Badge with Arrival Animation */
+.seno-install-popup-mark {
+  display: flex;
+  align-items: center;
+  animation: senoMarkArrival 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.seno-popup-mark-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background: var(--soft, #f1f1ef);
+  border: 1px solid var(--border, #e2e1dc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+@media (max-width: 900px) {
+  .seno-install-popup-mark {
+    margin: 0 auto;
+  }
+  .seno-popup-mark-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+  }
+}
+
+/* Popup Typography */
+.seno-install-popup-title {
+  font-family: Georgia, serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ink, #171717);
+  margin: 10px 0 3px 0;
+  letter-spacing: -0.15px;
+}
+
+@media (max-width: 900px) {
+  .seno-install-popup-title {
+    text-align: center;
+    font-size: 17px;
+    margin: 10px 0 4px 0;
+  }
+}
+
+.seno-install-popup-desc {
+  font-size: 12.5px;
+  color: var(--muted, #676767);
+  margin: 0 0 16px 0;
+  line-height: 1.45;
+}
+
+@media (max-width: 900px) {
+  .seno-install-popup-desc {
+    text-align: center;
+    margin: 0 0 16px 0;
+  }
+}
+
+/* Popup Actions */
+.seno-install-popup-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.seno-install-popup-btn {
+  width: 100%;
+  min-height: 42px;
+  background: var(--dark, #111212);
+  color: #ffffff;
+  border: 1px solid var(--dark, #111212);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.seno-install-popup-btn:hover {
+  background: #000000;
+  transform: translateY(-1px);
+}
+
+.seno-install-popup-btn:active {
+  transform: translateY(0);
+}
+
+.seno-install-popup-dismiss {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  margin-top: 4px;
+  padding: 6px;
+  color: var(--muted, #676767);
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.seno-install-popup-dismiss:hover {
+  color: var(--ink, #171717);
+}
+
+/* 2. Persistent Install Button */
+.seno-persistent-install-btn {
+  position: fixed;
+  z-index: 44;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--dark, #111212);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 9999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 0 16px 0 10px;
+  height: 38px;
+  animation: senoPillEntrance 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease;
+}
+
+.seno-persistent-install-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+  background: #000000;
+}
+
+.seno-persistent-install-btn:active {
+  transform: translateY(0);
+}
+
+.seno-persistent-mark-wrap {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Desktop positioning: bottom-right */
+@media (min-width: 901px) {
+  .seno-persistent-install-btn {
+    bottom: 24px;
+    right: 24px;
+  }
+}
+
+/* Mobile positioning: floating cleanly above mobile bottom navigation */
+@media (max-width: 900px) {
+  .seno-persistent-install-btn {
+    right: 14px;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 12px);
+    height: 36px;
+    padding: 0 14px 0 8px;
+    font-size: 10.5px;
+    letter-spacing: 1px;
+  }
+}
+
+/* Standalone / Installed App suppression: NEVER display in installed mode */
+@media all and (display-mode: standalone),
+       all and (display-mode: fullscreen),
+       all and (display-mode: minimal-ui) {
+  .seno-install-popup-card,
+  .seno-persistent-install-btn {
+    display: none !important;
+  }
+}
+
+.seno-android-app .seno-install-popup-card,
+.seno-android-app .seno-persistent-install-btn {
+  display: none !important;
+}
+
+/* ==========================================================================
    SENO DESIGN SYSTEM: PROFESSIONAL ADMIN & ACCOUNT EXTENSIONS
    ========================================================================== */
 

@@ -12,7 +12,7 @@
  * - NAVIGATION: Network-first. If completely offline, fallback to the branded /offline page.
  */
 
-const CACHE_VERSION = 'seno-v2-static'
+const CACHE_VERSION = 'seno-v4-static'
 const OFFLINE_URL = '/offline'
 
 // Pre-cached shell & brand assets needed for the offline state
@@ -22,8 +22,9 @@ const PRECACHE_ASSETS = [
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   '/icons/icon-maskable-512x512.png',
-  '/brand/seno-mark-512.png',
   '/favicon.ico',
+  '/icon-192.png',
+  '/apple-touch-icon.png',
   '/icons/notification-icon.png',
   '/icons/notification-badge.png',
 ]
@@ -136,9 +137,9 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // 6. Static Brand Icons and Public UI Assets (/brand/*, /icons/*, /favicon.ico, /manifest.webmanifest)
-  // Network-first strategy for icons and manifest to ensure PWA updates pick up new branding.
-  if (url.pathname.startsWith('/brand/') || url.pathname.startsWith('/icons/') || url.pathname === '/favicon.ico' || url.pathname === '/manifest.webmanifest') {
+  // 6. Static Brand Icons and Public UI Assets (/brand/*, /icons/*, /favicon.ico, /icon-192.png, /apple-touch-icon.png, /favicon-*.png, /manifest.webmanifest)
+  // Network-first strategy for icons and manifest to ensure updates pick up new branding.
+  if (url.pathname.startsWith('/brand/') || url.pathname.startsWith('/icons/') || url.pathname === '/favicon.ico' || url.pathname === '/icon-192.png' || url.pathname === '/apple-touch-icon.png' || url.pathname.startsWith('/favicon-') || url.pathname === '/manifest.webmanifest') {
     event.respondWith(
       fetch(request).then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200) {

@@ -116,6 +116,7 @@ export async function dispatchWebPushToUser(
     body: string
     url?: string
     icon?: string
+    badge?: string
     data?: Record<string, unknown>
   }
 ): Promise<void> {
@@ -140,8 +141,8 @@ export async function dispatchWebPushToUser(
     const pushPayload = JSON.stringify({
       title: payload.title,
       body: payload.body,
-      icon: payload.icon || '/icons/icon-192x192.png',
-      badge: '/icons/icon-192x192.png',
+      icon: payload.icon || '/icons/notification-icon.png',
+      badge: payload.badge || '/icons/notification-badge.png',
       url: payload.url || '/account',
       data: payload.data || {}
     })
