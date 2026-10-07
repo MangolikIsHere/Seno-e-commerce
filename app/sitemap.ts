@@ -8,7 +8,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 1. Static Public Storefront Routes
   const staticRoutes: MetadataRoute.Sitemap = [
     {
-      url: `${SITE_URL}`,
+      url: `${SITE_URL}/`,
       lastModified: currentDate,
       changeFrequency: 'daily',
       priority: 1.0,

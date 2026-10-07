@@ -9,9 +9,15 @@ interface CollectionViewProps {
   categoryTitle: string
   categorySlug: string
   categoryOptions?: string[]
+  initialProducts?: Product[]
 }
 
-export function CollectionView({ categoryTitle, categorySlug, categoryOptions = [] }: CollectionViewProps) {
+export function CollectionView({
+  categoryTitle,
+  categorySlug,
+  categoryOptions = [],
+  initialProducts = [],
+}: CollectionViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>(
     categorySlug === 'all' || categorySlug === 'new-arrivals' ? 'All' : categoryTitle
   )
@@ -24,10 +30,19 @@ export function CollectionView({ categoryTitle, categorySlug, categoryOptions = 
 
   const activeCategoryForQuery = categorySlug === 'new-arrivals' ? 'New arrivals' : selectedCategory
 
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
+  const [products, setProducts] = useState<Product[]>(initialProducts)
+  const [loading, setLoading] = useState<boolean>(!initialProducts || initialProducts.length === 0)
+  const isInitialMount = React.useRef(true)
 
   React.useEffect(() => {
+    // If initialProducts were supplied on server render, skip duplicate initial fetch
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      if (initialProducts && initialProducts.length > 0) {
+        return
+      }
+    }
+
     let active = true
     const fetchProducts = async () => {
       setLoading(true)
@@ -35,7 +50,7 @@ export function CollectionView({ categoryTitle, categorySlug, categoryOptions = 
         availability,
         size: selectedSize,
         color: selectedColor,
-        sort: sortOption
+        sort: sortOption,
       })
       if (active) {
         setProducts(data)
@@ -43,8 +58,10 @@ export function CollectionView({ categoryTitle, categorySlug, categoryOptions = 
       }
     }
     fetchProducts()
-    return () => { active = false }
-  }, [activeCategoryForQuery, availability, selectedSize, selectedColor, sortOption])
+    return () => {
+      active = false
+    }
+  }, [activeCategoryForQuery, availability, selectedSize, selectedColor, sortOption, initialProducts])
 
   const handleResetFilters = () => {
     setSelectedCategory('All')

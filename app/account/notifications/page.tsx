@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -66,6 +67,12 @@ export default function AccountNotificationsPage() {
 
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
 
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/account?next=%2Faccount%2Fnotifications')
+    }
+  }, [authLoading, router, user])
+
   if (authLoading) {
     return (
       <main className="static-page-container" style={{ textAlign: 'center', padding: '100px 20px' }}>
@@ -77,11 +84,7 @@ export default function AccountNotificationsPage() {
   if (!user) {
     return (
       <main className="static-page-container" style={{ textAlign: 'center', padding: '100px 20px' }}>
-        <h1 className="static-page-title" style={{ fontSize: '28px', marginBottom: '16px' }}>Sign in required</h1>
-        <p style={{ color: 'var(--muted)', marginBottom: '28px' }}>Please sign in to view your notifications.</p>
-        <Link href="/account/login" className="dark-btn" style={{ display: 'inline-block' }}>
-          Sign In
-        </Link>
+        <p style={{ color: 'var(--muted)' }}>Redirecting to sign in...</p>
       </main>
     )
   }

@@ -2,6 +2,7 @@ import React from 'react'
 import type { Metadata } from 'next'
 import { CollectionView } from '@/components/CollectionView'
 import { getActiveCategories } from '@/lib/categories'
+import { getCollectionProducts, Product } from '@/lib/catalog'
 import { SITE_URL, SITE_NAME, DEFAULT_OG_IMAGE } from '@/lib/seo'
 
 interface PageProps {
@@ -94,9 +95,47 @@ export default async function CategoryPage({ params }: PageProps) {
   const slug = resolvedParams.category.toLowerCase()
 
   const categories = await getActiveCategories()
-  let title = categories.find(category => category.slug === slug)?.name.toUpperCase() || 'ALL PRODUCTS'
-  if (slug === 'new-arrivals') title = 'NEW ARRIVALS'
-  else if (slug === 'bestsellers') title = 'BESTSELLERS'
+  let title = categories.find((category) => category.slug === slug)?.name.toUpperCase() || 'ALL PRODUCTS'
+  let queryCategory = slug
+  if (slug === 'new-arrivals') {
+    title = 'NEW ARRIVALS'
+    queryCategory = 'new-arrivals'
+  } else if (slug === 'bestsellers') {
+    title = 'BESTSELLERS'
+    queryCategory = 'bestsellers'
+  } else {
+    const matched = categories.find((category) => category.slug === slug)
+    if (matched) {
+      queryCategory = matched.name
+    }
+  }
 
-  return <CollectionView categoryTitle={title} categorySlug={slug} categoryOptions={categories.map(category => category.name)} />
+  const initialProducts = await getCollectionProducts(queryCategory, { sort: 'Featured' })
+
+  const itemListJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: title,
+    itemListElement: initialProducts.map((p: Product, index: number) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: p.name,
+      url: `${SITE_URL}/products/${p.slug}`,
+    })),
+  }
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+      />
+      <CollectionView
+        categoryTitle={title}
+        categorySlug={slug}
+        categoryOptions={categories.map((category) => category.name)}
+        initialProducts={initialProducts}
+      />
+    </>
+  )
 }

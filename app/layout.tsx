@@ -37,9 +37,6 @@ export const metadata: Metadata = {
     template: '%s | SENO',
   },
   description: DEFAULT_DESCRIPTION,
-  alternates: {
-    canonical: '/',
-  },
   robots: {
     index: true,
     follow: true,

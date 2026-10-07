@@ -69,7 +69,7 @@ function formatRelativeTime(dateString: string): string {
 
 export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const {
     notifications,
     unreadCount,
@@ -111,8 +111,12 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
 
   // If user is not logged in, clicking the bell directs them to sign in
   const handleTriggerClick = () => {
+    if (authLoading) {
+      return
+    }
+
     if (!user) {
-      router.push('/account/login')
+      router.push('/account?next=%2Faccount%2Fnotifications')
       return
     }
     setIsOpen(!isOpen)
