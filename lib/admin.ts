@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
-import { notifyOrderItemFulfillmentChanged } from '@/lib/notifications/service'
+import { notifyOrderItemFulfillmentChanged, notifyRefundEvent } from '@/lib/notifications/service'
 
 function getAdminSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -17,7 +17,7 @@ function getAdminSupabase() {
 export async function checkIsAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  
+
   if (user) {
     const { data } = await supabase
       .from('profiles')
@@ -109,6 +109,102 @@ export async function cancelAdminOrderAction(formData: FormData) {
   revalidatePath('/seller/products')
   revalidatePath('/seller/orders')
   revalidatePath('/') // catalog home
+}
+
+export async function refundAdminOrderAction(formData: FormData) {
+  const isAdmin = await checkIsAdmin()
+  if (!isAdmin) throw new Error('Unauthorized: Admin access required.')
+  const supabase = getAdminSupabase()
+
+  const orderId = String(formData.get('orderId') || '')
+  if (!orderId) throw new Error('Order ID is required.')
+
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('id, payment_status, total_amount, razorpay_payment_id, status, notes')
+    .eq('id', orderId)
+    .single()
+
+  if (orderError || !order) {
+    throw new Error('Order not found.')
+  }
+
+  if (order.payment_status === 'refunded') {
+    return { success: true, already_refunded: true }
+  }
+
+  if (order.payment_status !== 'paid') {
+    throw new Error('Only paid orders can be refunded.')
+  }
+
+  const refundAmount = Number(order.total_amount || 0)
+  let refundId = `rfnd_adm_${Date.now()}`
+
+  // 1. Real-time Razorpay Gateway Refund API Call
+  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+  const keySecret = process.env.RAZORPAY_KEY_SECRET
+  const isMock = !keyId || !keySecret || keyId.startsWith('rzp_test_seno_demo') || keySecret.startsWith('seno_demo')
+
+  if (!isMock && order.razorpay_payment_id && order.razorpay_payment_id !== 'mock_payment_id') {
+    const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString('base64')
+    try {
+      const rzpResponse = await fetch(`https://api.razorpay.com/v1/payments/${order.razorpay_payment_id}/refund`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${basicAuth}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          amount: Math.round(refundAmount * 100),
+          notes: {
+            order_id: orderId,
+            action: 'admin_full_refund'
+          }
+        })
+      })
+
+      if (rzpResponse.ok) {
+        const rzpData = await rzpResponse.json()
+        refundId = rzpData.id || refundId
+      } else {
+        const errText = await rzpResponse.text()
+        console.error('Razorpay refund API rejected:', errText)
+        throw new Error(`Razorpay refund API error: ${errText}`)
+      }
+    } catch (err: any) {
+      console.error('Razorpay request failed:', err)
+      throw new Error(`Razorpay gateway error: ${err.message}`)
+    }
+  }
+
+  // 2. Call the database function record_order_refund
+  const { error: rpcError } = await supabase.rpc('record_order_refund', {
+    p_order_id: orderId,
+    p_razorpay_payment_id: order.razorpay_payment_id || 'manual_settlement',
+    p_refund_id: refundId,
+    p_refund_amount: refundAmount
+  })
+
+  if (rpcError) {
+    console.warn('RPC record_order_refund fallback to direct update:', rpcError.message)
+    await supabase
+      .from('orders')
+      .update({
+        payment_status: 'refunded',
+        status: ['confirmed', 'pending', 'processing'].includes(order.status) ? 'refunded' : order.status,
+        notes: (order.notes ? order.notes + '\n' : '') + `Admin refund processed via Razorpay: ${refundId} (₹${refundAmount})`
+      })
+      .eq('id', orderId)
+  }
+
+  notifyRefundEvent(orderId, 'refund_completed', refundAmount).catch(() => {})
+
+  revalidatePath('/admin/orders')
+  revalidatePath(`/admin/orders/${orderId}`)
+  revalidatePath('/admin/payments')
+  revalidatePath('/account')
+  revalidatePath(`/account/orders/${orderId}`)
+  return { success: true }
 }
 
 export async function getPendingSellers() {
@@ -258,7 +354,7 @@ export async function updateProductApproval(productId: string, status: string, r
 
   const { error } = await supabase
     .from('products')
-    .update({ 
+    .update({
       approval_status: status,
       rejection_reason: reason || null
     })
@@ -421,4 +517,59 @@ export async function getAdminOverviewStats(): Promise<AdminOverviewStats> {
     recentOrders: allOrders.slice(0, 6),
     recentSellers: allSellers.slice(0, 6)
   }
+}
+
+export async function getAdminCustomers() {
+  const isAdmin = await checkIsAdmin()
+  if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
+
+  const [profilesRes, ordersRes] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, full_name, email, phone, role, created_at')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('orders')
+      .select('id, user_id, total_amount, payment_status, created_at')
+  ])
+
+  const profiles = profilesRes.data || []
+  const orders = ordersRes.data || []
+
+  const ordersByUser: Record<string, { count: number; totalSpent: number; lastOrderAt?: string }> = {}
+  for (const o of orders) {
+    if (!o.user_id) continue
+    if (!ordersByUser[o.user_id]) {
+      ordersByUser[o.user_id] = { count: 0, totalSpent: 0 }
+    }
+    ordersByUser[o.user_id].count += 1
+    if (o.payment_status === 'paid') {
+      ordersByUser[o.user_id].totalSpent += Number(o.total_amount || 0)
+    }
+    if (!ordersByUser[o.user_id].lastOrderAt || new Date(o.created_at) > new Date(ordersByUser[o.user_id].lastOrderAt!)) {
+      ordersByUser[o.user_id].lastOrderAt = o.created_at
+    }
+  }
+
+  return profiles.map(p => ({
+    ...p,
+    ordersCount: ordersByUser[p.id]?.count || 0,
+    totalSpent: ordersByUser[p.id]?.totalSpent || 0,
+    lastOrderAt: ordersByUser[p.id]?.lastOrderAt || null
+  }))
+}
+
+export async function getAdminPaymentsData() {
+  const isAdmin = await checkIsAdmin()
+  if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
+
+  const { data: orders, error } = await supabase
+    .from('orders')
+    .select('id, order_number, total_amount, subtotal_amount, shipping_amount, payment_status, payment_method, razorpay_order_id, razorpay_payment_id, created_at, profiles(full_name, email)')
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return orders || []
 }

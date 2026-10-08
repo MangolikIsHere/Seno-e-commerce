@@ -1,298 +1,344 @@
 import React from 'react'
 import Link from 'next/link'
 import { getAdminOverviewStats } from '@/lib/admin'
-import { 
-  TrendingUp, 
-  ShoppingBag, 
-  Store, 
-  Package, 
-  ArrowRight, 
-  Clock, 
-  AlertCircle, 
-  CheckCircle2,
-  ExternalLink
+import {
+  TrendingUp,
+  ShoppingBag,
+  Store,
+  Package,
+  ArrowRight,
+  AlertCircle,
+  Tag,
+  Plus,
+  ExternalLink,
+  ChevronRight,
+  ShieldCheck,
+  CheckCircle2
 } from 'lucide-react'
+import { money } from '@/lib/catalog'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AdminDashboardPage() {
   const stats = await getAdminOverviewStats()
 
-  const formattedRevenue = new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0
-  }).format(stats.totalRevenue)
-
-  const pendingAttentionCount = stats.pendingSellersCount + stats.pendingProductsCount
+  const pendingAttentionCount = stats.pendingOrdersCount + stats.pendingSellersCount + stats.pendingProductsCount
 
   return (
-    <div>
-      {/* Top Header */}
+    <div className="admin-page-container">
+      {/* Top Bar / Greeting */}
       <div className="admin-top-bar">
         <div>
-          <h1 className="admin-page-title">Marketplace Overview</h1>
+          <span className="admin-kicker">CONTROL PLANE</span>
+          <h1 className="admin-page-title">Good Morning, Admin</h1>
           <p className="admin-page-subtitle">
-            Authoritative platform performance, seller ecosystem, and catalog governance
+            Live overview of SENO marketplace performance, orders, seller ecosystem, and operations.
           </p>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-          <Link href="/admin/products?status=submitted" className="button button-outline" style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '4px' }}>
-            Review Products
+        <div className="admin-header-actions">
+          <Link href="/admin/promotions" className="button button-outline" style={{ fontSize: '12px', padding: '9px 16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <Tag size={14} />
+            <span>Offers</span>
           </Link>
-          <Link href="/admin/sellers" className="button button-primary" style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '4px' }}>
-            Manage Sellers
+          <Link href="/admin/products/new" className="button button-primary" style={{ fontSize: '12px', padding: '9px 18px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <Plus size={14} />
+            <span>New Product</span>
           </Link>
         </div>
       </div>
 
-      {/* Action Required Banner if pending items */}
+      {/* Actionable Priorities: NEEDS ATTENTION */}
       {pendingAttentionCount > 0 && (
-        <div style={{
-          background: 'var(--surface-subtle)',
-          border: '1px solid var(--border)',
-          borderLeft: '4px solid var(--ink)',
-          padding: '16px 20px',
-          marginBottom: '32px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderRadius: '2px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <AlertCircle size={18} color="var(--ink)" />
-            <div style={{ fontSize: '13px' }}>
-              <span style={{ fontWeight: 600 }}>Action Required: </span>
-              {stats.pendingSellersCount > 0 && (
-                <span>{stats.pendingSellersCount} seller application{stats.pendingSellersCount > 1 ? 's' : ''} awaiting review. </span>
-              )}
-              {stats.pendingProductsCount > 0 && (
-                <span>{stats.pendingProductsCount} product listing{stats.pendingProductsCount > 1 ? 's' : ''} submitted for curation approval.</span>
-              )}
+        <div className="admin-attention-card">
+          <div className="admin-attention-header">
+            <div className="admin-attention-icon-wrap">
+              <AlertCircle size={18} color="var(--ink)" />
+            </div>
+            <div>
+              <h2 className="admin-attention-title">Action Required Today</h2>
+              <p className="admin-attention-subtitle">Items requiring operational review or fulfillment action</p>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="admin-attention-pills">
+            {stats.pendingOrdersCount > 0 && (
+              <Link href="/admin/orders" className="admin-attention-pill">
+                <span className="admin-attention-pill-count">{stats.pendingOrdersCount}</span>
+                <span>orders pending settlement / processing</span>
+                <ChevronRight size={14} />
+              </Link>
+            )}
             {stats.pendingSellersCount > 0 && (
-              <Link href="/admin/sellers" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink)', textDecoration: 'underline' }}>
-                Review Sellers
+              <Link href="/admin/sellers" className="admin-attention-pill">
+                <span className="admin-attention-pill-count">{stats.pendingSellersCount}</span>
+                <span>seller application{stats.pendingSellersCount > 1 ? 's' : ''} awaiting review</span>
+                <ChevronRight size={14} />
               </Link>
             )}
             {stats.pendingProductsCount > 0 && (
-              <Link href="/admin/products?status=submitted" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink)', textDecoration: 'underline', marginLeft: '12px' }}>
-                Review Products
+              <Link href="/admin/products?status=submitted" className="admin-attention-pill">
+                <span className="admin-attention-pill-count">{stats.pendingProductsCount}</span>
+                <span>product{stats.pendingProductsCount > 1 ? 's' : ''} awaiting curation approval</span>
+                <ChevronRight size={14} />
               </Link>
             )}
           </div>
         </div>
       )}
 
-      {/* Metric Cards Grid */}
+      {/* KPI Metrics Grid */}
       <div className="kpi-grid">
         {/* Total Settled Revenue */}
-        <div className="kpi-card" style={{ flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', fontWeight: 600 }}>Settled Gross Volume</span>
-            <TrendingUp size={16} color="var(--muted)" />
+        <div className="kpi-card">
+          <div>
+            <div className="kpi-label">
+              <span>Settled Gross Volume</span>
+              <TrendingUp size={15} color="var(--muted)" />
+            </div>
+            <div className="kpi-value">{money(stats.totalRevenue)}</div>
           </div>
-          <div style={{ fontSize: '28px', fontFamily: 'Georgia, serif', color: 'var(--ink)' }}>{formattedRevenue}</div>
-          <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '8px' }}>
+          <div className="kpi-meta">
             From {stats.paidOrdersCount} verified paid order{stats.paidOrdersCount !== 1 ? 's' : ''}
           </div>
         </div>
 
         {/* Orders Count */}
-        <div className="kpi-card" style={{ flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', fontWeight: 600 }}>Total Platform Orders</span>
-            <ShoppingBag size={16} color="var(--muted)" />
+        <div className="kpi-card">
+          <div>
+            <div className="kpi-label">
+              <span>Platform Orders</span>
+              <ShoppingBag size={15} color="var(--muted)" />
+            </div>
+            <div className="kpi-value">{stats.totalOrdersCount}</div>
           </div>
-          <div style={{ fontSize: '28px', fontFamily: 'Georgia, serif', color: 'var(--ink)' }}>{stats.totalOrdersCount}</div>
-          <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '8px' }}>
-            {stats.pendingOrdersCount} pending / awaiting settlement
+          <div className="kpi-meta">
+            {stats.paidOrdersCount} completed · {stats.pendingOrdersCount} pending
           </div>
         </div>
 
         {/* Sellers */}
-        <div className="kpi-card" style={{ flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', fontWeight: 600 }}>Seller Ecosystem</span>
-            <Store size={16} color="var(--muted)" />
+        <div className="kpi-card">
+          <div>
+            <div className="kpi-label">
+              <span>Seller Ecosystem</span>
+              <Store size={15} color="var(--muted)" />
+            </div>
+            <div className="kpi-value">{stats.approvedSellersCount}</div>
           </div>
-          <div style={{ fontSize: '28px', fontFamily: 'Georgia, serif', color: 'var(--ink)' }}>{stats.approvedSellersCount}</div>
-          <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '8px' }}>
-            {stats.pendingSellersCount} pending application{stats.pendingSellersCount !== 1 ? 's' : ''}
+          <div className="kpi-meta">
+            {stats.totalSellersCount} registered · {stats.pendingSellersCount} pending review
           </div>
         </div>
 
         {/* Catalog */}
-        <div className="kpi-card" style={{ flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', fontWeight: 600 }}>Catalog Products</span>
-            <Package size={16} color="var(--muted)" />
+        <div className="kpi-card">
+          <div>
+            <div className="kpi-label">
+              <span>Curated Catalog</span>
+              <Package size={15} color="var(--muted)" />
+            </div>
+            <div className="kpi-value">{stats.approvedProductsCount}</div>
           </div>
-          <div style={{ fontSize: '28px', fontFamily: 'Georgia, serif', color: 'var(--ink)' }}>{stats.approvedProductsCount}</div>
-          <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '8px' }}>
-            {stats.pendingProductsCount} listing{stats.pendingProductsCount !== 1 ? 's' : ''} pending review
+          <div className="kpi-meta">
+            {stats.totalProductsCount} total pieces · {stats.pendingProductsCount} in review
           </div>
         </div>
       </div>
 
-      {/* Two Column Section: Recent Orders & Recent Sellers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
-        {/* Recent Orders */}
+      {/* Two Column Grid: Recent Orders & Recent Sellers */}
+      <div className="admin-grid-two-col">
+        {/* Recent Orders Section */}
         <div className="admin-table-card">
           <div className="admin-table-header-row">
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}>Recent Orders</div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Real-time marketplace customer orders</div>
+              <h2 className="admin-card-heading">Recent Orders</h2>
+              <p className="admin-card-subheading">Authoritative customer transactions</p>
             </div>
-            <Link href="/admin/orders" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--muted)', textDecoration: 'none', fontWeight: 500 }}>
-              <span>View All</span>
+            <Link href="/admin/orders" className="admin-view-all-link">
+              <span>All Orders</span>
               <ArrowRight size={14} />
             </Link>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Order #</th>
-                  <th>Customer</th>
-                  <th>Total</th>
-                  <th>Payment</th>
-                  <th>Fulfillment</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentOrders.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', padding: '36px', color: 'var(--muted)' }}>
-                      No orders placed on the platform yet.
-                    </td>
-                  </tr>
-                ) : (
-                  stats.recentOrders.map((order: any) => {
-                    const orderDate = new Date(order.created_at).toLocaleDateString('en-IN', {
-                      month: 'short',
-                      day: 'numeric'
-                    })
-                    const totalFormatted = new Intl.NumberFormat('en-IN', {
-                      style: 'currency',
-                      currency: 'INR',
-                      maximumFractionDigits: 0
-                    }).format(order.total_amount || 0)
+          {stats.recentOrders.length === 0 ? (
+            <div className="admin-empty-card-inner">
+              <ShoppingBag size={32} color="var(--muted)" strokeWidth={1.3} style={{ margin: '0 auto 12px' }} />
+              <p style={{ margin: '0 0 6px', fontWeight: 500 }}>No orders placed yet</p>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>Incoming customer purchases will appear here in real-time.</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop View: Clean Table */}
+              <div className="admin-desktop-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Order</th>
+                      <th>Customer</th>
+                      <th>Total</th>
+                      <th>Payment</th>
+                      <th>Fulfillment</th>
+                      <th style={{ textAlign: 'right' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.recentOrders.map((order: any) => {
+                      const orderDate = new Date(order.created_at).toLocaleDateString('en-IN', {
+                        month: 'short',
+                        day: 'numeric'
+                      })
+                      return (
+                        <tr key={order.id}>
+                          <td>
+                            <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{order.order_number}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{orderDate}</div>
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 500, fontSize: '13px' }}>{order.profiles?.full_name || 'Guest'}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{order.profiles?.email || '—'}</div>
+                          </td>
+                          <td style={{ fontWeight: 600 }}>{money(Number(order.total_amount || 0))}</td>
+                          <td>
+                            <span className={`status-pill ${order.payment_status === 'paid' ? 'paid' : 'pending'}`}>
+                              {order.payment_status}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`status-pill ${order.status === 'delivered' ? 'delivered' : order.status === 'shipped' ? 'shipped' : order.status === 'cancelled' ? 'cancelled' : 'processing'}`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <Link href={`/admin/orders/${order.id}`} className="button button-outline" style={{ fontSize: '11px', padding: '5px 12px' }}>
+                              View
+                            </Link>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-                    return (
-                      <tr key={order.id}>
-                        <td>
-                          <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{order.order_number}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{orderDate}</div>
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: 500, fontSize: '13px' }}>{order.profiles?.full_name || 'Guest'}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{order.profiles?.email || '—'}</div>
-                        </td>
-                        <td style={{ fontWeight: 600 }}>{totalFormatted}</td>
-                        <td>
-                          <span className={`status-pill ${order.payment_status === 'paid' ? 'paid' : 'pending'}`}>
-                            {order.payment_status}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`status-pill ${order.status === 'delivered' ? 'delivered' : order.status === 'shipped' ? 'shipped' : order.status === 'cancelled' ? 'cancelled' : 'processing'}`}>
+              {/* Mobile View: Stacked Order Cards (No forced horizontal scrolling) */}
+              <div className="admin-mobile-card-list">
+                {stats.recentOrders.map((order: any) => {
+                  const orderDate = new Date(order.created_at).toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                  })
+                  return (
+                    <div key={order.id} className="admin-order-card-mobile">
+                      <div className="admin-order-card-header">
+                        <div>
+                          <span className="admin-order-number">#{order.order_number}</span>
+                          <span className="admin-order-date">{orderDate}</span>
+                        </div>
+                        <span className={`status-pill ${order.payment_status === 'paid' ? 'paid' : 'pending'}`}>
+                          {order.payment_status}
+                        </span>
+                      </div>
+                      <div className="admin-order-card-body">
+                        <div className="admin-order-customer">
+                          <span style={{ fontWeight: 500 }}>{order.profiles?.full_name || 'Guest Checkout'}</span>
+                          <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{order.profiles?.email || '—'}</span>
+                        </div>
+                        <div className="admin-order-total-block">
+                          <span className="admin-order-amount">{money(Number(order.total_amount || 0))}</span>
+                          <span className={`status-pill ${order.status === 'delivered' ? 'delivered' : order.status === 'shipped' ? 'shipped' : 'processing'}`} style={{ fontSize: '10px' }}>
                             {order.status}
                           </span>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                        </div>
+                      </div>
+                      <div className="admin-order-card-footer">
+                        <Link href={`/admin/orders/${order.id}`} className="button button-outline" style={{ width: '100%', textAlign: 'center', fontSize: '12px', padding: '10px 0' }}>
+                          View Order Details
+                        </Link>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Recent Seller Ecosystem */}
-        <div className="admin-table-card">
-          <div className="admin-table-header-row">
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}>Seller Activity</div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Brands & resellers on SENO</div>
+        {/* Seller Activity & Quick Platform Actions */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Seller Activity Card */}
+          <div className="admin-table-card">
+            <div className="admin-table-header-row">
+              <div>
+                <h2 className="admin-card-heading">Seller Ecosystem</h2>
+                <p className="admin-card-subheading">Registered brand partners</p>
+              </div>
+              <Link href="/admin/sellers" className="admin-view-all-link">
+                <span>All Sellers</span>
+                <ArrowRight size={14} />
+              </Link>
             </div>
-            <Link href="/admin/sellers" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--muted)', textDecoration: 'none', fontWeight: 500 }}>
-              <span>View All</span>
-              <ArrowRight size={14} />
-            </Link>
+
+            {stats.recentSellers.length === 0 ? (
+              <div className="admin-empty-card-inner">
+                <Store size={32} color="var(--muted)" strokeWidth={1.3} style={{ margin: '0 auto 12px' }} />
+                <p style={{ margin: '0 0 6px', fontWeight: 500 }}>No sellers registered</p>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>Independent partner applications will appear here.</p>
+              </div>
+            ) : (
+              <div className="admin-seller-quick-list">
+                {stats.recentSellers.slice(0, 4).map((seller: any) => (
+                  <div key={seller.id} className="admin-seller-row-item">
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--ink)' }}>{seller.store_name}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                        /{seller.slug} · {seller.commission_rate != null ? `${seller.commission_rate}% commission` : '15% default'}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span className={`status-pill ${seller.seller_status === 'approved' ? 'approved' : seller.seller_status === 'suspended' ? 'suspended' : 'pending'}`}>
+                        {seller.seller_status}
+                      </span>
+                      <Link href={`/admin/sellers`} className="button button-ghost" style={{ padding: '6px 10px', fontSize: '11px' }}>
+                        Review
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Store / Brand</th>
-                  <th>Type</th>
-                  <th>Commission</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentSellers.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', padding: '36px', color: 'var(--muted)' }}>
-                      No sellers registered yet.
-                    </td>
-                  </tr>
-                ) : (
-                  stats.recentSellers.map((seller: any) => {
-                    return (
-                      <tr key={seller.id}>
-                        <td>
-                          <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{seller.store_name}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{seller.contact_email || seller.slug}</div>
-                        </td>
-                        <td>
-                          <span style={{ 
-                            fontSize: '11px', 
-                            textTransform: 'uppercase', 
-                            letterSpacing: '0.5px',
-                            fontWeight: 600,
-                            color: seller.seller_type === 'platform' ? 'var(--ink)' : 'var(--muted)' 
-                          }}>
-                            {seller.seller_type}
-                          </span>
-                        </td>
-                        <td style={{ fontSize: '13px' }}>
-                          {seller.commission_rate != null ? `${seller.commission_rate}%` : 'Default (15%)'}
-                        </td>
-                        <td>
-                          <span className={`status-pill ${seller.seller_status === 'approved' ? 'approved' : seller.seller_status === 'suspended' ? 'suspended' : 'pending'}`}>
-                            {seller.seller_status}
-                          </span>
-                        </td>
-                        <td>
-                          <Link 
-                            href="/admin/sellers" 
-                            style={{ 
-                              fontSize: '12px', 
-                              color: 'var(--ink)', 
-                              textDecoration: 'underline',
-                              fontWeight: 500
-                            }}
-                          >
-                            Manage
-                          </Link>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
+          {/* Platform Governance Shortcuts */}
+          <div className="admin-governance-card">
+            <h3 style={{ fontSize: '12px', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 16px', fontWeight: 600 }}>
+              Operational Quick Links
+            </h3>
+            <div className="admin-quick-links-grid">
+              <Link href="/admin/promotions" className="admin-quick-link-tile">
+                <Tag size={18} color="var(--ink)" />
+                <div>
+                  <span className="admin-quick-link-title">Promotions & Offers</span>
+                  <span className="admin-quick-link-desc">Manage seasonal discounts & campaign hero</span>
+                </div>
+              </Link>
+              <Link href="/admin/products" className="admin-quick-link-tile">
+                <Package size={18} color="var(--ink)" />
+                <div>
+                  <span className="admin-quick-link-title">Catalog Inventory</span>
+                  <span className="admin-quick-link-desc">Curation approvals and live stock toggles</span>
+                </div>
+              </Link>
+              <Link href="/admin/customers" className="admin-quick-link-tile">
+                <ShieldCheck size={18} color="var(--ink)" />
+                <div>
+                  <span className="admin-quick-link-title">Client Directory</span>
+                  <span className="admin-quick-link-desc">Customer profiles and lifetime purchase values</span>
+                </div>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
     </div>
   )
 }
-

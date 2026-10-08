@@ -3,19 +3,19 @@
 import React, { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { 
-  Package, 
-  Plus, 
-  Search, 
-  SlidersHorizontal, 
-  ExternalLink, 
-  Edit3, 
-  CheckCircle2, 
-  AlertTriangle, 
-  EyeOff, 
-  Eye, 
+import {
+  Package,
+  Plus,
+  Search,
+  ExternalLink,
+  Edit3,
+  CheckCircle2,
+  AlertTriangle,
+  EyeOff,
+  Eye,
   ChevronRight,
-  Filter
+  Filter,
+  X
 } from 'lucide-react'
 import { money } from '@/lib/catalog'
 import { toggleProductActive } from '@/lib/adminCatalog'
@@ -34,17 +34,16 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
 
   const [products, setProducts] = useState(initialProducts)
   const [isPending, startTransition] = useTransition()
-  
+
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState(initialStatus)
-  
+
   const [optimisticSoldOut, setOptimisticSoldOut] = useState<Record<string, boolean>>({})
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
-  // Filter products locally for instant responsive UI
+  // Filter products locally
   const filteredProducts = products.filter(product => {
-    // Search query match
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim()
       const matchName = product.name?.toLowerCase().includes(q)
@@ -54,12 +53,10 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
       if (!matchName && !matchSlug && !matchCat && !matchSku) return false
     }
 
-    // Category match
     if (selectedCategory !== 'all') {
       if (product.category_id !== selectedCategory) return false
     }
 
-    // Status match
     if (selectedStatus !== 'all') {
       if (selectedStatus === 'active' && !product.is_active) return false
       if (selectedStatus === 'inactive' && product.is_active) return false
@@ -82,108 +79,117 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
     startTransition(async () => {
       try {
         const nextState = !currentActive
-        // Optimistic UI update
         setProducts(prev => prev.map(p => p.id === productId ? { ...p, is_active: nextState } : p))
         await toggleProductActive(productId, nextState)
-        setStatusMessage(`Product ${nextState ? 'activated and live on storefront' : 'deactivated and hidden from public'}`)
+        setStatusMessage(`Product ${nextState ? 'activated and published on storefront' : 'deactivated and hidden from public'}`)
         setTimeout(() => setStatusMessage(null), 3000)
       } catch (err: any) {
-        // Revert on error
         setProducts(prev => prev.map(p => p.id === productId ? { ...p, is_active: currentActive } : p))
         alert(`Failed to update product state: ${err.message}`)
       }
     })
   }
 
+  const hasActiveFilters = searchQuery !== '' || selectedCategory !== 'all' || selectedStatus !== 'all'
+
+  const clearFilters = () => {
+    setSearchQuery('')
+    setSelectedCategory('all')
+    setSelectedStatus('all')
+  }
+
   return (
-    <div className="admin-catalog-container">
+    <div className="admin-page-container">
       {/* Top Header Row */}
-      <div className="admin-top-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+      <div className="admin-top-bar">
         <div>
-          <h1 className="admin-page-title">Catalog & Product Management</h1>
+          <span className="admin-kicker">CATALOG GOVERNANCE</span>
+          <h1 className="admin-page-title">Curated Products</h1>
           <p className="admin-page-subtitle">
-            Authoritative SENO luxury catalog control plane: create pieces, manage stock, and synchronize storefront
+            Manage pieces, pricing, inventory stock thresholds, and storefront publishing status.
           </p>
         </div>
-        <Link 
-          href="/admin/products/new" 
-          className="dark-btn"
-          style={{ 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            gap: '8px', 
-            padding: '12px 24px', 
-            fontSize: '11px', 
-            letterSpacing: '1.5px',
-            textDecoration: 'none',
-            borderRadius: '2px',
-            fontWeight: 600
-          }}
+        <Link
+          href="/admin/products/new"
+          className="button button-primary"
+          style={{ fontSize: '12px', padding: '10px 20px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
         >
           <Plus size={15} />
-          <span>ADD NEW PRODUCT</span>
+          <span>Add New Product</span>
         </Link>
       </div>
 
       {statusMessage && (
-        <div style={{ 
-          padding: '12px 18px', 
-          background: 'var(--soft)', 
-          border: '1px solid var(--border)', 
-          fontSize: '12px', 
-          color: 'var(--ink)', 
+        <div style={{
+          padding: '12px 18px',
+          background: 'var(--surface-subtle)',
+          border: '1px solid var(--border)',
+          fontSize: '13px',
+          color: 'var(--ink)',
           marginBottom: '20px',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px'
+          gap: '8px',
+          borderRadius: '2px'
         }}>
-          <CheckCircle2 size={15} color="var(--ink)" />
+          <CheckCircle2 size={16} color="var(--ink)" />
           <span>{statusMessage}</span>
         </div>
       )}
 
       {/* KPI Overview Grid */}
-      <div className="kpi-grid" style={{ marginBottom: '28px' }}>
-        <div className="kpi-card" style={{ flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', fontWeight: 600 }}>Total Pieces</span>
-            <Package size={16} color="var(--muted)" />
+      <div className="kpi-grid">
+        <div className="kpi-card">
+          <div>
+            <div className="kpi-label">
+              <span>Total Pieces</span>
+              <Package size={15} color="var(--muted)" />
+            </div>
+            <div className="kpi-value">{totalCount}</div>
           </div>
-          <div style={{ fontSize: '28px', fontFamily: 'Georgia, serif', color: 'var(--ink)' }}>{totalCount}</div>
+          <div className="kpi-meta">Catalog items in database</div>
         </div>
 
-        <div className="kpi-card" style={{ flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', fontWeight: 600 }}>Active Online</span>
-            <CheckCircle2 size={16} color="var(--muted)" />
+        <div className="kpi-card">
+          <div>
+            <div className="kpi-label">
+              <span>Active Online</span>
+              <CheckCircle2 size={15} color="var(--muted)" />
+            </div>
+            <div className="kpi-value">{activeCount}</div>
           </div>
-          <div style={{ fontSize: '28px', fontFamily: 'Georgia, serif', color: 'var(--ink)' }}>{activeCount}</div>
+          <div className="kpi-meta">Visible to customers</div>
         </div>
 
-        <div className="kpi-card" style={{ flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', fontWeight: 600 }}>Stock Alerts</span>
-            <AlertTriangle size={16} color={lowStockCount > 0 ? '#b45309' : 'var(--muted)'} />
+        <div className="kpi-card">
+          <div>
+            <div className="kpi-label">
+              <span>Stock Alerts</span>
+              <AlertTriangle size={15} color={lowStockCount > 0 ? '#b45309' : 'var(--muted)'} />
+            </div>
+            <div className="kpi-value" style={{ color: lowStockCount > 0 ? '#b45309' : 'inherit' }}>
+              {lowStockCount}
+            </div>
           </div>
-          <div style={{ fontSize: '28px', fontFamily: 'Georgia, serif', color: lowStockCount > 0 ? '#b45309' : 'var(--ink)' }}>
-            {lowStockCount}
-          </div>
+          <div className="kpi-meta">Low stock or depleted</div>
         </div>
 
-        <div className="kpi-card" style={{ flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', fontWeight: 600 }}>Awaiting Review</span>
-            <Filter size={16} color="var(--muted)" />
+        <div className="kpi-card">
+          <div>
+            <div className="kpi-label">
+              <span>Awaiting Review</span>
+              <Filter size={15} color="var(--muted)" />
+            </div>
+            <div className="kpi-value">{pendingCount}</div>
           </div>
-          <div style={{ fontSize: '28px', fontFamily: 'Georgia, serif', color: 'var(--ink)' }}>{pendingCount}</div>
+          <div className="kpi-meta">Submitted by partner sellers</div>
         </div>
       </div>
 
-      {/* Catalog Search & Filters Bar */}
-      <div className="admin-table-card" style={{ padding: '16px 20px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Search Box */}
-          <div style={{ flex: '1 1 280px', position: 'relative' }}>
+      {/* Search & Filters Card */}
+      <div className="admin-table-card" style={{ padding: '18px 20px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 260px', position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
             <input
               type="text"
@@ -194,16 +200,14 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                 width: '100%',
                 padding: '10px 12px 10px 36px',
                 fontSize: '13px',
-                background: 'var(--surface-subtle)',
+                background: '#fff',
                 border: '1px solid var(--border)',
-                borderRadius: '2px',
-                color: 'var(--ink)',
-                outline: 'none'
+                borderRadius: 'var(--radius-xs)',
+                color: 'var(--ink)'
               }}
             />
           </div>
 
-          {/* Category Filter */}
           <div style={{ flex: '0 1 180px' }}>
             <select
               value={selectedCategory}
@@ -212,11 +216,10 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                 width: '100%',
                 padding: '10px 12px',
                 fontSize: '13px',
-                background: 'var(--surface-subtle)',
+                background: '#fff',
                 border: '1px solid var(--border)',
-                borderRadius: '2px',
-                color: 'var(--ink)',
-                outline: 'none'
+                borderRadius: 'var(--radius-xs)',
+                color: 'var(--ink)'
               }}
             >
               <option value="all">All Categories</option>
@@ -226,7 +229,6 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
             </select>
           </div>
 
-          {/* Status Filter */}
           <div style={{ flex: '0 1 180px' }}>
             <select
               value={selectedStatus}
@@ -235,11 +237,10 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                 width: '100%',
                 padding: '10px 12px',
                 fontSize: '13px',
-                background: 'var(--surface-subtle)',
+                background: '#fff',
                 border: '1px solid var(--border)',
-                borderRadius: '2px',
-                color: 'var(--ink)',
-                outline: 'none'
+                borderRadius: 'var(--radius-xs)',
+                color: 'var(--ink)'
               }}
             >
               <option value="all">All Statuses</option>
@@ -252,228 +253,270 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
             </select>
           </div>
 
-          {/* Clear Filters Button if any active */}
-          {(searchQuery || selectedCategory !== 'all' || selectedStatus !== 'all') && (
+          {hasActiveFilters && (
             <button
-              onClick={() => {
-                setSearchQuery('')
-                setSelectedCategory('all')
-                setSelectedStatus('all')
-              }}
+              onClick={clearFilters}
               style={{
-                padding: '10px 14px',
                 fontSize: '12px',
-                color: 'var(--muted)',
+                color: '#b91c1c',
                 background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
-                textDecoration: 'underline'
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
               }}
             >
-              Reset Filters
+              <X size={13} />
+              <span>Reset</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Products Data Table */}
+      {/* Catalog Items Section */}
       <div className="admin-table-card">
-        <div className="admin-table-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="admin-table-header-row">
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>
+            <h2 className="admin-card-heading">
               Catalog Items ({filteredProducts.length})
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
-              Real-time synchronization with live SENO storefront database
-            </div>
+            </h2>
+            <p className="admin-card-subheading">
+              Synchronized with live storefront catalog
+            </p>
           </div>
         </div>
 
         {filteredProducts.length === 0 ? (
-          <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+          <div className="admin-empty-card-inner">
             <Package size={36} color="var(--muted)" style={{ margin: '0 auto 12px' }} />
-            <p style={{ color: 'var(--ink)', fontWeight: 600, fontSize: '15px', marginBottom: '6px' }}>No pieces match your filter</p>
-            <p style={{ color: 'var(--muted)', fontSize: '13px', margin: 0 }}>Try clearing the search query or category filters.</p>
+            <p style={{ margin: '0 0 6px', fontWeight: 500 }}>No products found</p>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>Try resetting the search or category filters.</p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '320px' }}>Product</th>
-                  <th>Seller / Category</th>
-                  <th>Price</th>
-                  <th>Delivery</th>
-                  <th>Inventory</th>
-                  <th>Publishing</th>
-                  <th>Curation</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProducts.map(product => {
-                  return (
-                    <tr key={product.id}>
-                      {/* Product Thumbnail & Identity */}
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                          <div style={{
-                            width: '46px',
-                            height: '58px',
-                            position: 'relative',
-                            background: 'var(--surface-subtle)',
-                            borderRadius: '2px',
-                            overflow: 'hidden',
-                            flexShrink: 0,
-                            border: '1px solid var(--border)'
-                          }}>
-                            <SenoImage
-                              src={product.primaryImage}
-                              alt={product.name}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          <>
+            {/* Desktop Table */}
+            <div className="admin-desktop-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '320px' }}>Product</th>
+                    <th>Seller / Category</th>
+                    <th>Price</th>
+                    <th>Inventory</th>
+                    <th>Live Status</th>
+                    <th>Curation</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProducts.map(product => {
+                    const isSoldOut = ((optimisticSoldOut[product.id] ?? product.isSoldOut) || (optimisticSoldOut[product.id] ?? product.is_sold_out))
+                    return (
+                      <tr key={product.id}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            <div style={{
+                              width: '48px',
+                              height: '60px',
+                              position: 'relative',
+                              background: '#f5f5f4',
+                              borderRadius: '2px',
+                              overflow: 'hidden',
+                              flexShrink: 0,
+                              border: '1px solid var(--border)'
+                            }}>
+                              <SenoImage
+                                src={product.primaryImage}
+                                alt={product.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: '13px' }}>
+                                {product.name}
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'monospace' }}>
+                                /{product.slug}
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                <Link
+                                  href={`/products/${product.slug}`}
+                                  target="_blank"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    fontSize: '11px',
+                                    color: 'var(--muted)',
+                                    textDecoration: 'none'
+                                  }}
+                                >
+                                  <span>Preview</span>
+                                  <ExternalLink size={10} />
+                                </Link>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td>
+                          <div style={{ fontSize: '13px', color: 'var(--ink)', fontWeight: 500 }}>{product.categories?.name || 'Uncategorized'}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>{product.sellers?.store_name || 'SENO Official'}</div>
+                        </td>
+
+                        <td>
+                          <div style={{ fontWeight: 600, fontSize: '13.5px' }}>
+                            {money(Number(product.price))}
+                          </div>
+                          {product.compare_at_price && Number(product.compare_at_price) > Number(product.price) && (
+                            <div style={{ fontSize: '11px', color: 'var(--muted)', textDecoration: 'line-through' }}>
+                              {money(Number(product.compare_at_price))}
+                            </div>
+                          )}
+                        </td>
+
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{
+                              width: '8px',
+                              height: '8px',
+                              borderRadius: '50%',
+                              background: isSoldOut ? '#ef4444' : product.isLowStock ? '#f59e0b' : '#10b981'
+                            }} />
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: isSoldOut ? '#ef4444' : 'inherit' }}>
+                              {isSoldOut ? 'OUT OF STOCK' : `${product.totalStock} units`}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
+                            {product.variants?.length || 0} variant{(product.variants?.length || 0) === 1 ? '' : 's'}
+                          </div>
+                        </td>
+
+                        <td>
+                          <button
+                            onClick={() => handleToggleActive(product.id, product.is_active)}
+                            disabled={isPending}
+                            title={product.is_active ? 'Click to deactivate' : 'Click to activate'}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '4px 10px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              borderRadius: '12px',
+                              border: 'none',
+                              cursor: 'pointer',
+                              background: product.is_active ? '#ecfdf5' : '#f3f4f6',
+                              color: product.is_active ? '#065f46' : '#6b7280'
+                            }}
+                          >
+                            {product.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
+                            <span>{product.is_active ? 'Active' : 'Hidden'}</span>
+                          </button>
+                        </td>
+
+                        <td>
+                          <ProductApprovalForm
+                            productId={product.id}
+                            currentStatus={product.approval_status}
+                            currentReason={product.rejection_reason}
+                          />
+                        </td>
+
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                            <Link
+                              href={`/admin/products/${product.id}/edit`}
+                              className="button button-outline"
+                              style={{ fontSize: '11px', padding: '5px 12px' }}
+                            >
+                              Edit
+                            </Link>
+                            <ProductActions
+                              product={{
+                                ...product,
+                                isSoldOut: isSoldOut,
+                                is_sold_out: isSoldOut
+                              }}
+                              onOptimisticUpdate={(id, val) => setOptimisticSoldOut(prev => ({...prev, [id]: val}))}
                             />
                           </div>
-                          <div>
-                            <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: '13px' }}>
-                              {product.name}
-                            </div>
-                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'monospace' }}>
-                              /{product.slug}
-                            </div>
-                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                              <Link
-                                href={`/products/${product.slug}`}
-                                target="_blank"
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                  fontSize: '11px',
-                                  color: 'var(--muted)',
-                                  textDecoration: 'none'
-                                }}
-                              >
-                                <span>Preview</span>
-                                <ExternalLink size={10} />
-                              </Link>
-                              <span style={{ color: 'var(--border)' }}>•</span>
-                              <Link
-                                href={`/admin/products/${product.id}/edit`}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                  fontSize: '11px',
-                                  color: 'var(--ink)',
-                                  fontWeight: 600,
-                                  textDecoration: 'none'
-                                }}
-                              >
-                                <span>Edit</span>
-                                <ChevronRight size={11} />
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-                      {/* Category */}
-                      <td>
-                        <div style={{ fontSize: '13px', color: 'var(--ink)', fontWeight: 500 }}>{product.categories?.name || 'Uncategorized'}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '3px' }}>{product.sellers?.store_name || 'SENO Official'}</div>
-                      </td>
-
-                      <td>
-                        <div style={{ fontSize: '12px', fontWeight: 600 }}>{product.shipping_method === 'custom' ? 'Custom' : 'Weight based'}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{product.shipping_method === 'custom' ? money(Number(product.custom_delivery_charge || 0)) : `${product.default_weight_grams}g`}</div>
-                      </td>
-
-                      {/* Price & Compare-At */}
-                      <td>
-                        <div style={{ fontWeight: 600, fontSize: '13px' }}>
-                          {money(Number(product.price))}
-                        </div>
-                        {product.compare_at_price && Number(product.compare_at_price) > Number(product.price) && (
-                          <div style={{ fontSize: '11px', color: 'var(--muted)', textDecoration: 'line-through' }}>
-                            {money(Number(product.compare_at_price))}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Inventory Stock */}
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            background: ((optimisticSoldOut[product.id] ?? product.isSoldOut) || (optimisticSoldOut[product.id] ?? product.is_sold_out))
-                              ? '#ef4444' 
-                              : product.isLowStock 
-                              ? '#f59e0b' 
-                              : '#10b981'
-                          }} />
-                          <span style={{ fontSize: '13px', fontWeight: 600, color: ((optimisticSoldOut[product.id] ?? product.isSoldOut) || (optimisticSoldOut[product.id] ?? product.is_sold_out)) ? '#ef4444' : 'inherit' }}>
-                            {((optimisticSoldOut[product.id] ?? product.isSoldOut) || (optimisticSoldOut[product.id] ?? product.is_sold_out)) ? 'OUT OF STOCK' : `${product.totalStock} in stock`}
+            {/* Mobile Product Card List (No forced horizontal scroll) */}
+            <div className="admin-mobile-card-list">
+              {filteredProducts.map(product => {
+                const isSoldOut = ((optimisticSoldOut[product.id] ?? product.isSoldOut) || (optimisticSoldOut[product.id] ?? product.is_sold_out))
+                return (
+                  <div key={product.id} className="admin-product-card-mobile">
+                    <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                      <div style={{
+                        width: '70px',
+                        height: '88px',
+                        position: 'relative',
+                        background: '#f5f5f4',
+                        borderRadius: '2px',
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                        border: '1px solid var(--border)'
+                      }}>
+                        <SenoImage
+                          src={product.primaryImage}
+                          alt={product.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                            {product.categories?.name || 'Collection'}
+                          </span>
+                          <span className={`status-pill ${product.is_active ? 'approved' : 'draft'}`} style={{ fontSize: '9px' }}>
+                            {product.is_active ? 'LIVE' : 'DRAFT'}
                           </span>
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
-                          {product.variants?.length || 0} variant{(product.variants?.length || 0) === 1 ? '' : 's'}
+                        <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', margin: '2px 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {product.name}
+                        </h3>
+                        <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--ink)' }}>
+                          {money(Number(product.price))}
                         </div>
-                      </td>
+                        <div style={{ fontSize: '11px', color: isSoldOut ? '#ef4444' : 'var(--muted)', marginTop: '4px' }}>
+                          {isSoldOut ? 'Out of Stock' : `${product.totalStock} in stock`} · {product.variants?.length || 0} variant(s)
+                        </div>
+                      </div>
+                    </div>
 
-                      {/* Active Status & Toggle */}
-                      <td>
-                        <button
-                          onClick={() => handleToggleActive(product.id, product.is_active)}
-                          disabled={isPending}
-                          title={product.is_active ? 'Click to deactivate' : 'Click to activate'}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '4px 10px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            letterSpacing: '0.5px',
-                            borderRadius: '12px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            background: product.is_active ? '#ecfdf5' : '#f3f4f6',
-                            color: product.is_active ? '#065f46' : '#6b7280'
-                          }}
-                        >
-                          {product.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
-                          <span>{product.is_active ? 'Active' : 'Draft / Off'}</span>
-                        </button>
-                      </td>
-
-                      {/* Curation Decision */}
-                      <td>
-                        <ProductApprovalForm 
-                          productId={product.id} 
-                          currentStatus={product.approval_status} 
-                          currentReason={product.rejection_reason} 
-                        />
-                      </td>
-
-                      {/* Row Actions */}
-                      <td style={{ textAlign: 'right' }}>
-                        <ProductActions 
-                          product={{
-                            ...product, 
-                            isSoldOut: optimisticSoldOut[product.id] ?? product.isSoldOut,
-                            is_sold_out: optimisticSoldOut[product.id] ?? product.is_sold_out 
-                          }}
-                          onOptimisticUpdate={(id, val) => setOptimisticSoldOut(prev => ({...prev, [id]: val}))}
-                        />
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '14px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+                      <Link
+                        href={`/admin/products/${product.id}/edit`}
+                        className="button button-primary"
+                        style={{ fontSize: '12px', padding: '9px 0', textAlign: 'center', width: '100%' }}
+                      >
+                        Edit Piece
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleActive(product.id, product.is_active)}
+                        className="button button-outline"
+                        style={{ fontSize: '12px', padding: '9px 0', textAlign: 'center', width: '100%' }}
+                      >
+                        {product.is_active ? 'Hide Online' : 'Publish Live'}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
         )}
       </div>
     </div>

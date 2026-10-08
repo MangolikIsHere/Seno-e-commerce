@@ -97,6 +97,9 @@ export interface Order {
   notes?: string | null
   razorpay_order_id?: string | null
   razorpay_payment_id?: string | null
+  promotion_id?: string | null
+  promotion_code?: string | null
+  promotion_snapshot?: any
   created_at: string
   order_items?: OrderItem[]
 }

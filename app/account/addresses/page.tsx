@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, Trash2, Edit2, Plus, MapPin, Check } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { fetchAddresses, createAddress, updateAddress, deleteAddress, Address, AddressInput } from '@/lib/addresses'
+import { AccountShell } from '@/components/account/AccountShell'
 
 export default function AddressesPage() {
   const { user, loading: authLoading } = useAuth()
@@ -12,7 +13,7 @@ export default function AddressesPage() {
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  
+
   const [formData, setFormData] = useState<AddressInput>({
     recipient_name: '',
     phone: '',
@@ -87,7 +88,7 @@ export default function AddressesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
-    
+
     setLoading(true)
     if (editId) {
       const updated = await updateAddress(user.id, editId, formData)
@@ -110,289 +111,266 @@ export default function AddressesPage() {
 
   if (authLoading || (loading && !isEditing)) {
     return (
-      <main className="static-page-container" style={{ minHeight: '60vh', padding: '100px 20px', textAlign: 'center' }}>
-        <p style={{ color: 'var(--muted)', fontSize: '13px' }}>Loading address directory...</p>
-      </main>
+      <AccountShell title="Saved Addresses">
+        <div className="account-loading-card">
+          <p>Loading address directory...</p>
+        </div>
+      </AccountShell>
     )
   }
 
   if (!user) {
     return (
-      <main className="static-page-container" style={{ minHeight: '60vh', textAlign: 'center', maxWidth: '480px' }}>
-        <h1 className="static-page-title" style={{ marginBottom: '16px' }}>Sign In Required</h1>
-        <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '28px' }}>Please sign in to access your personal address directory.</p>
-        <Link href="/account" className="button button-primary" style={{ padding: '12px 28px' }}>Sign In</Link>
-      </main>
+      <AccountShell title="Sign In Required">
+        <div className="account-empty-order-card">
+          <h3 style={{ fontFamily: 'Georgia, serif', fontSize: '20px', margin: '0 0 10px' }}>Sign In Required</h3>
+          <p style={{ color: 'var(--muted)', fontSize: '13px', margin: '0 0 20px' }}>Please sign in to access your personal address directory.</p>
+          <Link href="/account" className="button button-primary" style={{ padding: '10px 24px', fontSize: '12px' }}>Sign In</Link>
+        </div>
+      </AccountShell>
     )
   }
 
   return (
-    <main className="static-page-container" style={{ maxWidth: '820px', paddingBottom: '96px' }}>
-      <div style={{ marginBottom: '28px' }}>
-        <Link 
-          href="/account" 
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '12px',
-            color: 'var(--muted)',
-            textDecoration: 'none',
-            letterSpacing: '0.5px'
-          }}
-        >
-          <ArrowLeft size={14} />
-          <span>Back to Account</span>
-        </Link>
-      </div>
+    <AccountShell title="Saved Addresses" subtitle="Manage private delivery destinations and shipping preferences">
+      <div className="account-section-block">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <div>
+            <h2 className="account-section-heading">Delivery Directory</h2>
+            <p className="account-section-subheading">Your registered delivery destinations</p>
+          </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '36px' }}>
-        <div>
-          <span className="section-kicker">CLIENT SUITE</span>
-          <h1 style={{
-            fontFamily: 'Georgia, serif',
-            fontSize: '30px',
-            fontWeight: 400,
-            letterSpacing: '-0.5px',
-            margin: '4px 0 6px'
-          }}>
-            Saved Addresses
-          </h1>
-          <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>
-            Manage private delivery destinations and shipping preferences
-          </p>
+          {!isEditing && (
+            <button
+              className="button button-primary"
+              style={{ fontSize: '12px', padding: '9px 18px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              onClick={handleAddNew}
+            >
+              <Plus size={14} />
+              <span>Add New Address</span>
+            </button>
+          )}
         </div>
 
-        {!isEditing && (
-          <button
-            className="button button-primary"
-            style={{ fontSize: '12px', padding: '10px 18px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            onClick={handleAddNew}
-          >
-            <Plus size={14} />
-            <span>Add New Address</span>
-          </button>
+        {isEditing ? (
+          <div className="admin-table-card" style={{ padding: '28px', background: '#fff' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '20px' }}>
+              {editId ? 'Edit Delivery Address' : 'New Delivery Destination'}
+            </h3>
+            <form onSubmit={handleSubmit} className="form-stack">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>Recipient Name *</label>
+                  <input
+                    type="text"
+                    className="form-input-field"
+                    value={formData.recipient_name}
+                    onChange={e => setFormData({...formData, recipient_name: e.target.value})}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>Contact Phone *</label>
+                  <input
+                    type="text"
+                    className="form-input-field"
+                    value={formData.phone}
+                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>Address Line 1 *</label>
+                <input
+                  type="text"
+                  className="form-input-field"
+                  value={formData.address_line1}
+                  onChange={e => setFormData({...formData, address_line1: e.target.value})}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>Address Line 2 (Optional)</label>
+                <input
+                  type="text"
+                  className="form-input-field"
+                  value={formData.address_line2}
+                  onChange={e => setFormData({...formData, address_line2: e.target.value})}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>City *</label>
+                  <input
+                    type="text"
+                    className="form-input-field"
+                    value={formData.city}
+                    onChange={e => setFormData({...formData, city: e.target.value})}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>State *</label>
+                  <input
+                    type="text"
+                    className="form-input-field"
+                    value={formData.state}
+                    onChange={e => setFormData({...formData, state: e.target.value})}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>PIN Code *</label>
+                  <input
+                    type="text"
+                    className="form-input-field"
+                    value={formData.postal_code}
+                    onChange={e => setFormData({...formData, postal_code: e.target.value})}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>Country</label>
+                  <input
+                    type="text"
+                    className="form-input-field"
+                    value={formData.country}
+                    onChange={e => setFormData({...formData, country: e.target.value})}
+                    required
+                  />
+                </div>
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', marginTop: '12px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={formData.is_default}
+                  onChange={e => setFormData({...formData, is_default: e.target.checked})}
+                  style={{ width: 'auto', margin: 0 }}
+                />
+                <span>Set as default primary delivery address</span>
+              </label>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                <button
+                  type="submit"
+                  className="button button-primary"
+                  style={{ padding: '10px 24px', fontSize: '12px' }}
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : 'Save Address'}
+                </button>
+                <button
+                  type="button"
+                  className="button button-outline"
+                  style={{ padding: '10px 20px', fontSize: '12px' }}
+                  onClick={() => setIsEditing(false)}
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <>
+            {addresses.length === 0 ? (
+              <div className="account-empty-order-card">
+                <MapPin size={36} color="var(--muted)" strokeWidth={1.3} style={{ margin: '0 auto 12px' }} />
+                <h3 style={{ fontFamily: 'Georgia, serif', fontSize: '20px', margin: '0 0 6px' }}>No Saved Addresses</h3>
+                <p style={{ color: 'var(--muted)', fontSize: '13px', maxWidth: '380px', margin: '0 auto 20px', lineHeight: 1.6 }}>
+                  Save your home or delivery destination for seamless express checkouts.
+                </p>
+                <button className="button button-primary" style={{ fontSize: '12px', padding: '10px 22px' }} onClick={handleAddNew}>
+                  Add Your First Address
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                {addresses.map(addr => (
+                  <div
+                    key={addr.id}
+                    className="admin-table-card"
+                    style={{
+                      padding: '24px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      background: '#fff'
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                        <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0, color: 'var(--ink)' }}>
+                          {addr.recipient_name}
+                        </h3>
+                        {addr.is_default && (
+                          <span className="status-pill approved" style={{ fontSize: '10px' }}>
+                            Default
+                          </span>
+                        )}
+                      </div>
+                      <p style={{ margin: '0 0 4px', fontSize: '12.5px', color: 'var(--muted)' }}>Phone: {addr.phone}</p>
+                      <p style={{ margin: '0 0 4px', fontSize: '13px', color: 'var(--ink)', lineHeight: 1.5 }}>
+                        {addr.address_line1}{addr.address_line2 ? `, ${addr.address_line2}` : ''}
+                      </p>
+                      <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: 'var(--muted)' }}>
+                        {addr.city}, {addr.state} {addr.postal_code}, {addr.country}
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+                      <button
+                        onClick={() => handleEdit(addr)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '12px',
+                          color: 'var(--ink)',
+                          cursor: 'pointer',
+                          padding: 0,
+                          fontWeight: 500
+                        }}
+                      >
+                        <Edit2 size={13} />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(addr.id)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '12px',
+                          color: '#b91c1c',
+                          cursor: 'pointer',
+                          padding: 0,
+                          fontWeight: 500
+                        }}
+                      >
+                        <Trash2 size={13} />
+                        <span>Remove</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
-
-      {isEditing ? (
-        <div style={{ background: '#fff', padding: '32px', border: '1px solid var(--border)', borderRadius: '2px' }}>
-          <h2 style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '24px' }}>
-            {editId ? 'Edit Address' : 'New Delivery Address'}
-          </h2>
-          <form onSubmit={handleSubmit} className="form-stack">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)', marginBottom: '6px' }}>Recipient Name</label>
-                <input
-                  type="text"
-                  className="form-input-field"
-                  value={formData.recipient_name}
-                  onChange={e => setFormData({...formData, recipient_name: e.target.value})}
-                  required
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)', marginBottom: '6px' }}>Contact Phone</label>
-                <input
-                  type="text"
-                  className="form-input-field"
-                  value={formData.phone}
-                  onChange={e => setFormData({...formData, phone: e.target.value})}
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)', marginBottom: '6px' }}>Address Line 1</label>
-              <input
-                type="text"
-                className="form-input-field"
-                value={formData.address_line1}
-                onChange={e => setFormData({...formData, address_line1: e.target.value})}
-                required
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)', marginBottom: '6px' }}>Address Line 2 (Optional)</label>
-              <input
-                type="text"
-                className="form-input-field"
-                value={formData.address_line2}
-                onChange={e => setFormData({...formData, address_line2: e.target.value})}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)', marginBottom: '6px' }}>City</label>
-                <input
-                  type="text"
-                  className="form-input-field"
-                  value={formData.city}
-                  onChange={e => setFormData({...formData, city: e.target.value})}
-                  required
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)', marginBottom: '6px' }}>State</label>
-                <input
-                  type="text"
-                  className="form-input-field"
-                  value={formData.state}
-                  onChange={e => setFormData({...formData, state: e.target.value})}
-                  required
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)', marginBottom: '6px' }}>Postal / PIN Code</label>
-                <input
-                  type="text"
-                  className="form-input-field"
-                  value={formData.postal_code}
-                  onChange={e => setFormData({...formData, postal_code: e.target.value})}
-                  required
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--muted)', marginBottom: '6px' }}>Country</label>
-                <input
-                  type="text"
-                  className="form-input-field"
-                  value={formData.country}
-                  onChange={e => setFormData({...formData, country: e.target.value})}
-                  required
-                />
-              </div>
-            </div>
-            
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', marginTop: '12px', cursor: 'pointer' }}>
-              <input 
-                type="checkbox" 
-                checked={formData.is_default}
-                onChange={e => setFormData({...formData, is_default: e.target.checked})}
-                style={{ width: 'auto', margin: 0 }}
-              />
-              <span>Set as default primary delivery address</span>
-            </label>
-
-            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-              <button 
-                type="button" 
-                className="button button-outline" 
-                style={{ padding: '10px 20px', fontSize: '12px' }} 
-                onClick={() => setIsEditing(false)} 
-                disabled={loading}
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit" 
-                className="button button-primary" 
-                style={{ padding: '10px 24px', fontSize: '12px' }} 
-                disabled={loading}
-              >
-                {loading ? 'Saving...' : 'Save Address'}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : (
-        <>
-          {addresses.length === 0 ? (
-            <div style={{ border: '1px solid var(--border)', padding: '60px 24px', textAlign: 'center', background: 'var(--surface-subtle)' }}>
-              <MapPin size={36} color="var(--muted)" strokeWidth={1.3} style={{ margin: '0 auto 12px' }} />
-              <p style={{ color: 'var(--muted)', fontSize: '14px', margin: '0 0 16px' }}>You haven&apos;t added any delivery addresses yet.</p>
-              <button className="button button-primary" style={{ fontSize: '12px', padding: '10px 20px' }} onClick={handleAddNew}>
-                Add Your First Address
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px' }}>
-              {addresses.map(addr => (
-                <div 
-                  key={addr.id} 
-                  style={{ 
-                    border: '1px solid var(--border)', 
-                    padding: '24px', 
-                    position: 'relative', 
-                    background: '#fff',
-                    borderRadius: '2px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between'
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                      <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0, color: 'var(--ink)' }}>
-                        {addr.recipient_name}
-                      </h3>
-                      {addr.is_default && (
-                        <span className="status-pill approved" style={{ fontSize: '10px' }}>
-                          Default
-                        </span>
-                      )}
-                    </div>
-                    <p style={{ margin: '0 0 6px', fontSize: '13px', color: 'var(--muted)' }}>Phone: {addr.phone}</p>
-                    <p style={{ margin: '0 0 4px', fontSize: '13px', color: 'var(--ink)' }}>
-                      {addr.address_line1}{addr.address_line2 ? `, ${addr.address_line2}` : ''}
-                    </p>
-                    <p style={{ margin: '0 0 20px', fontSize: '13px', color: 'var(--muted)' }}>
-                      {addr.city}, {addr.state} {addr.postal_code}, {addr.country}
-                    </p>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
-                    <button 
-                      onClick={() => handleEdit(addr)} 
-                      style={{ 
-                        background: 'none', 
-                        border: 'none', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '6px', 
-                        fontSize: '12px', 
-                        color: 'var(--ink)', 
-                        cursor: 'pointer',
-                        padding: 0,
-                        fontWeight: 500
-                      }}
-                    >
-                      <Edit2 size={13} />
-                      <span>Edit</span>
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(addr.id)} 
-                      style={{ 
-                        background: 'none', 
-                        border: 'none', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '6px', 
-                        fontSize: '12px', 
-                        color: '#b91c1c', 
-                        cursor: 'pointer',
-                        padding: 0,
-                        fontWeight: 500
-                      }}
-                    >
-                      <Trash2 size={13} />
-                      <span>Delete</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </main>
+    </AccountShell>
   )
 }
-

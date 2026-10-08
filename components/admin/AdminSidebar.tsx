@@ -3,7 +3,23 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Store, PackageCheck, ShoppingBag, ArrowUpRight, ShieldCheck, User, Tag } from 'lucide-react'
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  PackageCheck,
+  Layers,
+  Store,
+  Users,
+  CreditCard,
+  Tag,
+  Settings,
+  ArrowUpRight,
+  ShieldCheck,
+  User,
+  LogOut
+} from 'lucide-react'
+import { createClient } from '@/utils/supabase/client'
+import { useRouter } from 'next/navigation'
 
 interface AdminSidebarProps {
   adminEmail?: string
@@ -11,117 +27,139 @@ interface AdminSidebarProps {
 
 export function AdminSidebar({ adminEmail }: AdminSidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
 
-  const navItems = [
-    {
-      label: 'Overview',
-      href: '/admin/dashboard',
-      icon: LayoutDashboard
-    },
-    {
-      label: 'Offers & Promotions',
-      href: '/admin/promotions',
-      icon: Tag
-    },
-    {
-      label: 'Sellers',
-      href: '/admin/sellers',
-      icon: Store
-    },
-    {
-      label: 'Catalog & Products',
-      href: '/admin/products',
-      icon: PackageCheck
-    },
-    {
-      label: 'Platform Orders',
-      href: '/admin/orders',
-      icon: ShoppingBag
-    }
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/account')
+    router.refresh()
+  }
+
+  const operationsNav = [
+    { label: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
+    { label: 'Orders', href: '/admin/orders', icon: ShoppingBag },
+    { label: 'Products', href: '/admin/products', icon: PackageCheck },
+    { label: 'Categories', href: '/admin/categories', icon: Layers },
+    { label: 'Sellers', href: '/admin/sellers', icon: Store },
+    { label: 'Customers', href: '/admin/customers', icon: Users },
+  ]
+
+  const marketingFinanceNav = [
+    { label: 'Payments & Refunds', href: '/admin/payments', icon: CreditCard },
+    { label: 'Offers & Promotions', href: '/admin/promotions', icon: Tag },
+  ]
+
+  const systemNav = [
+    { label: 'Settings', href: '/admin/settings', icon: Settings },
   ]
 
   return (
-    <aside className="admin-sidebar">
-      <div>
-        {/* Branding header */}
+    <aside className="admin-sidebar" aria-label="Admin Navigation">
+      <div className="admin-sidebar-scroll-container">
+        {/* Brand Header */}
         <div className="admin-sidebar-header">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span style={{ fontFamily: 'Georgia, serif', fontSize: '20px', fontWeight: 700, letterSpacing: '-0.5px' }}>
-              SENO
-            </span>
-            <span style={{
-              fontSize: '9px',
-              letterSpacing: '1px',
-              padding: '2px 6px',
-              background: 'var(--ink)',
-              color: '#ffffff',
-              borderRadius: '2px',
-              fontWeight: 600
-            }}>
-              ADMIN
-            </span>
+          <div className="admin-sidebar-brand-row">
+            <span className="admin-brand-logo">SENO</span>
+            <span className="admin-brand-badge">ADMIN</span>
           </div>
-          <p style={{ margin: 0, fontSize: '11px', color: 'var(--muted)', letterSpacing: '0.5px' }}>
-            Marketplace Control Plane
+          <p className="admin-sidebar-sublabel">
+            Brand Operations & Governance
           </p>
         </div>
 
-        {/* Navigation items */}
-        <nav className="admin-sidebar-nav" aria-label="Admin Navigation">
-          <span className="admin-nav-section-title">Operations</span>
-          {navItems.map(item => {
+        {/* Group 1: Operations */}
+        <div className="admin-nav-group">
+          <span className="admin-nav-group-title">Operations</span>
+          {operationsNav.map(item => {
             const Icon = item.icon
             const isActive = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`admin-nav-link ${isActive ? 'active' : ''}`}
+                className={`admin-nav-item ${isActive ? 'active' : ''}`}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Icon size={16} strokeWidth={isActive ? 2 : 1.6} />
-                  <span>{item.label}</span>
-                </div>
+                <Icon size={16} strokeWidth={isActive ? 2 : 1.6} />
+                <span>{item.label}</span>
               </Link>
             )
           })}
+        </div>
 
-          <div style={{ height: '1px', background: 'var(--border)', margin: '16px 12px' }} />
+        {/* Group 2: Finance & Marketing */}
+        <div className="admin-nav-group">
+          <span className="admin-nav-group-title">Finance & Marketing</span>
+          {marketingFinanceNav.map(item => {
+            const Icon = item.icon
+            const isActive = pathname === item.href || pathname.startsWith(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`admin-nav-item ${isActive ? 'active' : ''}`}
+              >
+                <Icon size={16} strokeWidth={isActive ? 2 : 1.6} />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
 
-          <span className="admin-nav-section-title">Navigation</span>
-          <Link
-            href="/"
-            className="admin-nav-link"
-            style={{ color: 'var(--muted)' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <ArrowUpRight size={16} strokeWidth={1.6} />
-              <span>Public Storefront</span>
-            </div>
+        {/* Group 3: System */}
+        <div className="admin-nav-group">
+          <span className="admin-nav-group-title">System</span>
+          {systemNav.map(item => {
+            const Icon = item.icon
+            const isActive = pathname === item.href || pathname.startsWith(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`admin-nav-item ${isActive ? 'active' : ''}`}
+              >
+                <Icon size={16} strokeWidth={isActive ? 2 : 1.6} />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+
+        {/* Quick Portal Switcher */}
+        <div className="admin-nav-group admin-nav-links-secondary">
+          <span className="admin-nav-group-title">Portals</span>
+          <Link href="/" className="admin-nav-item-secondary">
+            <ArrowUpRight size={15} strokeWidth={1.5} />
+            <span>Storefront</span>
           </Link>
-          <Link
-            href="/account"
-            className="admin-nav-link"
-            style={{ color: 'var(--muted)' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <User size={16} strokeWidth={1.6} />
-              <span>Personal Account</span>
-            </div>
+          <Link href="/account" className="admin-nav-item-secondary">
+            <User size={15} strokeWidth={1.5} />
+            <span>My Account</span>
           </Link>
-        </nav>
+        </div>
       </div>
 
-      {/* Footer / Session indicator */}
+      {/* Admin Session Footer */}
       <div className="admin-sidebar-footer">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <ShieldCheck size={14} color="var(--ink)" />
-          <div style={{ fontSize: '11px', lineHeight: 1.3, overflow: 'hidden' }}>
-            <span style={{ fontWeight: 600, display: 'block' }}>Verified Administrator</span>
-            <span style={{ color: 'var(--muted)', fontSize: '10px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', display: 'block' }}>
+        <div className="admin-profile-pill">
+          <div className="admin-profile-avatar">
+            <ShieldCheck size={14} color="#fff" />
+          </div>
+          <div className="admin-profile-info">
+            <span className="admin-profile-name">Administrator</span>
+            <span className="admin-profile-email" title={adminEmail || 'admin@seno-luxury.com'}>
               {adminEmail || 'admin@seno-luxury.com'}
             </span>
           </div>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="admin-logout-btn"
+            title="Sign out of Admin session"
+            aria-label="Sign out"
+          >
+            <LogOut size={14} />
+          </button>
         </div>
       </div>
     </aside>
