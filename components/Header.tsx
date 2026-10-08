@@ -7,7 +7,13 @@ import { Search, User, Heart, ShoppingBag, Menu, X, ArrowRight } from 'lucide-re
 import { useStore } from '@/context/StoreContext'
 import { NotificationBell } from '@/components/NotificationBell'
 
-export function Header({ categories = [] }: { categories?: { name: string; slug: string }[] }) {
+export function Header({
+  categories = [],
+  hasActiveOffers = false
+}: {
+  categories?: { name: string; slug: string }[]
+  hasActiveOffers?: boolean
+}) {
   const pathname = usePathname()
   const {
     cartCount,
@@ -38,6 +44,7 @@ export function Header({ categories = [] }: { categories?: { name: string; slug:
     { label: 'ALL PRODUCTS', href: '/collections/all' },
     { label: 'NEW ARRIVALS', href: '/collections/new-arrivals' },
     ...categoryLinks,
+    ...(hasActiveOffers ? [{ label: 'OFFERS', href: '/offers' }] : []),
     { label: 'COLLECTIONS', href: '/collections/all' },
   ]
 
@@ -214,6 +221,35 @@ export function Header({ categories = [] }: { categories?: { name: string; slug:
                   ))}
                 </div>
               </div>
+
+              {/* DEDICATED OFFERS SECTION (Mobile discovery path) */}
+              {hasActiveOffers && (
+                <div className="mobile-drawer-section mobile-drawer-offers-section" style={{ borderTop: '1px solid var(--line)', paddingTop: '16px', marginTop: '16px' }}>
+                  <span className="mobile-section-kicker" style={{ color: 'var(--ink)' }}>OFFERS & PROMOTIONS</span>
+                  <div className="mobile-drawer-links" style={{ marginTop: '8px' }}>
+                    <Link
+                      href="/offers"
+                      className="mobile-drawer-link"
+                      onClick={() => setMobileMenuOpen(false)}
+                      style={{
+                        background: '#fcf8f3',
+                        border: '1px solid #ebd9c8',
+                        padding: '12px 14px',
+                        borderRadius: '2px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 600, fontSize: '12.5px', color: 'var(--ink)' }}>OFFERS</span>
+                        <span style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>Current promotions & styling edits →</span>
+                      </div>
+                      <ArrowRight size={14} className="mobile-arrow" />
+                    </Link>
+                  </div>
+                </div>
+              )}
 
               {/* ACCOUNT SECTION */}
               <div className="mobile-drawer-section">

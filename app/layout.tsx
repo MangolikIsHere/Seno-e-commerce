@@ -12,6 +12,7 @@ import { SearchModal } from '@/components/SearchModal'
 import { BrandIntro } from '@/components/BrandIntro'
 import { GlobalNavigationTransition } from '@/components/GlobalNavigationTransition'
 import { getActiveCategories } from '@/lib/categories'
+import { getActivePromotions } from '@/lib/promotions'
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister'
 import { AndroidAppEnhancer } from '@/components/AndroidAppEnhancer'
 import { PwaInstallProvider, SenoAppInstallExperience } from '@/components/PwaInstallPrompt'
@@ -25,6 +26,7 @@ import {
 } from '@/lib/seo'
 import { headers } from 'next/headers'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
+import { MobileOfferStrip } from '@/components/MobileOfferStrip'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -109,7 +111,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const categories = await getActiveCategories()
+  const [categories, activePromotions] = await Promise.all([
+    getActiveCategories(),
+    getActivePromotions()
+  ])
+  const hasActiveOffers = activePromotions.length > 0
   const headerList = await headers()
   const userAgent = headerList.get('user-agent') || ''
   const isAndroid = userAgent.includes('SenoAndroidApp')
@@ -128,7 +134,8 @@ export default async function RootLayout({
                 </Suspense>
                 <div className="app-viewport-wrapper">
                   <AnnouncementBar />
-                  <Header categories={categories} />
+                  <MobileOfferStrip promotion={activePromotions.length > 0 ? activePromotions[0] : null} />
+                  <Header categories={categories} hasActiveOffers={hasActiveOffers} />
                   <main className="main-content">{children}</main>
                   <Footer categories={categories} />
                   <MobileBottomNav />

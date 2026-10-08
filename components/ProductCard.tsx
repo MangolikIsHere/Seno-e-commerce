@@ -10,13 +10,15 @@ import { SenoImage } from '@/components/SenoImage'
 interface ProductCardProps {
   product: Product
   returnContext?: string
+  promotionBadge?: string
 }
 
-export function ProductCard({ product, returnContext }: ProductCardProps) {
+export function ProductCard({ product, returnContext, promotionBadge }: ProductCardProps) {
   const { toggleWishlist, isWishlisted, addToCart } = useStore()
   const [added, setAdded] = useState(false)
 
   const wishlisted = isWishlisted(product.slug)
+  const activePromoBadge = promotionBadge || (product as any).promotionBadge
 
   const handleWishlistClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -69,6 +71,10 @@ export function ProductCard({ product, returnContext }: ProductCardProps) {
             {product.soldOut ? (
               <span className="badge sold-out-badge" style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>
                 Sold Out
+              </span>
+            ) : activePromoBadge ? (
+              <span className="badge promo-offer-badge" style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase', background: 'var(--ink)', color: '#fff', fontWeight: 600 }}>
+                {activePromoBadge}
               </span>
             ) : product.isNew ? (
               <span className="badge new-badge" style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>

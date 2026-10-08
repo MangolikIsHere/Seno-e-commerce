@@ -404,3 +404,8 @@ export const getProductsBySlugs = async (slugs: string[]): Promise<Product[]> =>
   if (error || !data) return []
   return data.map(mapProductRow)
 }
+
+export const getCatalogProducts = async (options?: { limit?: number }): Promise<Product[]> => {
+  const products = await getCollectionProducts('all')
+  return options?.limit ? products.slice(0, options.limit) : products
+}

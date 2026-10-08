@@ -9,15 +9,21 @@ import { useStore } from '@/context/StoreContext'
 import { ProductCard } from '@/components/ProductCard'
 import { SizeGuideModal } from '@/components/SizeGuideModal'
 import { SenoImage } from '@/components/SenoImage'
+import { Promotion } from '@/lib/promotions-shared'
 import Image from 'next/image'
 
 interface ProductDetailClientProps {
   product: Product
   relatedProducts: Product[]
   slug: string
+  applicablePromotion?: Promotion | null
 }
 
-export function ProductDetailClient({ product, relatedProducts }: ProductDetailClientProps) {
+export function ProductDetailClient({
+  product,
+  relatedProducts,
+  applicablePromotion
+}: ProductDetailClientProps) {
   const router = useRouter()
   const { addToCart, toggleWishlist, isWishlisted } = useStore()
 
@@ -148,12 +154,56 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
           <div className="product-header">
             <div className="product-category-tag">{product.category}</div>
             <h1 className="product-title-detail">{product.name}</h1>
-            <div className="product-price-row">
-              <span className="product-price-current">{money(displayPrice)}</span>
-              {product.compareAtPrice && (
+            <div className="product-price-row" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <span className="product-price-current">
+                {applicablePromotion?.type === 'percentage' && !applicablePromotion.min_cart_value
+                  ? money(Math.round(displayPrice * (1 - applicablePromotion.discount_value / 100)))
+                  : money(displayPrice)}
+              </span>
+              {applicablePromotion?.type === 'percentage' && !applicablePromotion.min_cart_value ? (
+                <>
+                  <span className="product-price-compare" style={{ textDecoration: 'line-through', color: 'var(--muted)' }}>
+                    {money(displayPrice)}
+                  </span>
+                  <span className="badge promo-offer-badge" style={{ fontSize: '10px', background: 'var(--ink)', color: '#fff', padding: '3px 7px', borderRadius: '2px', fontWeight: 600 }}>
+                    {Math.round(applicablePromotion.discount_value)}% OFF
+                  </span>
+                </>
+              ) : product.compareAtPrice ? (
                 <span className="product-price-compare">{money(product.compareAtPrice)}</span>
-              )}
+              ) : null}
             </div>
+
+            {/* Promotional Messaging */}
+            {applicablePromotion && (
+              <div style={{ marginTop: '10px', marginBottom: '4px' }}>
+                {applicablePromotion.type === 'bogo' ? (
+                  <div style={{ background: '#fafafa', border: '1px solid var(--border)', padding: '10px 14px', borderRadius: '3px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--ink)' }}>
+                      BUY 1 GET 1 FREE
+                    </span>
+                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
+                      Add another eligible item to unlock your free piece.
+                    </p>
+                  </div>
+                ) : applicablePromotion.min_cart_value ? (
+                  <div style={{ background: '#fafafa', border: '1px solid var(--border)', padding: '8px 12px', borderRadius: '3px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--ink)' }}>
+                      {applicablePromotion.type === 'percentage'
+                        ? `${applicablePromotion.discount_value}% OFF`
+                        : `₹${applicablePromotion.discount_value} OFF`}{' '}
+                      ABOVE ₹{applicablePromotion.min_cart_value.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                ) : applicablePromotion.coupon_code ? (
+                  <div style={{ background: '#fafafa', border: '1px dashed #bbb', padding: '8px 12px', borderRadius: '3px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--ink)' }}>
+                      Use code <strong>{applicablePromotion.coupon_code}</strong> at checkout
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
 
           {/* Colour Option Selector */}

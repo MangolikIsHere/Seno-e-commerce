@@ -3,6 +3,8 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getCachedProduct, getCachedRelatedProducts, getAllProductSlugs } from '@/lib/catalog-server'
 import { ProductDetailClient } from '@/components/ProductDetailClient'
+import { getActivePromotions } from '@/lib/promotions'
+import { isProductEligibleForPromotion } from '@/lib/promotions-shared'
 import { SITE_URL, SITE_NAME } from '@/lib/seo'
 
 interface ProductPageProps {
@@ -63,12 +65,16 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params
-  const product = await getCachedProduct(slug)
+  const [product, activePromotions] = await Promise.all([
+    getCachedProduct(slug),
+    getActivePromotions()
+  ])
 
   if (!product) {
     notFound()
   }
 
+  const applicablePromotion = activePromotions.find(promo => isProductEligibleForPromotion(product, promo)) || null
   const relatedProducts = await getCachedRelatedProducts(product, 4)
 
   // Schema.org Product Structured Data
@@ -109,6 +115,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         product={product}
         relatedProducts={relatedProducts}
         slug={slug}
+        applicablePromotion={applicablePromotion}
       />
     </>
   )

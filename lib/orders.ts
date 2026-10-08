@@ -3,6 +3,8 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidateStorefrontForOrder } from './storefront-revalidation'
 import { notifyOrderPlaced } from '@/lib/notifications/service'
+import { evaluateCartDiscount } from '@/lib/promotions'
+import { CartItem } from '@/context/StoreContext'
 
 export interface OrderAddress {
   recipient_name: string
@@ -110,6 +112,7 @@ export interface CreateOrderInput {
   billing_address?: OrderAddress
   notes?: string
   idempotency_key?: string
+  coupon_code?: string | null
 }
 
 export interface CreateOrderResult {
@@ -118,6 +121,7 @@ export interface CreateOrderResult {
   order_number?: string
   subtotal_amount?: number
   shipping_amount?: number
+  discount_amount?: number
   total_amount?: number
   total_weight_grams?: number
   is_duplicate?: boolean
@@ -261,7 +265,90 @@ export async function placeOrderAction(
       is_duplicate: boolean
     }
 
+    let finalDiscount = 0
+    let finalShipping = Number(result.shipping_amount)
+    let finalTotal = Number(result.total_amount)
+
     if (result.success && result.order_id) {
+      // 4. Server-Authoritative Promotion & Discount Calculation
+      try {
+        const { data: orderItemRows } = await supabase
+          .from('order_items')
+          .select('variant_id, quantity, unit_price, product_id, products(id, name, slug, category, category_id)')
+          .eq('order_id', result.order_id)
+
+        if (orderItemRows && orderItemRows.length > 0) {
+          const evalCartItems: CartItem[] = orderItemRows.map((row: any) => {
+            const prod = row.products || {}
+            return {
+              product: {
+                id: prod.id || row.product_id,
+                name: prod.name || 'Product',
+                slug: prod.slug || '',
+                category: prod.category || 'Western',
+                category_id: prod.category_id,
+                description: prod.description || '',
+                price: Number(row.unit_price),
+                defaultWeightGrams: 500,
+                shippingMethod: 'weight_based',
+                image: '',
+                hoverImage: '',
+                images: [],
+                sizes: [],
+                colors: [],
+                color: '',
+                variants: [],
+                createdAt: '',
+                seller_id: ''
+              },
+              variant_id: row.variant_id,
+              seller_id: '',
+              sku: '',
+              unit_price: Number(row.unit_price),
+              unit_weight_grams: 500,
+              shipping_method: 'weight_based',
+              size: '',
+              colour: '',
+              qty: row.quantity
+            }
+          })
+
+          const discountEval = await evaluateCartDiscount({
+            cart: evalCartItems,
+            promotionCode: input.coupon_code || null,
+            shippingFee: Number(result.shipping_amount)
+          })
+
+          if (discountEval.discountAmount > 0 || discountEval.isFreeShipping) {
+            finalDiscount = discountEval.discountAmount
+            finalShipping = discountEval.isFreeShipping ? 0 : Number(result.shipping_amount)
+            finalTotal = Math.max(0, Number(result.subtotal_amount) - finalDiscount) + finalShipping
+
+            const promoUpdatePayload: Record<string, any> = {
+              discount_amount: finalDiscount,
+              shipping_amount: finalShipping,
+              total_amount: finalTotal,
+              notes: input.notes
+                ? `${input.notes}\n[Promotion: ${discountEval.appliedPromotion?.name || 'Discount'} (-₹${finalDiscount})]`
+                : `[Promotion: ${discountEval.appliedPromotion?.name || 'Discount'} (-₹${finalDiscount})]`
+            }
+
+            if (discountEval.appliedPromotion) {
+              promoUpdatePayload.promotion_id = discountEval.appliedPromotion.id
+              promoUpdatePayload.promotion_code = discountEval.appliedPromotion.coupon_code || null
+              promoUpdatePayload.promotion_snapshot = discountEval.appliedPromotion
+            }
+
+            await supabase
+              .from('orders')
+              .update(promoUpdatePayload)
+              .eq('id', result.order_id)
+          }
+        }
+      } catch (promoErr) {
+        console.error('Error applying authoritative discount to order:', promoErr)
+      }
+
       await revalidateStorefrontForOrder(result.order_id, supabase)
       notifyOrderPlaced(result.order_id).catch(() => {})
     }
@@ -271,8 +358,9 @@ export async function placeOrderAction(
       order_id: result.order_id,
       order_number: result.order_number,
       subtotal_amount: Number(result.subtotal_amount),
-      shipping_amount: Number(result.shipping_amount),
-      total_amount: Number(result.total_amount),
+      shipping_amount: finalShipping,
+      discount_amount: finalDiscount,
+      total_amount: finalTotal,
       total_weight_grams: Number(result.total_weight_grams),
       is_duplicate: result.is_duplicate
     }

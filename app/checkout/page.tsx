@@ -4,13 +4,15 @@ import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Script from 'next/script'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle2, AlertCircle, ShieldCheck, MapPin, Truck, ShoppingBag, RefreshCw, XCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, AlertCircle, ShieldCheck, MapPin, Truck, ShoppingBag, RefreshCw, XCircle, Tag } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useStore } from '@/context/StoreContext'
 import { money } from '@/lib/catalog'
 import { fetchAddresses, createAddress, Address, AddressInput } from '@/lib/addresses'
 import { fetchActiveShippingConfig, calculateShippingForLines, DEFAULT_SHIPPING_SETTINGS, ShippingSettings, ShippingWeightRule } from '@/lib/shipping'
 import { placeOrderAction, OrderAddress } from '@/lib/orders'
+import { evaluateCartDiscount } from '@/lib/promotions'
+import { PromotionEvaluationResult } from '@/lib/promotions-shared'
 import {
   getPaymentConfigAction,
   createRazorpayOrderAction,
@@ -36,7 +38,10 @@ declare global {
 export default function CheckoutPage() {
   const router = useRouter()
   const { user, profile, loading: authLoading } = useAuth()
-  const { cart, subtotal, cartCount, totalWeightGrams, clearOrderedItems, clearCart } = useStore()
+  const { cart, subtotal, cartCount, totalWeightGrams, clearOrderedItems, clearCart, appliedCouponCode, setAppliedCouponCode } = useStore()
+  const [promoResult, setPromoResult] = useState<PromotionEvaluationResult | null>(null)
+  const [couponInput, setCouponInput] = useState('')
+  const [couponError, setCouponError] = useState<string | null>(null)
 
   // Addresses state
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([])
@@ -166,7 +171,27 @@ export default function CheckoutPage() {
     shippingConfig.settings,
     shippingConfig.rules
   )
-  const grandTotal = subtotal + shippingFee
+
+  useEffect(() => {
+    if (cart.length > 0) {
+      evaluateCartDiscount({ cart, promotionCode: appliedCouponCode, shippingFee })
+        .then(res => {
+          setPromoResult(res)
+          if (res.status === 'ineligible' && appliedCouponCode) {
+            setCouponError(res.message)
+          } else {
+            setCouponError(null)
+          }
+        })
+        .catch(() => setPromoResult(null))
+    } else {
+      setPromoResult(null)
+    }
+  }, [cart, appliedCouponCode, shippingFee])
+
+  const promoDiscount = promoResult?.discountAmount || 0
+  const finalShippingFee = promoResult?.isFreeShipping ? 0 : shippingFee
+  const grandTotal = Math.max(0, subtotal - promoDiscount) + finalShippingFee
 
   // Razorpay Checkout Launcher
   const launchRazorpayModal = async (
@@ -359,7 +384,8 @@ export default function CheckoutPage() {
         address_id: addressIdPayload,
         shipping_address: shippingAddressPayload,
         notes: orderNotes.trim() || undefined,
-        idempotency_key: idempotencyKey
+        idempotency_key: idempotencyKey,
+        coupon_code: appliedCouponCode || undefined
       })
 
       if (!result.success || !result.order_id || !result.order_number) {
@@ -733,11 +759,90 @@ export default function CheckoutPage() {
                 ))}
               </div>
 
+              {/* Promo Code Input Box */}
+              <div style={{ marginBottom: '18px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="PROMO CODE"
+                    value={appliedCouponCode || couponInput}
+                    disabled={!!appliedCouponCode}
+                    onChange={e => {
+                      setCouponInput(e.target.value.toUpperCase())
+                      setCouponError(null)
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '8px 10px',
+                      border: '1px solid var(--border)',
+                      fontSize: '11px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      background: appliedCouponCode ? '#f5f5f5' : '#fff'
+                    }}
+                  />
+                  {appliedCouponCode ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAppliedCouponCode(null)
+                        setCouponInput('')
+                        setCouponError(null)
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        background: '#fff',
+                        border: '1px solid var(--border)',
+                        fontSize: '10px',
+                        letterSpacing: '1px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      REMOVE
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!couponInput.trim()) return
+                        setAppliedCouponCode(couponInput.trim().toUpperCase())
+                      }}
+                      style={{
+                        padding: '8px 14px',
+                        background: 'var(--ink)',
+                        color: '#fff',
+                        border: 'none',
+                        fontSize: '10px',
+                        letterSpacing: '1px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      APPLY
+                    </button>
+                  )}
+                </div>
+                {couponError && (
+                  <p style={{ color: '#d32f2f', fontSize: '11px', margin: '6px 0 0' }}>{couponError}</p>
+                )}
+                {promoResult?.status === 'applied' && promoResult.appliedPromotion && (
+                  <p style={{ color: '#2e7d32', fontSize: '11px', margin: '6px 0 0', fontWeight: 500 }}>
+                    ✨ {promoResult.appliedPromotion.name} applied
+                  </p>
+                )}
+              </div>
+
               {/* Calculations Breakdown */}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '10px' }}>
                 <span style={{ color: 'var(--muted)' }}>Subtotal ({cartCount} {cartCount === 1 ? 'item' : 'items'})</span>
                 <span>{money(subtotal)}</span>
               </div>
+
+              {promoDiscount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '10px', color: '#2e7d32' }}>
+                  <span>{promoResult?.appliedPromotion?.name || 'Promotion'}</span>
+                  <strong>-{money(promoDiscount)}</strong>
+                </div>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '10px' }}>
                 <span style={{ color: 'var(--muted)' }}>Shipment Weight</span>
@@ -746,7 +851,7 @@ export default function CheckoutPage() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '16px' }}>
                 <span style={{ color: 'var(--muted)' }}>Shipping Fee</span>
-                <span>{shippingFee === 0 ? 'FREE' : money(shippingFee)}</span>
+                <span>{finalShippingFee === 0 ? 'FREE' : money(finalShippingFee)}</span>
               </div>
 
               <div style={{

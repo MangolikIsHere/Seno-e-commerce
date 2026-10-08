@@ -5,6 +5,9 @@ import { ProductCard } from '@/components/ProductCard'
 import { SenoImage } from '@/components/SenoImage'
 import { getNewArrivals, getBestsellers, getCollectionProducts } from '@/lib/catalog'
 import { getActiveCategories } from '@/lib/categories'
+import { getFeaturedHeroPromotions, getActivePromotions } from '@/lib/promotions'
+import { isProductEligibleForPromotion, getPromotionBadgeText } from '@/lib/promotions-shared'
+import { HeroCarousel } from '@/components/HeroCarousel'
 import {
   SITE_URL,
   SITE_NAME,
@@ -65,10 +68,23 @@ export const metadata: Metadata = {
 }
 
 export default async function HomePage() {
-  const newArrivals = await getNewArrivals(8)
-  const bestsellers = await getBestsellers(8)
-  const categories = await getActiveCategories()
-  const cosmeticsProducts = (await getCollectionProducts('cosmetics', { sort: 'Newest' })).slice(0, 8)
+  const [newArrivals, bestsellers, categories, cosmeticsProducts, featuredPromotions, activePromotions] = await Promise.all([
+    getNewArrivals(8),
+    getBestsellers(8),
+    getActiveCategories(),
+    getCollectionProducts('cosmetics', { sort: 'Newest' }).then(p => p.slice(0, 8)),
+    getFeaturedHeroPromotions(),
+    getActivePromotions(),
+  ])
+
+  function getProductBadge(product: any): string | undefined {
+    for (const promo of activePromotions) {
+      if (isProductEligibleForPromotion(promo, product)) {
+        return getPromotionBadgeText(promo)
+      }
+    }
+    return undefined
+  }
 
   const categoryPresentation: Record<string, { subtitle: string; className?: string }> = {
     'ethnic-traditional-wear': {
@@ -104,28 +120,34 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
       />
-      {/* 1. HERO */}
-      <section className="hero-section">
-        <div className="hero-image-wrapper">
-          <img
-            src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1800&q=85"
-            alt="SENO Spring / Summer 26 Campaign"
-          />
-        </div>
-        <div className="hero-content-overlay">
-          <span className="hero-season-kicker">SPRING / SUMMER 26</span>
-          <h1 className="hero-headline">
-            New forms
-            <br />
-            for everyday.
-          </h1>
-          <Link href="/collections/new-arrivals" className="hero-cta-btn">
-            SHOP NOW <span>→</span>
+      {/* 1. HERO CAROUSEL */}
+      <HeroCarousel featuredPromotions={featuredPromotions} />
+
+      {/* 2. NEW ARRIVALS */}
+      <section className="section-padding" id="new-arrivals">
+        <div className="section-header-flex">
+          <div>
+            <span className="section-kicker">CURATED RELEASES</span>
+            <h2 className="section-title">New Arrivals</h2>
+          </div>
+          <Link href="/collections/new-arrivals" className="view-all-link">
+            VIEW ALL <span aria-hidden="true">→</span>
           </Link>
+        </div>
+
+        <div className="product-rail" aria-label="New arrivals" tabIndex={0}>
+          {newArrivals.map(product => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              promotionBadge={getProductBadge(product)}
+              returnContext="/#new-arrivals"
+            />
+          ))}
         </div>
       </section>
 
-      {/* 2. SHOP BY CATEGORY */}
+      {/* 3. SHOP BY CATEGORY */}
       <section className="section-padding category-section">
         <div className="section-header-flex">
           <div>
@@ -147,25 +169,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 3. NEW ARRIVALS */}
-      <section className="section-padding" id="new-arrivals">
-        <div className="section-header-flex">
-          <div>
-            <span className="section-kicker">CURATED RELEASES</span>
-            <h2 className="section-title">New Arrivals</h2>
-          </div>
-          <Link href="/collections/new-arrivals" className="view-all-link">
-            VIEW ALL
-          </Link>
-        </div>
-
-        <div className="product-rail" aria-label="New arrivals" tabIndex={0}>
-          {newArrivals.map(product => (
-            <ProductCard key={product.id} product={product} returnContext="/#new-arrivals" />
-          ))}
-        </div>
-      </section>
-
       {/* 4. BESTSELLERS */}
       <section className="section-padding bestseller-section" id="bestsellers">
         <div className="section-header-flex">
@@ -178,12 +181,40 @@ export default async function HomePage() {
 
         <div className="product-rail" aria-label="Bestsellers" tabIndex={0}>
           {bestsellers.map(product => (
-            <ProductCard key={product.id} product={product} returnContext="/#bestsellers" />
+            <ProductCard
+              key={product.id}
+              product={product}
+              promotionBadge={getProductBadge(product)}
+              returnContext="/#bestsellers"
+            />
           ))}
         </div>
       </section>
 
-      {/* 5. BEAUTY EDIT */}
+      {/* 5. FEATURED OFFER SPOTLIGHT (Only if an active promotion exists) */}
+      {activePromotions.length > 0 && (
+        <section className="section-padding featured-offer-spotlight" style={{ background: '#f8f6f0', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
+          <div style={{ maxWidth: '960px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '24px 0' }}>
+            <span className="section-kicker" style={{ color: 'var(--ink)' }}>LIMITED TIME OFFER</span>
+            <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 'clamp(24px, 3.5vw, 36px)', fontWeight: 400, color: 'var(--ink)', margin: '8px 0 12px', letterSpacing: '-0.5px' }}>
+              {activePromotions[0].hero_headline || activePromotions[0].name}
+            </h2>
+            <p style={{ color: 'var(--muted)', fontSize: '14.5px', maxWidth: '600px', lineHeight: 1.6, margin: '0 0 24px' }}>
+              {activePromotions[0].hero_subheading || activePromotions[0].description || 'Discover elevated silhouettes and limited-run pieces curated for this promotion.'}
+            </p>
+            <Link
+              href={`/offers/${activePromotions[0].slug}`}
+              className="dark-btn"
+              style={{ padding: '14px 34px', fontSize: '11px', letterSpacing: '1.6px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+            >
+              <span>{activePromotions[0].hero_cta_text || 'SHOP THE OFFER'}</span>
+              <span>→</span>
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* 6. BEAUTY EDIT */}
       <section className="featured-edit-banner">
         <div className="bg-image">
           <img
@@ -206,18 +237,23 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 5b. BEAUTY PRODUCTS RAIL */}
+      {/* 6b. BEAUTY PRODUCTS RAIL */}
       {cosmeticsProducts.length > 0 && (
         <section className="section-padding" id="beauty-edit" style={{ paddingTop: '24px' }}>
           <div className="product-rail" aria-label="Beauty Edit" tabIndex={0}>
             {cosmeticsProducts.map(product => (
-              <ProductCard key={product.id} product={product} returnContext="/#beauty-edit" />
+              <ProductCard
+                key={product.id}
+                product={product}
+                promotionBadge={getProductBadge(product)}
+                returnContext="/#beauty-edit"
+              />
             ))}
           </div>
         </section>
       )}
 
-      {/* 6. BRAND STATEMENT */}
+      {/* 7. BRAND STATEMENT */}
       <section className="brand-statement-section">
         <span className="section-kicker">OUR PHILOSOPHY</span>
         <h2 className="brand-statement-heading">

@@ -39,6 +39,8 @@ interface StoreContextType {
   wishlistCount: number
   subtotal: number
   totalWeightGrams: number
+  appliedCouponCode: string | null
+  setAppliedCouponCode: (code: string | null) => void
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
@@ -46,6 +48,7 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined)
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([])
   const [wishlist, setWishlist] = useState<string[]>([])
+  const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null)
   const [cartOpen, setCartOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -83,10 +86,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (Array.isArray(parsed)) setWishlist(parsed)
         }
       }
+
+      const savedCoupon = localStorage.getItem('seno_coupon')
+      if (savedCoupon) setAppliedCouponCode(savedCoupon)
     } catch {
       // Ignore localStorage read errors
     }
   }, [user])
+
+  // Persist coupon to localStorage
+  useEffect(() => {
+    try {
+      if (appliedCouponCode) {
+        localStorage.setItem('seno_coupon', appliedCouponCode)
+      } else {
+        localStorage.removeItem('seno_coupon')
+      }
+    } catch {
+      // Ignore
+    }
+  }, [appliedCouponCode])
 
   // Sync wishlist from DB if authenticated
   useEffect(() => {
@@ -270,7 +289,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         cartCount,
         wishlistCount,
         subtotal,
-        totalWeightGrams
+        totalWeightGrams,
+        appliedCouponCode,
+        setAppliedCouponCode
       }}
     >
       {children}

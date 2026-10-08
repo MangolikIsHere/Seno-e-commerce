@@ -3,7 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Store, PackageCheck, ShoppingBag, ArrowUpRight, ShieldCheck, User } from 'lucide-react'
+import { LayoutDashboard, Store, PackageCheck, ShoppingBag, ArrowUpRight, ShieldCheck, User, Tag } from 'lucide-react'
 
 interface AdminSidebarProps {
   adminEmail?: string
@@ -17,6 +17,11 @@ export function AdminSidebar({ adminEmail }: AdminSidebarProps) {
       label: 'Overview',
       href: '/admin/dashboard',
       icon: LayoutDashboard
+    },
+    {
+      label: 'Offers & Promotions',
+      href: '/admin/promotions',
+      icon: Tag
     },
     {
       label: 'Sellers',

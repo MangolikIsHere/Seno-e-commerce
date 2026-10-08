@@ -2,18 +2,32 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ShoppingBag, Plus, Minus, Trash2, ArrowLeft } from 'lucide-react'
+import { ShoppingBag, Plus, Minus, Trash2, ArrowLeft, Tag } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
 import { money } from '@/lib/catalog'
 import { fetchActiveShippingConfig, calculateShippingForLines, DEFAULT_SHIPPING_SETTINGS, ShippingSettings, ShippingWeightRule } from '@/lib/shipping'
 import { SenoImage } from '@/components/SenoImage'
+import { evaluateCartDiscount } from '@/lib/promotions'
+import { PromotionEvaluationResult } from '@/lib/promotions-shared'
 
 export default function CartPage() {
-  const { cart, updateCartQty, removeFromCart, subtotal, cartCount, totalWeightGrams } = useStore()
+  const {
+    cart,
+    updateCartQty,
+    removeFromCart,
+    subtotal,
+    cartCount,
+    totalWeightGrams,
+    appliedCouponCode,
+    setAppliedCouponCode
+  } = useStore()
   const [shippingConfig, setShippingConfig] = useState<{ settings: ShippingSettings; rules: ShippingWeightRule[] }>({
     settings: DEFAULT_SHIPPING_SETTINGS,
     rules: []
   })
+  const [promoResult, setPromoResult] = useState<PromotionEvaluationResult | null>(null)
+  const [couponInput, setCouponInput] = useState('')
+  const [couponError, setCouponError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchActiveShippingConfig().then(setShippingConfig)
@@ -21,7 +35,7 @@ export default function CartPage() {
 
   const freeShippingThreshold = shippingConfig.settings.free_shipping_threshold ?? 1999
   const progressPercent = Math.min(100, (subtotal / freeShippingThreshold) * 100)
-  const shippingFee = calculateShippingForLines(subtotal, cart.map(item => ({
+  const rawShippingFee = calculateShippingForLines(subtotal, cart.map(item => ({
     quantity: item.qty,
     unitWeightGrams: item.unit_weight_grams || item.product?.defaultWeightGrams || 500,
     shippingMethod: item.shipping_method || item.product?.shippingMethod || (item.product as any)?.shipping_method || 'weight_based',
@@ -29,7 +43,27 @@ export default function CartPage() {
       ? item.custom_delivery_charge
       : (item.product?.customDeliveryCharge !== undefined ? item.product.customDeliveryCharge : (item.product as any)?.custom_delivery_charge)
   })), shippingConfig.settings, shippingConfig.rules)
-  const estimatedTotal = subtotal + shippingFee
+
+  useEffect(() => {
+    if (cart.length > 0) {
+      evaluateCartDiscount({ cart, promotionCode: appliedCouponCode, shippingFee: rawShippingFee })
+        .then(res => {
+          setPromoResult(res)
+          if (res.status === 'ineligible' && appliedCouponCode) {
+            setCouponError(res.message)
+          } else {
+            setCouponError(null)
+          }
+        })
+        .catch(() => setPromoResult(null))
+    } else {
+      setPromoResult(null)
+    }
+  }, [cart, appliedCouponCode, rawShippingFee])
+
+  const finalDiscount = promoResult?.discountAmount || 0
+  const finalShipping = promoResult?.isFreeShipping ? 0 : rawShippingFee
+  const estimatedTotal = Math.max(0, subtotal - finalDiscount) + finalShipping
 
   return (
     <main className="static-page-container">
@@ -62,6 +96,46 @@ export default function CartPage() {
                 <div className="shipping-progress-fill" style={{ width: `${progressPercent}%` }} />
               </div>
             </div>
+
+            {promoResult && promoResult.message && (
+              <div
+                style={{
+                  background: promoResult.status === 'applied' ? '#f4fbf4' : '#fafafa',
+                  border: `1px solid ${promoResult.status === 'applied' ? '#c8e6c9' : 'var(--border)'}`,
+                  padding: '12px 16px',
+                  margin: '14px 0',
+                  borderRadius: '2px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  fontSize: '12.5px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Tag size={14} color={promoResult.status === 'applied' ? '#2e7d32' : 'var(--ink)'} />
+                  <span style={{ color: promoResult.status === 'applied' ? '#1b5e20' : 'var(--ink)', fontWeight: 500, flex: 1 }}>
+                    {promoResult.message}
+                  </span>
+                </div>
+                {promoResult.status === 'threshold_not_met' && promoResult.appliedPromotion && (
+                  <Link
+                    href={`/offers/${promoResult.appliedPromotion.slug}`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: 'var(--ink)',
+                      textDecoration: 'underline',
+                      marginTop: '2px'
+                    }}
+                  >
+                    SHOP ELIGIBLE ITEMS →
+                  </Link>
+                )}
+              </div>
+            )}
 
             {cart.map(item => (
               <div
@@ -133,9 +207,83 @@ export default function CartPage() {
               <span>{(totalWeightGrams / 1000).toFixed(2)} kg</span>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '12px' }}>
               <span>Estimated Shipping</span>
-              <span>{shippingFee === 0 ? 'FREE' : money(shippingFee)}</span>
+              <span>{finalShipping === 0 ? 'FREE' : money(finalShipping)}</span>
+            </div>
+
+            {finalDiscount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '12px', color: '#2e7d32' }}>
+                <span>{promoResult?.appliedPromotion?.name || 'Promotion Discount'}</span>
+                <strong>-{money(finalDiscount)}</strong>
+              </div>
+            )}
+
+            {/* Promo Code Input Box */}
+            <div style={{ margin: '16px 0 18px', borderTop: '1px solid var(--line)', paddingTop: '16px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  placeholder="PROMO CODE"
+                  value={appliedCouponCode || couponInput}
+                  disabled={!!appliedCouponCode}
+                  onChange={e => {
+                    setCouponInput(e.target.value.toUpperCase())
+                    setCouponError(null)
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '8px 10px',
+                    border: '1px solid var(--border)',
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    background: appliedCouponCode ? '#f5f5f5' : '#fff'
+                  }}
+                />
+                {appliedCouponCode ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAppliedCouponCode(null)
+                      setCouponInput('')
+                      setCouponError(null)
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      background: '#fff',
+                      border: '1px solid var(--border)',
+                      fontSize: '10px',
+                      letterSpacing: '1px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    REMOVE
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!couponInput.trim()) return
+                      setAppliedCouponCode(couponInput.trim().toUpperCase())
+                    }}
+                    style={{
+                      padding: '8px 14px',
+                      background: 'var(--ink)',
+                      color: '#fff',
+                      border: 'none',
+                      fontSize: '10px',
+                      letterSpacing: '1px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    APPLY
+                  </button>
+                )}
+              </div>
+              {couponError && (
+                <p style={{ color: '#d32f2f', fontSize: '11px', margin: '6px 0 0' }}>{couponError}</p>
+              )}
             </div>
 
             <div

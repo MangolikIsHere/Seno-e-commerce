@@ -633,6 +633,144 @@ a {
 }
 
 /* ==========================================================================
+   HERO CAROUSEL & EDITORIAL ENHANCEMENTS
+   ========================================================================== */
+.hero-subheading-editorial {
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 24px;
+  line-height: 1.5;
+  max-width: 440px;
+}
+
+.hero-nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.25s ease;
+  opacity: 0;
+}
+
+.hero-carousel-container:hover .hero-nav-arrow,
+.hero-carousel-container:focus-within .hero-nav-arrow {
+  opacity: 1;
+}
+
+.hero-nav-arrow:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: translateY(-50%) scale(1.06);
+}
+
+.hero-nav-prev {
+  left: 24px;
+}
+
+.hero-nav-next {
+  right: 24px;
+}
+
+.hero-carousel-pagination {
+  position: absolute;
+  bottom: 28px;
+  right: 7%;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hero-dots-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hero-dot-indicator {
+  background: none;
+  border: none;
+  padding: 8px 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.hero-dot-bar {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 1px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.hero-dot-indicator.active .hero-dot-bar {
+  width: 44px;
+  background: #ffffff;
+}
+
+.hero-play-pause-btn {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.hero-play-pause-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Tasteful SENO Offer Badges */
+.promo-offer-badge {
+  background: var(--ink);
+  color: #ffffff;
+  font-size: 8.5px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 900px) {
+  .hero-nav-arrow {
+    display: none; /* Mobile prioritizes swipe/touch interaction */
+  }
+  .hero-carousel-pagination {
+    bottom: 20px;
+    right: auto;
+    left: 6%;
+  }
+  .hero-subheading-editorial {
+    font-size: 12px;
+    margin-bottom: 18px;
+  }
+}
+
+/* ==========================================================================
    REUSABLE SECTION STYLES
    ========================================================================== */
 .section-padding {
@@ -5222,4 +5360,60 @@ textarea.input-field {
   letter-spacing: 1.2px;
   color: rgba(255, 255, 255, 0.9);
   text-transform: uppercase;
+}
+
+/* ==========================================================================
+   OFFER CARD & MOBILE OFFER STRIP STYLES
+   ========================================================================== */
+.seno-offer-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.07);
+}
+
+@media (min-width: 768px) {
+  .seno-offer-card-featured {
+    display: grid !important;
+    grid-template-columns: 1.1fr 1fr;
+    align-items: stretch;
+  }
+
+  .seno-offer-card-featured > div:first-child {
+    height: 100% !important;
+    min-height: 280px;
+  }
+}
+
+.mobile-offer-strip {
+  box-sizing: border-box;
+  animation: fadeInStrip 0.3s ease;
+}
+
+@keyframes fadeInStrip {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .mobile-offer-strip {
+    font-size: 10px !important;
+    padding: 6px 12px !important;
+  }
+
+  .offers-page-container {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Admin wizard layout on mobile */
+  .admin-page-container div[style*="grid-template-columns: 1fr 280px"] {
+    grid-template-columns: 1fr !important;
+  }
 }

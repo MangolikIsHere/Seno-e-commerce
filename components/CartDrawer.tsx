@@ -1,14 +1,27 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { X, Plus, Minus, Trash2 } from 'lucide-react'
+import { X, Plus, Minus, Trash2, Tag } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
 import { money } from '@/lib/catalog'
 import { SenoImage } from '@/components/SenoImage'
+import { evaluateCartDiscount } from '@/lib/promotions'
+import { PromotionEvaluationResult } from '@/lib/promotions-shared'
 
 export function CartDrawer() {
-  const { cart, cartOpen, setCartOpen, updateCartQty, removeFromCart, subtotal, cartCount, totalWeightGrams } = useStore()
+  const { cart, cartOpen, setCartOpen, updateCartQty, removeFromCart, subtotal, cartCount, totalWeightGrams, appliedCouponCode } = useStore()
+  const [promoResult, setPromoResult] = useState<PromotionEvaluationResult | null>(null)
+
+  useEffect(() => {
+    if (cart.length > 0) {
+      evaluateCartDiscount({ cart, promotionCode: appliedCouponCode })
+        .then(setPromoResult)
+        .catch(() => setPromoResult(null))
+    } else {
+      setPromoResult(null)
+    }
+  }, [cart, appliedCouponCode])
 
   if (!cartOpen) return null
 
@@ -55,6 +68,48 @@ export function CartDrawer() {
                   : `Add ${money(freeShippingThreshold - subtotal)} more for complimentary express shipping.`}
               </p>
             </div>
+
+            {/* Promotion Notification Banner */}
+            {promoResult && promoResult.message && (
+              <div
+                style={{
+                  background: promoResult.status === 'applied' ? '#f4fbf4' : '#fafafa',
+                  border: `1px solid ${promoResult.status === 'applied' ? '#c8e6c9' : 'var(--border)'}`,
+                  padding: '10px 14px',
+                  margin: '0 20px 14px',
+                  borderRadius: '2px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  fontSize: '11.5px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Tag size={13} color={promoResult.status === 'applied' ? '#2e7d32' : 'var(--ink)'} />
+                  <span style={{ color: promoResult.status === 'applied' ? '#1b5e20' : 'var(--ink)', fontWeight: 500, flex: 1 }}>
+                    {promoResult.message}
+                  </span>
+                </div>
+                {promoResult.status === 'threshold_not_met' && promoResult.appliedPromotion && (
+                  <Link
+                    href={`/offers/${promoResult.appliedPromotion.slug}`}
+                    onClick={() => setCartOpen(false)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '10.5px',
+                      fontWeight: 600,
+                      color: 'var(--ink)',
+                      textDecoration: 'underline',
+                      marginTop: '2px'
+                    }}
+                  >
+                    SHOP ELIGIBLE ITEMS →
+                  </Link>
+                )}
+              </div>
+            )}
 
             {/* Cart Items List */}
             <div className="cart-drawer-items">
@@ -119,9 +174,19 @@ export function CartDrawer() {
                 <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>Estimated Weight</span>
                 <span style={{ fontSize: '11.5px', color: 'var(--ink)' }}>{(totalWeightGrams / 1000).toFixed(2)} kg</span>
               </div>
+              {promoResult && promoResult.discountAmount > 0 && (
+                <div className="subtotal-row" style={{ color: '#2e7d32', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '12px', letterSpacing: '0.5px' }}>
+                    {promoResult.appliedPromotion?.name || 'Promotion Discount'}
+                  </span>
+                  <strong style={{ fontSize: '13px' }}>-{money(promoResult.discountAmount)}</strong>
+                </div>
+              )}
               <div className="subtotal-row">
                 <span style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px' }}>Subtotal</span>
-                <strong style={{ fontSize: '15px' }}>{money(subtotal)}</strong>
+                <strong style={{ fontSize: '15px' }}>
+                  {money(Math.max(0, subtotal - (promoResult?.discountAmount || 0)))}
+                </strong>
               </div>
               <p className="subtotal-note" style={{ fontSize: '11px', color: 'var(--muted)', margin: '6px 0 16px' }}>
                 Complimentary packaging. Duties and shipping finalized at checkout.
