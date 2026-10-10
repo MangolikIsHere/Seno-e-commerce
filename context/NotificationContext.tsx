@@ -25,6 +25,14 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray
 }
 
+export interface PushSubscriptionResult {
+  success: boolean
+  permission: NotificationPermission
+  browserSubscribed: boolean
+  serverRegistered: boolean
+  error?: string
+}
+
 interface NotificationContextType {
   notifications: NotificationRecord[]
   unreadCount: number
@@ -34,6 +42,7 @@ interface NotificationContextType {
   markAllAsRead: () => Promise<void>
   pushEnabled: boolean
   togglePushNotifications: () => Promise<boolean>
+  enablePushSubscription: () => Promise<PushSubscriptionResult>
   isPushSupported: boolean
 }
 
@@ -46,6 +55,12 @@ const NotificationContext = createContext<NotificationContextType>({
   markAllAsRead: async () => {},
   pushEnabled: false,
   togglePushNotifications: async () => false,
+  enablePushSubscription: async () => ({
+    success: false,
+    permission: 'denied',
+    browserSubscribed: false,
+    serverRegistered: false
+  }),
   isPushSupported: false
 })
 
@@ -322,6 +337,157 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }
 
+  // Explicit, authoritative push opt-in with detailed status breakdown
+  const enablePushSubscription = async (): Promise<PushSubscriptionResult> => {
+    if (
+      typeof window === 'undefined' ||
+      !('Notification' in window) ||
+      !('serviceWorker' in navigator) ||
+      !('PushManager' in window)
+    ) {
+      return {
+        success: false,
+        permission: 'denied',
+        browserSubscribed: false,
+        serverRegistered: false,
+        error: 'Push notifications are not supported on this browser or platform.'
+      }
+    }
+
+    try {
+      if (Notification.permission === 'denied') {
+        return {
+          success: false,
+          permission: 'denied',
+          browserSubscribed: false,
+          serverRegistered: false,
+          error: 'Notifications are disabled in your browser settings.'
+        }
+      }
+
+      // Explicit permission request triggered by user click
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        return {
+          success: false,
+          permission,
+          browserSubscribed: false,
+          serverRegistered: false,
+          error: permission === 'denied' ? 'Permission was denied in the browser prompt.' : 'Permission was dismissed.'
+        }
+      }
+
+      // Ensure service worker is actively registered
+      let reg = await navigator.serviceWorker.getRegistration('/')
+      if (!reg) {
+        reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      }
+      const readyReg = await navigator.serviceWorker.ready
+
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || (await getVapidPublicKeyAction())
+      if (!vapidKey) {
+        return {
+          success: false,
+          permission: 'granted',
+          browserSubscribed: false,
+          serverRegistered: false,
+          error: 'Push notification service key (VAPID) is not configured.'
+        }
+      }
+
+      const applicationServerKey = urlBase64ToUint8Array(vapidKey)
+      let sub = await readyReg.pushManager.getSubscription()
+
+      if (sub) {
+        const existingKey = sub.options?.applicationServerKey
+        if (existingKey) {
+          const existingArr = Array.from(new Uint8Array(existingKey))
+          const expectedArr = Array.from(applicationServerKey)
+          const matches =
+            existingArr.length === expectedArr.length &&
+            existingArr.every((v, i) => v === expectedArr[i])
+          if (!matches) {
+            await removePushSubscriptionAction(sub.endpoint).catch(() => {})
+            await sub.unsubscribe().catch(() => {})
+            sub = null
+          }
+        }
+      }
+
+      if (!sub) {
+        sub = await readyReg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: applicationServerKey as any
+        })
+      }
+
+      if (!sub) {
+        return {
+          success: false,
+          permission: 'granted',
+          browserSubscribed: false,
+          serverRegistered: false,
+          error: 'Could not create a browser push subscription.'
+        }
+      }
+
+      setPushEnabled(true)
+
+      // If user is authenticated, register subscription in database
+      if (user) {
+        const rawKey = sub.getKey ? sub.getKey('p256dh') : null
+        const rawAuth = sub.getKey ? sub.getKey('auth') : null
+        const p256dh = rawKey
+          ? btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(rawKey))))
+          : ''
+        const auth = rawAuth
+          ? btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(rawAuth))))
+          : ''
+
+        if (p256dh && auth) {
+          const saveRes = await savePushSubscriptionAction(
+            { endpoint: sub.endpoint, keys: { p256dh, auth } },
+            navigator.userAgent
+          )
+
+          if (!saveRes.success) {
+            return {
+              success: false,
+              permission: 'granted',
+              browserSubscribed: true,
+              serverRegistered: false,
+              error: saveRes.error || 'Server subscription could not be saved.'
+            }
+          }
+
+          return {
+            success: true,
+            permission: 'granted',
+            browserSubscribed: true,
+            serverRegistered: true
+          }
+        }
+      }
+
+      // Guest / unauthenticated visitor: subscription is primed in browser & will sync upon login/order
+      return {
+        success: true,
+        permission: 'granted',
+        browserSubscribed: true,
+        serverRegistered: false
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown push subscription error'
+      return {
+        success: false,
+        permission: (typeof Notification !== 'undefined' ? Notification.permission : 'denied') as NotificationPermission,
+        browserSubscribed: false,
+        serverRegistered: false,
+        error: msg
+      }
+    }
+  }
+
   return (
     <NotificationContext.Provider
       value={{
@@ -333,6 +499,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         markAllAsRead,
         pushEnabled,
         togglePushNotifications,
+        enablePushSubscription,
         isPushSupported
       }}
     >

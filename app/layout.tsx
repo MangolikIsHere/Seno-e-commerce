@@ -16,6 +16,7 @@ import { getActivePromotions } from '@/lib/promotions'
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister'
 import { AndroidAppEnhancer } from '@/components/AndroidAppEnhancer'
 import { PwaInstallProvider, SenoAppInstallExperience } from '@/components/PwaInstallPrompt'
+import { PushNotificationOptInModal } from '@/components/PushNotificationOptInModal'
 import {
   SITE_URL,
   SITE_NAME,
@@ -142,6 +143,7 @@ export default async function RootLayout({
                   <CartDrawer />
                   <SearchModal />
                   <SenoAppInstallExperience />
+                  <PushNotificationOptInModal />
                 </div>
                 <ServiceWorkerRegister />
               </PwaInstallProvider>

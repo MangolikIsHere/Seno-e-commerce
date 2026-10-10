@@ -543,6 +543,30 @@ export async function notifyOrderCancelled(orderId: string, reason?: string) {
         })
       }
     }
+
+    // Admins
+    const { data: adminProfiles } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('role', 'admin')
+
+    if (adminProfiles) {
+      for (const adm of adminProfiles) {
+        await createNotification({
+          userId: adm.id,
+          type: 'order_cancelled',
+          title: 'Order Cancelled',
+          message: `Order #${order.order_number} was cancelled${formatCancellationReason(reason)}.`,
+          data: {
+            order_id: order.id,
+            order_number: order.order_number,
+            reason,
+            deep_link: `/admin/orders/${order.id}`
+          },
+          idempotencyKey: `admin_order_cancelled_${order.id}_${adm.id}`
+        })
+      }
+    }
   } catch (err) {
     console.error('[NotificationService] notifyOrderCancelled failed:', err)
   }
