@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Script from 'next/script'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle2, AlertCircle, ShieldCheck, MapPin, Truck, ShoppingBag, RefreshCw, XCircle, Tag } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, AlertCircle, ShieldCheck, MapPin, Truck, ShoppingBag, RefreshCw, XCircle, Tag, Video, ChevronDown, ChevronUp, Lock } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useStore } from '@/context/StoreContext'
 import { money } from '@/lib/catalog'
@@ -17,8 +17,8 @@ import {
   getPaymentConfigAction,
   createRazorpayOrderAction,
   verifyPaymentAction,
-  cancelAndReleaseCheckoutAction,
-  reconcilePendingOrderAction
+  reconcilePendingOrderAction,
+  recordPaymentFailureAction
 } from '@/lib/payments'
 
 interface ActiveOrderState {
@@ -42,6 +42,7 @@ export default function CheckoutPage() {
   const [promoResult, setPromoResult] = useState<PromotionEvaluationResult | null>(null)
   const [couponInput, setCouponInput] = useState('')
   const [couponError, setCouponError] = useState<string | null>(null)
+  const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false)
 
   // Addresses state
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([])
@@ -78,6 +79,7 @@ export default function CheckoutPage() {
   const [isVerifying, setIsVerifying] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
+  const [isCheckingStatus, setIsCheckingStatus] = useState<boolean>(false)
 
   // Razorpay public config & active order tracking
   const [paymentConfig, setPaymentConfig] = useState<{ keyId: string; currency: string }>({
@@ -128,34 +130,65 @@ export default function CheckoutPage() {
     }
   }, [user, profile, authLoading])
 
+  // Reconcile pending order status with authoritative backend & gateway
+  const handleCheckStatus = async (orderId: string, rzpOrderId: string) => {
+    setIsCheckingStatus(true)
+    setInfoMessage("Payment wasn't confirmed. We're checking the payment status. Please wait before retrying.")
+
+    try {
+      const res = await reconcilePendingOrderAction(orderId, rzpOrderId)
+      setIsCheckingStatus(false)
+
+      if (res.success) {
+        if (res.action === 'paid') {
+          setErrorMessage(null)
+          setInfoMessage('Payment was completed successfully. Redirecting...')
+          clearCart()
+          router.push(`/checkout/success?order_id=${orderId}`)
+          return
+        }
+
+        if (res.action === 'unpaid') {
+          setErrorMessage(null)
+          setInfoMessage("Payment wasn't completed. You can retry securely when you're ready.")
+          return
+        }
+
+        if (res.action === 'failed' || res.action === 'cancelled') {
+          setErrorMessage(res.message || "Payment wasn't completed. You can retry securely when you're ready.")
+          setInfoMessage(null)
+          return
+        }
+
+        if (res.action === 'expired') {
+          setErrorMessage('Your reservation has expired. Please review your bag and place a new order.')
+          setInfoMessage(null)
+          setActiveOrderTracker(null)
+          setIdempotencyKey('seno_chk_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9))
+          return
+        }
+      }
+
+      // If status could not be determined / gateway unreachable
+      setInfoMessage("Payment wasn't confirmed. We're checking the payment status. Please wait before retrying.")
+    } catch {
+      setIsCheckingStatus(false)
+      setInfoMessage("Payment wasn't confirmed. We're checking the payment status. Please wait before retrying.")
+    }
+  }
+
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible' && activeOrderTracker) {
-        // App returned to foreground (e.g., from UPI app). Securely ask server to reconcile order status.
-        try {
-          const res = await reconcilePendingOrderAction(activeOrderTracker.orderId, activeOrderTracker.razorpayOrderId)
-          if (res.success) {
-            if (res.action === 'paid') {
-               setErrorMessage(null)
-               setInfoMessage('Payment was completed successfully. Redirecting...')
-               router.push(`/checkout/success?order_id=${activeOrderTracker.orderId}`)
-               setActiveOrderTracker(null)
-               clearCart()
-            } else if (res.action === 'cancelled') {
-               setErrorMessage(res.message || 'Payment failed or was cancelled at gateway.')
-               setActiveOrderTracker(null)
-            }
-            // If action === 'pending', we do nothing and wait for the user to retry or the cron to expire it.
-          }
-        } catch (err) {
-          console.error('Reconciliation error:', err)
+        if (!isCheckingStatus) {
+          await handleCheckStatus(activeOrderTracker.orderId, activeOrderTracker.razorpayOrderId)
         }
       }
     }
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [activeOrderTracker, router, clearCart])
+  }, [activeOrderTracker, isCheckingStatus])
 
   // Shipping calculation preview
   const shippingFee = calculateShippingForLines(
@@ -284,11 +317,8 @@ export default function CheckoutPage() {
             ondismiss: async () => {
               if (paymentHandled) return
               setIsSubmitting(false)
-              setInfoMessage(
-                'PAYMENT NOT COMPLETED. Your payment was not completed and no inventory has been held. You can try again whenever you\'re ready.'
-              )
-              // Authoritative server-side check and release
-              await cancelAndReleaseCheckoutAction(currentOrderId, rzpOrderId)
+
+              await handleCheckStatus(currentOrderId, rzpOrderId)
             }
           }
         }
@@ -297,8 +327,22 @@ export default function CheckoutPage() {
         rzp.on('payment.failed', async (response: any) => {
           setIsSubmitting(false)
           const reason = response.error?.description || 'Payment rejected by gateway.'
-          setErrorMessage(`Payment failed: ${reason}. Your payment was not completed and no inventory has been held.`)
-          await cancelAndReleaseCheckoutAction(currentOrderId, rzpOrderId)
+          setErrorMessage(`Payment failed: ${reason}. Please retry your payment.`)
+
+          // Genuine failure: Record failure authoritatively via existing failure handling path
+          try {
+            await recordPaymentFailureAction(
+              currentOrderId,
+              rzpOrderId,
+              response.error?.metadata?.payment_id || response.error?.source || '',
+              reason
+            )
+          } catch {
+            // Non-fatal
+          }
+
+          // Regenerate idempotency key so a fresh order attempt can be placed cleanly
+          setIdempotencyKey('seno_chk_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9))
         })
         rzp.open()
       } else {
@@ -489,8 +533,34 @@ export default function CheckoutPage() {
             lineHeight: 1.5,
             wordBreak: 'break-word'
           }}>
-            <ShieldCheck size={18} color="var(--ink)" style={{ flexShrink: 0, marginTop: '2px' }} />
-            <span style={{ flex: 1 }}>{infoMessage}</span>
+            {isCheckingStatus ? (
+              <RefreshCw size={18} className="animate-spin" color="var(--ink)" style={{ flexShrink: 0, marginTop: '2px' }} />
+            ) : (
+              <ShieldCheck size={18} color="var(--ink)" style={{ flexShrink: 0, marginTop: '2px' }} />
+            )}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span>{infoMessage}</span>
+              {activeOrderTracker && !isCheckingStatus && (
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '2px' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleCheckStatus(activeOrderTracker.orderId, activeOrderTracker.razorpayOrderId)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      color: 'var(--ink)',
+                      textDecoration: 'underline',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Check Status Again
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -510,29 +580,114 @@ export default function CheckoutPage() {
             wordBreak: 'break-word'
           }}>
             <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <span style={{ flex: 1 }}>{errorMessage}</span>
+            <div style={{ flex: 1 }}>
+              <span>{errorMessage}</span>
+              <div style={{ marginTop: '8px', fontSize: '12px' }}>
+                Need concierge assistance?{' '}
+                <a
+                  href="https://wa.me/918617648031?text=Hello%20SENO%2C%20I%20need%20help%20with%20an%20order."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ textDecoration: 'underline', fontWeight: 600, color: '#c53030' }}
+                >
+                  Contact SENO WhatsApp Support
+                </a>
+              </div>
+            </div>
           </div>
         )}
 
 
         <style dangerouslySetInnerHTML={{__html: `
-          .checkout-grid { display: grid; grid-template-columns: 1fr 380px; gap: 48px; alignItems: start; }
-          .order-summary-sidebar { background: var(--soft); padding: 28px; border: 1px solid var(--border); position: sticky; top: 100px; }
+          .checkout-grid { display: grid; grid-template-columns: 1fr 390px; gap: 40px; align-items: start; }
+          .order-summary-sidebar { background: #ffffff; padding: 28px; border: 1px solid var(--border); border-radius: 3px; position: sticky; top: 96px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02); }
+          .mobile-order-summary-toggle { display: none; }
+          .checkout-form-card { background: #ffffff; border: 1px solid var(--border); border-radius: 3px; padding: 24px; }
           @media (max-width: 900px) {
-            .checkout-grid { grid-template-columns: 1fr; gap: 32px; }
-            .order-summary-sidebar { position: static; padding: 20px; }
-            .static-page-title { font-size: 28px; margin-bottom: 24px !important; }
+            .checkout-grid { grid-template-columns: 1fr; gap: 24px; }
+            .order-summary-sidebar { position: static; padding: 20px 16px; }
+            .static-page-title { font-size: 26px; margin-bottom: 20px !important; }
             .static-page-container { padding-left: 16px; padding-right: 16px; }
+            .mobile-order-summary-toggle { display: block; margin-bottom: 20px; background: #ffffff; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+            .checkout-form-card { padding: 18px 16px; }
+          }
+          @media (max-width: 520px) {
+            .checkout-two-col { grid-template-columns: 1fr !important; }
+            .form-input-field { font-size: 16px !important; }
           }
         `}} />
+
+        {/* Mobile Collapsible Order Summary Banner (< 900px) */}
+        <div className="mobile-order-summary-toggle">
+          <button
+            type="button"
+            onClick={() => setMobileSummaryOpen(!mobileSummaryOpen)}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 16px',
+              background: 'var(--soft)',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '13px',
+              color: 'var(--ink)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 500 }}>
+              <ShoppingBag size={16} />
+              <span>{mobileSummaryOpen ? 'Hide order summary' : 'Show order summary'} ({cartCount})</span>
+              {mobileSummaryOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </div>
+            <strong style={{ fontSize: '15px' }}>{money(grandTotal)}</strong>
+          </button>
+
+          {mobileSummaryOpen && (
+            <div style={{ padding: '16px', borderTop: '1px solid var(--border)', background: '#fff' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                {cart.map(item => (
+                  <div key={item.variant_id} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div style={{ width: '48px', height: '64px', position: 'relative', flexShrink: 0, overflow: 'hidden', borderRadius: '2px', background: 'var(--surface-subtle)' }}>
+                      <img src={item.product.image} alt={item.product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    <div style={{ flex: 1, fontSize: '12px' }}>
+                      <div style={{ fontWeight: 600 }}>{item.product.name}</div>
+                      <div style={{ color: 'var(--muted)', fontSize: '11px' }}>Size: {item.size} {item.colour && item.colour !== 'Default' ? `· ${item.colour}` : ''} · Qty: {item.qty}</div>
+                    </div>
+                    <div style={{ fontWeight: 600, fontSize: '13px' }}>{money(item.unit_price * item.qty)}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--muted)' }}>Subtotal</span>
+                  <span>{money(subtotal)}</span>
+                </div>
+                {promoDiscount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#15803d' }}>
+                    <span>Promotion Discount</span>
+                    <strong>-{money(promoDiscount)}</strong>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--muted)' }}>Shipping</span>
+                  <span>{finalShippingFee === 0 ? 'FREE' : money(finalShippingFee)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         <form onSubmit={handlePlaceOrder}>
           <div className="checkout-grid">
             
             {/* Left Column: Customer Info & Address */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               
               {/* 1. Customer Account Info */}
-              <div style={{ background: '#fff', border: '1px solid var(--border)', padding: '24px' }}>
+              <div className="checkout-form-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                   <CheckCircle2 size={16} color="var(--ink)" />
                   <h2 style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', margin: 0 }}>
@@ -546,7 +701,7 @@ export default function CheckoutPage() {
               </div>
 
               {/* 2. Delivery Address Selection */}
-              <div style={{ background: '#fff', border: '1px solid var(--border)', padding: '24px' }}>
+              <div className="checkout-form-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
                   <MapPin size={16} color="var(--ink)" />
                   <h2 style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', margin: 0 }}>
@@ -650,7 +805,7 @@ export default function CheckoutPage() {
                       value={newAddress.address_line2 || ''}
                       onChange={e => setNewAddress({ ...newAddress, address_line2: e.target.value })}
                     />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="checkout-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                       <input
                         type="text"
                         placeholder="City *"
@@ -668,7 +823,7 @@ export default function CheckoutPage() {
                         required
                       />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="checkout-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                       <input
                         type="text"
                         placeholder="PIN / Postal Code *"
@@ -700,7 +855,7 @@ export default function CheckoutPage() {
               </div>
 
               {/* 3. Order Notes / Delivery Instructions */}
-              <div style={{ background: '#fff', border: '1px solid var(--border)', padding: '24px' }}>
+              <div className="checkout-form-card">
                 <h2 style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '12px' }}>
                   Delivery Notes (Optional)
                 </h2>
@@ -714,18 +869,6 @@ export default function CheckoutPage() {
                 />
               </div>
 
-              {/* 4. Payment Gateway Security Notice */}
-              <div style={{ background: 'var(--soft)', border: '1px solid var(--border)', padding: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <ShieldCheck size={16} color="var(--ink)" />
-                  <h3 style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', margin: 0 }}>
-                    Razorpay Authoritative Checkout
-                  </h3>
-                </div>
-                <p style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.5, margin: 0 }}>
-                  Payments are processed via encrypted Razorpay gateway. Authoritative order totals and inventory reservations are enforced strictly by SENO PostgreSQL servers.
-                </p>
-              </div>
             </div>
 
             {/* Right Column: Order Summary */}
@@ -868,18 +1011,48 @@ export default function CheckoutPage() {
                 <span>{money(grandTotal)}</span>
               </div>
 
+              {/* Subtle Unboxing & Return Policy Reminder */}
+              <div
+                style={{
+                  background: '#fafafa',
+                  border: '1px solid var(--border)',
+                  borderRadius: '2px',
+                  padding: '12px 14px',
+                  marginBottom: '18px',
+                  fontSize: '11.5px',
+                  lineHeight: 1.45,
+                  color: 'var(--muted)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--ink)', fontWeight: 600, marginBottom: '3px' }}>
+                  <Video size={13} />
+                  <span>Unboxing Verification Policy</span>
+                </div>
+                <p style={{ margin: 0 }}>
+                  Please record a continuous unboxing video when opening your parcel to verify any damaged, defective, or missing items.{' '}
+                  <Link
+                    href="/return-refund-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: 'var(--ink)', textDecoration: 'underline', fontWeight: 500 }}
+                  >
+                    Read Policy
+                  </Link>
+                </p>
+              </div>
+
               {/* Action Buttons */}
               <button
                 type="submit"
                 className="dark-btn"
-                disabled={isSubmitting || isVerifying}
+                disabled={isSubmitting || isVerifying || isCheckingStatus}
                 style={{
                   width: '100%',
                   padding: '16px',
                   fontSize: '11px',
                   letterSpacing: '2px',
-                  opacity: (isSubmitting || isVerifying) ? 0.7 : 1,
-                  cursor: (isSubmitting || isVerifying) ? 'not-allowed' : 'pointer',
+                  opacity: (isSubmitting || isVerifying || isCheckingStatus) ? 0.7 : 1,
+                  cursor: (isSubmitting || isVerifying || isCheckingStatus) ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -891,11 +1064,18 @@ export default function CheckoutPage() {
                     <RefreshCw size={14} className="animate-spin" />
                     VERIFYING PAYMENT CRYPTOGRAPHY...
                   </>
+                ) : isCheckingStatus ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    CHECKING PAYMENT STATUS...
+                  </>
                 ) : isSubmitting ? (
                   <>
                     <RefreshCw size={14} className="animate-spin" />
                     OPENING RAZORPAY GATEWAY...
                   </>
+                ) : activeOrderTracker ? (
+                  'RETRY PAYMENT →'
                 ) : (
                   'PROCEED TO RAZORPAY PAYMENT →'
                 )}

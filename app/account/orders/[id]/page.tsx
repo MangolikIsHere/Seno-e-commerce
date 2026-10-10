@@ -3,12 +3,13 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, MapPin, ShieldCheck, Printer, PackageCheck, Truck, HelpCircle } from 'lucide-react'
+import { ArrowLeft, MapPin, ShieldCheck, Printer, PackageCheck, Truck, HelpCircle, Video } from 'lucide-react'
 import { getCustomerOrderById, Order } from '@/lib/orders'
 import { money } from '@/lib/catalog'
 import { AccountShell } from '@/components/account/AccountShell'
 import { OrderStatusTimeline } from '@/components/admin/OrderStatusTimeline'
 import { PrintReceiptTrigger } from '@/components/receipt/PrintReceiptTrigger'
+import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
 
 const humanStatusNarratives: Record<string, string> = {
   unfulfilled: 'Your order was received and authenticated. Awaiting processing.',
@@ -245,14 +246,40 @@ export default function OrderDetailPage() {
                 </div>
               </div>
 
+              {/* Need Help Support Section (Section 7) */}
+              <div className="admin-table-card" style={{ padding: '20px', marginTop: '16px', background: 'var(--soft)' }}>
+                <span style={{ fontSize: '10px', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                  NEED HELP WITH THIS ORDER?
+                </span>
+                <p style={{ fontSize: '12.5px', color: 'var(--muted)', lineHeight: 1.5, margin: '0 0 14px' }}>
+                  If your product arrives damaged, defective, incorrect, or incomplete, contact SENO support and refer to your unboxing video.
+                </p>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <WhatsAppSupportButton
+                    type="order"
+                    orderNumber={order.order_number}
+                    label="WhatsApp Support"
+                    variant="primary"
+                    style={{ fontSize: '11px', padding: '8px 16px' }}
+                  />
+                  <Link
+                    href="/return-refund-policy"
+                    className="button button-outline"
+                    style={{ fontSize: '11.5px', padding: '8px 14px', textDecoration: 'none', background: '#fff' }}
+                  >
+                    Return &amp; Refund Policy
+                  </Link>
+                </div>
+              </div>
+
               {/* Need help concierge link */}
-              <div style={{ marginTop: '16px', textAlign: 'center' }}>
+              <div style={{ marginTop: '14px', textAlign: 'center' }}>
                 <Link
                   href="/contact"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--muted)', textDecoration: 'none' }}
                 >
                   <HelpCircle size={14} />
-                  <span>Inquire about this order with SENO Concierge</span>
+                  <span>Inquire via SENO Contact Form</span>
                 </Link>
               </div>
             </div>

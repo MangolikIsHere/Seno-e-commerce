@@ -10,6 +10,7 @@ import { ProductCard } from '@/components/ProductCard'
 import { SizeGuideModal } from '@/components/SizeGuideModal'
 import { SenoImage } from '@/components/SenoImage'
 import { Promotion } from '@/lib/promotions-shared'
+import { CheckoutPolicyModal } from '@/components/CheckoutPolicyModal'
 import Image from 'next/image'
 
 interface ProductDetailClientProps {
@@ -34,6 +35,7 @@ export function ProductDetailClient({
   const [quantity, setQuantity] = useState(1)
   const [openAccordion, setOpenAccordion] = useState<string>('Details')
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false)
+  const [buyNowPolicyModalOpen, setBuyNowPolicyModalOpen] = useState(false)
   const [addedNotice, setAddedNotice] = useState(false)
   const [backUrl, setBackUrl] = useState('/collections/all')
 
@@ -79,7 +81,21 @@ export function ProductDetailClient({
   const handleBuyNow = () => {
     if (!selectedVariant || selectedVariant.inventoryQuantity < quantity) return
     addToCart(product, selectedVariant, quantity)
-    router.push('/cart')
+
+    try {
+      if (sessionStorage.getItem('seno_checkout_policy_acknowledged') === 'true') {
+        router.push('/checkout')
+        return
+      }
+    } catch {
+      // Ignore storage restrictions
+    }
+    setBuyNowPolicyModalOpen(true)
+  }
+
+  const handleContinueBuyNowCheckout = () => {
+    setBuyNowPolicyModalOpen(false)
+    router.push('/checkout')
   }
 
   const isSizeAvailable = (sz: string) => {
@@ -315,8 +331,26 @@ export function ProductDetailClient({
           </div>
 
           {canAddToCart && (
-            <button className="outline-btn buy-now-btn" onClick={handleBuyNow}>
-              BUY NOW WITH DIRECT CHECKOUT →
+            <button
+              className="dark-btn buy-now-btn"
+              onClick={handleBuyNow}
+              style={{
+                width: '100%',
+                minHeight: '48px',
+                marginTop: '10px',
+                padding: '14px 18px',
+                fontSize: '11px',
+                letterSpacing: '2px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              <span>BUY NOW — DIRECT CHECKOUT</span>
+              <span>→</span>
             </button>
           )}
 
@@ -393,6 +427,34 @@ export function ProductDetailClient({
                 </div>
               )}
             </div>
+
+            <div className="accordion-item">
+              <button
+                className="accordion-header"
+                onClick={() => setOpenAccordion(openAccordion === 'Policy' ? '' : 'Policy')}
+              >
+                <span>RETURN &amp; REFUND INFORMATION</span>
+                <span>{openAccordion === 'Policy' ? '−' : '+'}</span>
+              </button>
+              {openAccordion === 'Policy' && (
+                <div className="accordion-content">
+                  <p style={{ margin: '0 0 8px' }}>
+                    Read our policy for reporting damaged, defective, incorrect, or missing products.
+                  </p>
+                  <p style={{ margin: '0 0 12px', fontSize: '12px', color: 'var(--muted)' }}>
+                    Please record a continuous unboxing video when opening your parcel to help our studio team verify any issues and assess your request.
+                  </p>
+                  <div>
+                    <Link
+                      href="/return-refund-policy"
+                      style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--ink)', textDecoration: 'underline', letterSpacing: '0.5px' }}
+                    >
+                      READ POLICY →
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -419,6 +481,11 @@ export function ProductDetailClient({
       )}
 
       <SizeGuideModal isOpen={sizeGuideOpen} onClose={() => setSizeGuideOpen(false)} />
+      <CheckoutPolicyModal
+        isOpen={buyNowPolicyModalOpen}
+        onClose={() => setBuyNowPolicyModalOpen(false)}
+        onContinue={handleContinueBuyNowCheckout}
+      />
     </div>
   )
 }

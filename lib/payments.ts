@@ -434,10 +434,10 @@ export async function cancelAndReleaseCheckoutAction(orderId: string, razorpayOr
     }
     
     // Authoritatively release inventory and cancel the order
-    return await cancelUnpaidOrderAction(orderId, 'checkout_dismissed_or_failed')
+    return await cancelUnpaidOrderAction(orderId, 'checkout_cancelled')
   } catch (err: unknown) {
     // Failsafe: Release inventory so it doesn't get permanently stuck
-    return await cancelUnpaidOrderAction(orderId, 'checkout_dismissed_or_failed')
+    return await cancelUnpaidOrderAction(orderId, 'checkout_cancelled')
   }
 }
 /**
@@ -446,9 +446,44 @@ export async function cancelAndReleaseCheckoutAction(orderId: string, razorpayOr
  */
 export async function reconcilePendingOrderAction(orderId: string, razorpayOrderId: string) {
   try {
+    const supabase = await createClient()
+
+    // 1. Check local authoritative database first (captures webhook confirmation, admin action, or cancellation)
+    const { data: dbOrder } = await supabase
+      .from('orders')
+      .select('id, order_number, status, payment_status, total_amount, expires_at')
+      .eq('id', orderId)
+      .maybeSingle()
+
+    if (dbOrder) {
+      if (dbOrder.payment_status === 'paid' || dbOrder.status === 'confirmed') {
+        return {
+          success: true,
+          action: 'paid' as const,
+          message: 'Payment successfully captured and confirmed.',
+          orderNumber: dbOrder.order_number
+        }
+      }
+      if (dbOrder.status === 'cancelled') {
+        return {
+          success: true,
+          action: 'cancelled' as const,
+          message: 'Order reservation was cancelled.'
+        }
+      }
+      if (dbOrder.expires_at && new Date(dbOrder.expires_at).getTime() < Date.now()) {
+        return {
+          success: true,
+          action: 'expired' as const,
+          message: 'Order reservation has expired.'
+        }
+      }
+    }
+
     const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
     const keySecret = process.env.RAZORPAY_KEY_SECRET
-    
+
+    // 2. Authoritative check via Razorpay Gateway API
     if (keyId && keySecret && !keyId.startsWith('rzp_test_seno_demo')) {
       const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString('base64')
       const rzpResponse = await fetch(`https://api.razorpay.com/v1/orders/${razorpayOrderId}`, {
@@ -459,40 +494,48 @@ export async function reconcilePendingOrderAction(orderId: string, razorpayOrder
 
       if (rzpResponse.ok) {
         const rzpData = await rzpResponse.json()
-        
-        // Definitively Paid
+
+        // Definitively Paid on gateway
         if (rzpData.status === 'paid' || (rzpData.status === 'attempted' && rzpData.amount_paid > 0)) {
-          const supabase = await createClient()
           const { data: confirmRes, error: confirmError } = await supabase.rpc('confirm_order_payment', {
             p_order_id: orderId,
             p_razorpay_order_id: razorpayOrderId,
             p_razorpay_payment_id: rzpData.attempts > 0 ? (rzpData.id || razorpayOrderId) : razorpayOrderId
           })
-          
+
           if (confirmError) {
-             return { success: false, action: 'error', error: confirmError.message }
+            return { success: false, action: 'error' as const, error: confirmError.message }
           }
-          
+
           notifyPaymentConfirmed(orderId).catch(() => {})
-          return { success: true, action: 'paid', message: 'Payment successfully captured on gateway.', data: confirmRes }
+          return { success: true, action: 'paid' as const, message: 'Payment successfully captured on gateway.', data: confirmRes }
         }
-        
-        // Definitively Failed / Cancelled at Gateway (if gateway supports such status for orders)
+
+        // Definitively Failed / Cancelled on gateway
         if (rzpData.status === 'failed' || rzpData.status === 'cancelled') {
-           await cancelUnpaidOrderAction(orderId, 'gateway_marked_failed')
-           return { success: true, action: 'cancelled', message: 'Order was failed/cancelled at gateway. Inventory released.' }
+          return { success: true, action: 'failed' as const, message: 'Payment failed at gateway.' }
         }
-        
-        // If it's still 'created' or 'attempted' (but not paid), we MUST leave it pending
-        // to preserve concurrency and allow the user to retry inside the UPI app or modal.
-        return { success: true, action: 'pending', message: 'Payment unresolved. Leaving pending for cron expiration.' }
+
+        // Gateway status is 'created' or 'attempted' with 0 amount paid: definitively unpaid / incomplete
+        return {
+          success: true,
+          action: 'unpaid' as const,
+          message: "Payment wasn't completed. You can retry securely when you're ready."
+        }
+      }
+    } else {
+      // Simulator / test credentials: treat as uncompleted payment ready for retry
+      return {
+        success: true,
+        action: 'unpaid' as const,
+        message: "Payment wasn't completed. You can retry securely when you're ready."
       }
     }
-    
-    return { success: false, action: 'unknown', error: 'Unable to fetch Razorpay status.' }
+
+    return { success: false, action: 'unknown' as const, error: 'Unable to reach payment gateway.' }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error reconciling payment.'
-    return { success: false, action: 'error', error: msg }
+    return { success: false, action: 'error' as const, error: msg }
   }
 }
 

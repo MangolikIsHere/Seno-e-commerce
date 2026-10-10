@@ -2,7 +2,6 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidateStorefrontForOrder } from './storefront-revalidation'
-import { notifyOrderPlaced } from '@/lib/notifications/service'
 import { evaluateCartDiscount } from '@/lib/promotions'
 import { CartItem } from '@/context/StoreContext'
 
@@ -367,7 +366,6 @@ export async function placeOrderAction(
       }
 
       await revalidateStorefrontForOrder(result.order_id, supabase)
-      notifyOrderPlaced(result.order_id).catch(() => {})
     }
 
     return {

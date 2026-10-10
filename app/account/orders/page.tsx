@@ -7,6 +7,7 @@ import { getCustomerOrders, Order } from '@/lib/orders'
 import { money } from '@/lib/catalog'
 import { AccountShell } from '@/components/account/AccountShell'
 import { PrintReceiptTrigger } from '@/components/receipt/PrintReceiptTrigger'
+import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
 
 const fulfillmentLabels: Record<string, string> = {
   unfulfilled: 'Order Placed',
@@ -143,6 +144,18 @@ export default function AccountOrdersPage() {
                       className="button button-ghost"
                       style={{ fontSize: '12px', padding: '8px 14px', border: '1px solid var(--border)' }}
                     />
+                    <WhatsAppSupportButton
+                      type="order"
+                      orderNumber={order.order_number}
+                      variant="compact"
+                      label="WhatsApp Support"
+                    />
+                    <Link
+                      href="/return-refund-policy"
+                      style={{ fontSize: '11px', color: 'var(--muted)', textDecoration: 'underline', padding: '6px 4px' }}
+                    >
+                      Return &amp; Refund Policy
+                    </Link>
                   </div>
                 </div>
               )

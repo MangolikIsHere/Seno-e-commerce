@@ -2,16 +2,39 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { X, Plus, Minus, Trash2, Tag } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
 import { money } from '@/lib/catalog'
 import { SenoImage } from '@/components/SenoImage'
 import { evaluateCartDiscount } from '@/lib/promotions'
 import { PromotionEvaluationResult } from '@/lib/promotions-shared'
+import { CheckoutPolicyModal } from '@/components/CheckoutPolicyModal'
 
 export function CartDrawer() {
   const { cart, cartOpen, setCartOpen, updateCartQty, removeFromCart, subtotal, cartCount, totalWeightGrams, appliedCouponCode } = useStore()
+  const router = useRouter()
   const [promoResult, setPromoResult] = useState<PromotionEvaluationResult | null>(null)
+  const [policyModalOpen, setPolicyModalOpen] = useState(false)
+
+  const handleProceedToCheckout = () => {
+    try {
+      if (sessionStorage.getItem('seno_checkout_policy_acknowledged') === 'true') {
+        setCartOpen(false)
+        router.push('/checkout')
+        return
+      }
+    } catch {
+      // Ignore storage errors
+    }
+    setPolicyModalOpen(true)
+  }
+
+  const handleContinueCheckout = () => {
+    setPolicyModalOpen(false)
+    setCartOpen(false)
+    router.push('/checkout')
+  }
 
   useEffect(() => {
     if (cart.length > 0) {
@@ -202,18 +225,36 @@ export function CartDrawer() {
               <p className="subtotal-note" style={{ fontSize: '11px', color: 'var(--muted)', margin: '6px 0 16px' }}>
                 Complimentary packaging. Duties and shipping finalized at checkout.
               </p>
-              <Link
-                href="/cart"
+              <button
+                type="button"
                 className="checkout-btn dark-btn"
-                onClick={() => setCartOpen(false)}
-                style={{ width: '100%', padding: '16px', fontSize: '11px', letterSpacing: '1.8px' }}
+                onClick={handleProceedToCheckout}
+                style={{ width: '100%', padding: '16px', fontSize: '11px', letterSpacing: '1.8px', border: 'none', cursor: 'pointer' }}
               >
                 PROCEED TO CHECKOUT <span>→</span>
-              </Link>
+              </button>
+
+              <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
+                <span style={{ color: 'var(--muted)' }}>Unboxing video requested for claims</span>
+                <Link
+                  href="/return-refund-policy"
+                  onClick={() => setCartOpen(false)}
+                  style={{ color: 'var(--ink)', textDecoration: 'underline', fontWeight: 500 }}
+                >
+                  View Policy
+                </Link>
+              </div>
             </div>
           </>
         )}
       </aside>
+
+      {/* Checkout Policy Notice Modal */}
+      <CheckoutPolicyModal
+        isOpen={policyModalOpen}
+        onClose={() => setPolicyModalOpen(false)}
+        onContinue={handleContinueCheckout}
+      />
     </div>
   )
 }

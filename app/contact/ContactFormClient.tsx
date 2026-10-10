@@ -1,6 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
+import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
 
 export function ContactFormClient() {
   const [name, setName] = useState('')
@@ -22,10 +24,10 @@ export function ContactFormClient() {
       <h1 className="static-page-title">Contact SENO</h1>
 
       <p className="static-intro-lead">
-        Have a question about an order, product, shipping, or anything else? Please contact us directly or send a message below.
+        Have a question about an order, product, shipping, or returns? Reach out directly via WhatsApp support or send a message below.
       </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px', maxWidth: '520px', padding: '24px', backgroundColor: 'var(--soft)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '32px', maxWidth: '540px', padding: '24px', backgroundColor: 'var(--soft)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '24px' }}>
           <div>
             <h3 style={{ fontSize: '10px', letterSpacing: '1px', marginBottom: '6px', color: 'var(--muted)', textTransform: 'uppercase' }}>Instagram</h3>
@@ -36,17 +38,28 @@ export function ContactFormClient() {
             <a href="https://www.facebook.com/sourav.saha.585585" aria-label="Facebook" target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: 'var(--ink)', textDecoration: 'none', display: 'block' }}>Facebook Profile</a>
           </div>
           <div>
-            <h3 style={{ fontSize: '10px', letterSpacing: '1px', marginBottom: '6px', color: 'var(--muted)', textTransform: 'uppercase' }}>WhatsApp / Contact</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <a href="https://wa.me/918617648031" aria-label="WhatsApp" target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: 'var(--ink)', textDecoration: 'none' }}>Message on WhatsApp</a>
-              <a href="tel:+918617648031" aria-label="Phone" style={{ fontSize: '13px', color: 'var(--ink)', textDecoration: 'none' }}>+91 861 764 8031</a>
+            <h3 style={{ fontSize: '10px', letterSpacing: '1px', marginBottom: '6px', color: 'var(--muted)', textTransform: 'uppercase' }}>WhatsApp / Phone</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <a href="tel:+918617648031" aria-label="Phone" style={{ fontSize: '13px', color: 'var(--ink)', textDecoration: 'none', fontWeight: 500 }}>+91 861 764 8031</a>
+              <WhatsAppSupportButton
+                type="general"
+                label="WhatsApp Support"
+                variant="compact"
+              />
             </div>
           </div>
+        </div>
+
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+          <span style={{ color: 'var(--muted)' }}>Product issue or return inquiry?</span>
+          <Link href="/return-refund-policy" style={{ color: 'var(--ink)', textDecoration: 'underline', fontWeight: 600 }}>
+            Return &amp; Refund Policy →
+          </Link>
         </div>
       </div>
 
       {submitted ? (
-        <div style={{ background: 'var(--soft)', padding: '28px', maxWidth: '520px', marginTop: '24px' }}>
+        <div style={{ background: 'var(--soft)', padding: '28px', maxWidth: '540px', marginTop: '24px' }}>
           <h3 style={{ fontFamily: 'Georgia, serif', fontSize: '20px', margin: '0 0 8px' }}>
             Message Received
           </h3>
@@ -55,7 +68,7 @@ export function ContactFormClient() {
           </p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="form-stack" style={{ maxWidth: '520px' }}>
+        <form onSubmit={handleSubmit} className="form-stack" style={{ maxWidth: '540px' }}>
           <input
             type="text"
             placeholder="Your name"

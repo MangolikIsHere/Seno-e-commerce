@@ -18,7 +18,8 @@ import {
   Shield,
   HelpCircle,
   Truck,
-  ArrowRight
+  ArrowRight,
+  RotateCcw
 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { useAuth } from '@/context/AuthContext'
@@ -29,6 +30,7 @@ import { useNotifications } from '@/context/NotificationContext'
 import { AccountShell } from '@/components/account/AccountShell'
 import { OrderStatusTimeline } from '@/components/admin/OrderStatusTimeline'
 import { PrintReceiptTrigger } from '@/components/receipt/PrintReceiptTrigger'
+import { WhatsAppSupportButton, WhatsAppIcon } from '@/components/WhatsAppSupportButton'
 
 const fulfillmentLabels: Record<string, string> = {
   unfulfilled: 'Order Placed',
@@ -146,13 +148,19 @@ export function AccountDashboard() {
                 <span style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--muted)', letterSpacing: '0.8px' }}>Total Settled</span>
                 <strong style={{ fontSize: '16px', color: 'var(--ink)' }}>{money(Number(recentOrder.total_amount))}</strong>
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <PrintReceiptTrigger
                   order={recentOrder}
                   audience="customer"
                   label="Receipt"
                   className="button button-ghost"
                   style={{ fontSize: '12px', padding: '9px 14px', border: '1px solid var(--border)' }}
+                />
+                <WhatsAppSupportButton
+                  type="order"
+                  orderNumber={recentOrder.order_number}
+                  variant="compact"
+                  label="WhatsApp Support"
                 />
                 <Link
                   href={`/account/orders/${recentOrder.id}`}
@@ -268,6 +276,35 @@ export function AccountDashboard() {
             </div>
             <ChevronRight size={16} color="var(--muted)" className="account-action-chevron" />
           </Link>
+
+          {/* Return & Refund Policy */}
+          <Link href="/return-refund-policy" className="account-action-card">
+            <div className="account-action-icon-wrap">
+              <RotateCcw size={20} color="var(--ink)" />
+            </div>
+            <div className="account-action-text">
+              <h3 className="account-action-title">Returns &amp; Refunds</h3>
+              <p className="account-action-desc">Unboxing video policy &amp; terms</p>
+            </div>
+            <ChevronRight size={16} color="var(--muted)" className="account-action-chevron" />
+          </Link>
+
+          {/* WhatsApp Support Direct */}
+          <a
+            href="https://wa.me/918617648031?text=Hello%20SENO%2C%20I%20need%20help%20with%20an%20order."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="account-action-card"
+          >
+            <div className="account-action-icon-wrap">
+              <WhatsAppIcon size={20} />
+            </div>
+            <div className="account-action-text">
+              <h3 className="account-action-title">WhatsApp Support</h3>
+              <p className="account-action-desc">Direct client advisory (+91 8617648031)</p>
+            </div>
+            <ChevronRight size={16} color="var(--muted)" className="account-action-chevron" />
+          </a>
         </div>
       </section>
     </AccountShell>

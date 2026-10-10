@@ -53,6 +53,7 @@ const faqData: FaqCategory[] = [
     questions: [
       { q: 'What is the SENO return window?', a: 'We accept returns and size exchanges within 7 days of order delivery.' },
       { q: 'What condition must returned items be in?', a: 'Items must be unworn, unwashed, and retain all original tags and packaging.' },
+      { q: 'Is an unboxing video required for damaged or missing items?', a: 'To help us verify damaged, defective, incorrect, or missing items, please record a continuous video while opening your parcel. An unboxing video may be required to assess your claim, subject to applicable consumer protection laws and statutory rights.' },
     ],
   },
   {

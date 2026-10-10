@@ -43,8 +43,9 @@ export function Footer({ categories = [] }: { categories?: { name: string; slug:
             <li><Link href="/contact">Contact</Link></li>
             <li><Link href="/faq">FAQ</Link></li>
             <li><Link href="/shipping">Shipping</Link></li>
-            <li><Link href="/returns">Returns</Link></li>
+            <li><Link href="/return-refund-policy">Returns &amp; Refunds</Link></li>
             <li><Link href="/track-order">Track Order</Link></li>
+            <li><a href="https://wa.me/918617648031" target="_blank" rel="noopener noreferrer">WhatsApp Support</a></li>
           </ul>
         </div>
 
@@ -64,7 +65,7 @@ export function Footer({ categories = [] }: { categories?: { name: string; slug:
           <ul>
             <li><Link href="/privacy">Privacy Policy</Link></li>
             <li><Link href="/terms">Terms of Service</Link></li>
-            <li><Link href="/refund-policy">Refund Policy</Link></li>
+            <li><Link href="/return-refund-policy">Return &amp; Refund Policy</Link></li>
             <li><Link href="/cancellation-policy">Cancellation Policy</Link></li>
           </ul>
         </div>

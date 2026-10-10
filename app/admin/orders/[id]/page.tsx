@@ -2,7 +2,7 @@ import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound, redirect } from 'next/navigation'
-import { ArrowLeft, MapPin, Phone, Mail, ShieldCheck, Tag, PackageCheck, AlertCircle } from 'lucide-react'
+import { ArrowLeft, MapPin, Phone, Mail, ShieldCheck, Tag, PackageCheck, AlertCircle, Video } from 'lucide-react'
 import { getAdminOrderById, checkIsAdmin, cancelAdminOrderAction } from '@/lib/admin'
 import { money } from '@/lib/catalog'
 import { formatStateLabel } from '@/lib/utils'
@@ -293,6 +293,43 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               </div>
               <div style={{ color: 'var(--muted)', marginTop: '2px', wordBreak: 'break-all' }}>
                 Payment ID: <span style={{ fontFamily: 'monospace', color: 'var(--ink)' }}>{order.razorpay_payment_id || order.razorpay_order_id || 'Direct Settlement'}</span>
+              </div>
+            </div>
+
+            {/* Return & Refund Verification Policy Reference Card (Section 8) */}
+            <div style={{ marginTop: '20px', padding: '16px', background: 'var(--soft)', border: '1px solid var(--border)', borderRadius: '2px', fontSize: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--ink)', marginBottom: '6px' }}>
+                <Video size={14} />
+                <span style={{ textTransform: 'uppercase', letterSpacing: '0.8px', fontSize: '11px' }}>Return &amp; Refund Policy Reference</span>
+              </div>
+              <p style={{ margin: '0 0 10px', color: 'var(--muted)', lineHeight: 1.5 }}>
+                Customers are advised to provide continuous unboxing video footage for claims of transit damage, manufacturing defects, or missing items within 7 days of delivery.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11.5px' }}>
+                <div style={{ color: 'var(--muted)' }}>
+                  • <strong>Statutory Terms:</strong> Claims must be assessed individually. A missing video is not sole grounds for automatic refusal where statutory rights apply.
+                </div>
+                <div style={{ color: 'var(--muted)' }}>
+                  • <strong>Customer Support Line:</strong> +91 8617648031 (WhatsApp Business)
+                </div>
+              </div>
+              <div style={{ marginTop: '12px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <Link
+                  href="/return-refund-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--ink)', textDecoration: 'underline', fontWeight: 600, fontSize: '11px' }}
+                >
+                  View Customer Policy ↗
+                </Link>
+                <a
+                  href={`https://wa.me/918617648031?text=${encodeURIComponent(`Hello SENO support, inquiring regarding order #${order.order_number}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--ink)', textDecoration: 'underline', fontSize: '11px' }}
+                >
+                  Open WhatsApp ↗
+                </a>
               </div>
             </div>
           </div>

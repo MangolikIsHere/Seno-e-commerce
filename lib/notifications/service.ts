@@ -178,11 +178,16 @@ export async function notifyOrderPlaced(orderId: string) {
     const admin = getAdminClient()
     const { data: order } = await admin
       .from('orders')
-      .select('id, order_number, customer_id, total_amount')
+      .select('id, order_number, customer_id, total_amount, status, payment_status')
       .eq('id', orderId)
       .maybeSingle()
 
     if (!order) return
+
+    // An unpaid pending checkout reservation must never trigger a customer-facing "Order Received" notification
+    if (order.status === 'pending' && order.payment_status === 'unpaid') {
+      return
+    }
 
     await createNotification({
       userId: order.customer_id,
@@ -477,12 +482,39 @@ export async function notifyOrderCancelled(orderId: string, reason?: string) {
 
     if (!order) return
 
+    // Helper to sanitize internal machine tokens into customer-friendly text
+    const formatCancellationReason = (r?: string): string => {
+      if (!r) return ''
+      switch (r) {
+        case 'checkout_dismissed_or_failed':
+        case 'checkout_cancelled':
+          return ''
+        case 'reservation_expired':
+          return ' (reservation expired)'
+        case 'payment_failed':
+          return ' (payment failed)'
+        case 'customer_cancellation':
+        case 'customer_cancelled':
+          return ' (requested by customer)'
+        case 'admin_cancelled':
+          return ' (administrative cancellation)'
+        case 'seller_cancelled':
+          return ' (item unavailable)'
+        case 'out_of_stock':
+          return ' (out of stock)'
+        default: {
+          const sanitized = r.replace(/_/g, ' ').trim()
+          return sanitized ? ` (${sanitized})` : ''
+        }
+      }
+    }
+
     // Customer
     await createNotification({
       userId: order.customer_id,
       type: 'order_cancelled',
       title: 'Order Cancelled',
-      message: `Order #${order.order_number} was cancelled${reason ? ` (${reason})` : ''}.`,
+      message: `Order #${order.order_number} was cancelled${formatCancellationReason(reason)}.`,
       data: {
         order_id: order.id,
         order_number: order.order_number,
