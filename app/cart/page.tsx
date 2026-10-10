@@ -100,23 +100,33 @@ export default function CartPage() {
             {promoResult && promoResult.message && (
               <div
                 style={{
-                  background: promoResult.status === 'applied' ? '#f4fbf4' : '#fafafa',
-                  border: `1px solid ${promoResult.status === 'applied' ? '#c8e6c9' : 'var(--border)'}`,
-                  padding: '12px 16px',
-                  margin: '14px 0',
+                  background: promoResult.status === 'applied' ? '#f4fbf5' : '#fafafa',
+                  border: `1px solid ${promoResult.status === 'applied' ? '#bbf7d0' : 'var(--border)'}`,
+                  padding: '14px 18px',
+                  margin: '16px 0',
                   borderRadius: '2px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '6px',
+                  gap: '4px',
                   fontSize: '12.5px'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Tag size={14} color={promoResult.status === 'applied' ? '#2e7d32' : 'var(--ink)'} />
-                  <span style={{ color: promoResult.status === 'applied' ? '#1b5e20' : 'var(--ink)', fontWeight: 500, flex: 1 }}>
+                  <Tag size={14} color={promoResult.status === 'applied' ? '#15803d' : 'var(--ink)'} />
+                  <span style={{ color: promoResult.status === 'applied' ? '#14532d' : 'var(--ink)', fontWeight: 600, letterSpacing: '0.4px', flex: 1 }}>
                     {promoResult.message}
                   </span>
                 </div>
+                {promoResult.subMessage && (
+                  <p style={{ color: '#166534', margin: '2px 0 0 22px', fontSize: '12px', lineHeight: 1.4 }}>
+                    {promoResult.subMessage}
+                  </p>
+                )}
+                {promoResult.pendingOpportunity && (
+                  <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #bbf7d0', color: '#15803d', fontSize: '11.5px' }}>
+                    ✨ {promoResult.pendingOpportunity.message}
+                  </div>
+                )}
                 {promoResult.status === 'threshold_not_met' && promoResult.appliedPromotion && (
                   <Link
                     href={`/offers/${promoResult.appliedPromotion.slug}`}
@@ -128,7 +138,8 @@ export default function CartPage() {
                       fontWeight: 600,
                       color: 'var(--ink)',
                       textDecoration: 'underline',
-                      marginTop: '2px'
+                      marginTop: '4px',
+                      marginLeft: '22px'
                     }}
                   >
                     SHOP ELIGIBLE ITEMS →
@@ -213,8 +224,8 @@ export default function CartPage() {
             </div>
 
             {finalDiscount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '12px', color: '#2e7d32' }}>
-                <span>{promoResult?.appliedPromotion?.name || 'Promotion Discount'}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '12px', color: '#15803d' }}>
+                <span style={{ fontWeight: 500 }}>{promoResult?.discountLabel || promoResult?.appliedPromotion?.name || 'Promotion Discount'}</span>
                 <strong>-{money(finalDiscount)}</strong>
               </div>
             )}

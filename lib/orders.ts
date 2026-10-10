@@ -275,20 +275,26 @@ export async function placeOrderAction(
     if (result.success && result.order_id) {
       // 4. Server-Authoritative Promotion & Discount Calculation
       try {
-        const { data: orderItemRows } = await supabase
+        const { data: orderItemRows, error: itemsQueryError } = await supabase
           .from('order_items')
-          .select('variant_id, quantity, unit_price, product_id, products(id, name, slug, category, category_id)')
+          .select('variant_id, quantity, unit_price, product_id, products(id, name, slug, category_id, categories(name, slug))')
           .eq('order_id', result.order_id)
+
+        if (itemsQueryError) {
+          console.warn('[Orders] Notice querying items for discount evaluation:', itemsQueryError.message)
+        }
 
         if (orderItemRows && orderItemRows.length > 0) {
           const evalCartItems: CartItem[] = orderItemRows.map((row: any) => {
             const prod = row.products || {}
+            const catName = prod.categories?.name || ''
+            const catSlug = prod.categories?.slug || ''
             return {
               product: {
                 id: prod.id || row.product_id,
                 name: prod.name || 'Product',
                 slug: prod.slug || '',
-                category: prod.category || 'Western',
+                category: catName,
                 category_id: prod.category_id,
                 description: prod.description || '',
                 price: Number(row.unit_price),
@@ -339,7 +345,15 @@ export async function placeOrderAction(
             if (discountEval.appliedPromotion) {
               promoUpdatePayload.promotion_id = discountEval.appliedPromotion.id
               promoUpdatePayload.promotion_code = discountEval.appliedPromotion.coupon_code || null
-              promoUpdatePayload.promotion_snapshot = discountEval.appliedPromotion
+              promoUpdatePayload.promotion_snapshot = {
+                ...discountEval.appliedPromotion,
+                discount_label: discountEval.discountLabel,
+                discount_amount: finalDiscount,
+                discount_type: discountEval.promotionType,
+                complimentary_items_count: discountEval.complimentaryItemsCount,
+                applied_message: discountEval.message,
+                applied_submessage: discountEval.subMessage
+              }
             }
 
             await supabase

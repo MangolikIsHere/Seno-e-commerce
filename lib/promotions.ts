@@ -167,9 +167,15 @@ export async function evaluateCartDiscount(params: {
   if (!cart || cart.length === 0) {
     return {
       appliedPromotion: null,
+      promotionType: null,
+      promotionName: null,
+      promotionId: null,
       discountAmount: 0,
       isFreeShipping: false,
+      shippingDiscount: 0,
+      discountLabel: null,
       message: null,
+      subMessage: null,
       status: 'none'
     }
   }
@@ -178,7 +184,7 @@ export async function evaluateCartDiscount(params: {
   const subtotal = cart.reduce((sum, item) => sum + item.unit_price * item.qty, 0)
   const totalQty = cart.reduce((sum, item) => sum + item.qty, 0)
 
-  // 1. If customer entered a coupon code, check for exact match
+  // 1. Identify Candidate Promotions
   let candidatePromotions: Promotion[] = []
 
   if (promotionCode && promotionCode.trim() !== '') {
@@ -190,51 +196,76 @@ export async function evaluateCartDiscount(params: {
     if (!matchedCoupon) {
       return {
         appliedPromotion: null,
+        promotionType: null,
+        promotionName: null,
+        promotionId: null,
         discountAmount: 0,
         isFreeShipping: false,
+        shippingDiscount: 0,
+        discountLabel: null,
         message: `Promo code "${promotionCode.trim().toUpperCase()}" is invalid or expired.`,
+        subMessage: null,
         status: 'ineligible'
       }
     }
     candidatePromotions = [matchedCoupon]
   } else {
-    // Automatic promotions (promotions without a coupon code)
-    candidatePromotions = activePromotions.filter(p => !p.coupon_code)
+    // Automatic promotions (without coupon code) sorted by display_priority DESC
+    candidatePromotions = activePromotions
+      .filter(p => !p.coupon_code)
+      .sort((a, b) => (b.display_priority || 0) - (a.display_priority || 0))
   }
 
   if (candidatePromotions.length === 0) {
     return {
       appliedPromotion: null,
+      promotionType: null,
+      promotionName: null,
+      promotionId: null,
       discountAmount: 0,
       isFreeShipping: false,
+      shippingDiscount: 0,
+      discountLabel: null,
       message: null,
+      subMessage: null,
       status: 'none'
     }
   }
 
-  // 2. Evaluate candidates and select the single best discount (stacking disallowed by default)
-  let bestResult: PromotionEvaluationResult = {
-    appliedPromotion: null,
-    discountAmount: 0,
-    isFreeShipping: false,
-    message: null,
-    status: 'none'
+  // 2. Evaluate all candidate promotions
+  interface EvaluatedPromo {
+    promotion: Promotion
+    status: 'applied' | 'threshold_not_met' | 'ineligible'
+    computedDiscount: number
+    isFreeShipping: boolean
+    complimentaryItemsCount?: number
+    discountLabel?: string
+    message: string
+    subMessage?: string | null
+    reason: string
+    progress?: {
+      current: number
+      target: number
+      remaining: number
+      type: 'amount' | 'quantity'
+    }
   }
 
+  const evaluated: EvaluatedPromo[] = []
+
   for (const promo of candidatePromotions) {
-    // Filter eligible cart items
     const eligibleItems = cart.filter(item => isProductEligibleForPromotion(item.product, promo))
 
     if (eligibleItems.length === 0) {
-      if (candidatePromotions.length === 1) {
-        bestResult = {
-          appliedPromotion: promo,
-          discountAmount: 0,
-          isFreeShipping: false,
-          message: `This promotion only applies to selected styles.`,
-          status: 'ineligible'
-        }
-      }
+      evaluated.push({
+        promotion: promo,
+        status: 'ineligible',
+        computedDiscount: 0,
+        isFreeShipping: false,
+        message: 'This promotion only applies to selected styles.',
+        subMessage: null,
+        reason: 'No eligible items found in cart.'
+      })
       continue
     }
 
@@ -244,74 +275,56 @@ export async function evaluateCartDiscount(params: {
     // Check minimum cart value requirement
     if (promo.min_cart_value && subtotal < promo.min_cart_value) {
       const remaining = promo.min_cart_value - subtotal
-      const thresholdMessage = `Add ₹${Math.ceil(remaining).toLocaleString('en-IN')} more to unlock ${
+      const label =
         promo.type === 'percentage'
           ? `${promo.discount_value}% OFF`
           : promo.type === 'flat'
           ? `₹${promo.discount_value} OFF`
           : promo.name
-      }.`
 
-      if (candidatePromotions.length === 1 || bestResult.status === 'none') {
-        bestResult = {
-          appliedPromotion: promo,
-          discountAmount: 0,
-          isFreeShipping: false,
-          message: thresholdMessage,
-          status: 'threshold_not_met',
-          progress: {
-            current: subtotal,
-            target: promo.min_cart_value,
-            remaining,
-            type: 'amount'
-          }
+      evaluated.push({
+        promotion: promo,
+        status: 'threshold_not_met',
+        computedDiscount: 0,
+        isFreeShipping: false,
+        discountLabel: label,
+        message: `Add ₹${Math.ceil(remaining).toLocaleString('en-IN')} more to unlock ${label}.`,
+        subMessage: null,
+        reason: `Subtotal ₹${subtotal} < min cart value ₹${promo.min_cart_value}.`,
+        progress: {
+          current: subtotal,
+          target: promo.min_cart_value,
+          remaining,
+          type: 'amount'
         }
-      }
+      })
       continue
     }
 
     // Check minimum quantity requirement
     if (promo.min_quantity && eligibleQty < promo.min_quantity) {
       const remaining = promo.min_quantity - eligibleQty
-      const thresholdMessage = `Add ${remaining} more eligible item${remaining > 1 ? 's' : ''} to unlock ${promo.name}.`
-
-      if (candidatePromotions.length === 1 || bestResult.status === 'none') {
-        bestResult = {
-          appliedPromotion: promo,
-          discountAmount: 0,
-          isFreeShipping: false,
-          message: thresholdMessage,
-          status: 'threshold_not_met',
-          progress: {
-            current: eligibleQty,
-            target: promo.min_quantity,
-            remaining,
-            type: 'quantity'
-          }
+      evaluated.push({
+        promotion: promo,
+        status: 'threshold_not_met',
+        computedDiscount: 0,
+        isFreeShipping: false,
+        discountLabel: promo.type === 'bogo' ? 'BUY 1 GET 1' : promo.name,
+        message: `Add ${remaining} more eligible item${remaining > 1 ? 's' : ''} to unlock ${promo.name}.`,
+        subMessage: null,
+        reason: `Eligible quantity ${eligibleQty} < min quantity ${promo.min_quantity}.`,
+        progress: {
+          current: eligibleQty,
+          target: promo.min_quantity,
+          remaining,
+          type: 'quantity'
         }
-      }
+      })
       continue
     }
 
-    // Compute actual discount amount
-    let computedDiscount = 0
-    let isFreeShipping = false
-
-    if (promo.type === 'percentage') {
-      const rawDiscount = (eligibleSubtotal * Number(promo.discount_value)) / 100
-      computedDiscount = promo.max_discount_amount
-        ? Math.min(rawDiscount, Number(promo.max_discount_amount))
-        : rawDiscount
-    } else if (promo.type === 'flat') {
-      computedDiscount = Math.min(Number(promo.discount_value), eligibleSubtotal)
-    } else if (promo.type === 'coupon') {
-      const rawDiscount = Number(promo.discount_value)
-      computedDiscount = Math.min(rawDiscount, eligibleSubtotal)
-    } else if (promo.type === 'free_shipping') {
-      isFreeShipping = true
-      computedDiscount = shippingFee
-    } else if (promo.type === 'bogo') {
-      // Buy X Get Y Free: Expand all eligible item units, sort ascending by unit price
+    // Calculate promotion-specific discount
+    if (promo.type === 'bogo') {
       const buyQty = promo.bogo_buy_qty || 1
       const getQty = promo.bogo_get_qty || 1
       const groupSize = buyQty + getQty
@@ -323,52 +336,215 @@ export async function evaluateCartDiscount(params: {
           unitPrices.push(item.unit_price)
         }
       })
-      unitPrices.sort((a, b) => a - b) // Cheapest first
+      unitPrices.sort((a, b) => a - b) // Cheapest items complimentary
 
       const totalEligibleUnits = unitPrices.length
       const completedGroups = Math.floor(totalEligibleUnits / groupSize)
 
       if (completedGroups > 0) {
-        const discountedUnitsCount = completedGroups * getQty
-        for (let i = 0; i < discountedUnitsCount; i++) {
-          computedDiscount += unitPrices[i] * discountPercent
+        const freeUnitsCount = completedGroups * getQty
+        let discount = 0
+        for (let i = 0; i < freeUnitsCount; i++) {
+          discount += unitPrices[i] * discountPercent
         }
+        discount = Math.round(discount * 100) / 100
+
+        evaluated.push({
+          promotion: promo,
+          status: 'applied',
+          computedDiscount: discount,
+          isFreeShipping: false,
+          complimentaryItemsCount: freeUnitsCount,
+          discountLabel: 'BUY 1 GET 1',
+          message: `BUY 1 GET 1 — APPLIED`,
+          subMessage: `${freeUnitsCount} complimentary piece${freeUnitsCount > 1 ? 's' : ''} included (-₹${discount.toLocaleString('en-IN')}).`,
+          reason: `Qualified for BOGO (${completedGroups} group${completedGroups > 1 ? 's' : ''}).`
+        })
       } else {
-        // Less than groupSize: prompt user
         const remainingToGroup = groupSize - totalEligibleUnits
-        if (candidatePromotions.length === 1 || bestResult.status === 'none') {
-          bestResult = {
-            appliedPromotion: promo,
-            discountAmount: 0,
-            isFreeShipping: false,
-            message: `Buy ${buyQty} Get ${getQty} Free: Add ${remainingToGroup} more eligible item to unlock free piece.`,
-            status: 'threshold_not_met',
-            progress: {
-              current: totalEligibleUnits,
-              target: groupSize,
-              remaining: remainingToGroup,
-              type: 'quantity'
-            }
+        evaluated.push({
+          promotion: promo,
+          status: 'threshold_not_met',
+          computedDiscount: 0,
+          isFreeShipping: false,
+          discountLabel: 'BUY 1 GET 1',
+          message: `BUY 1 GET 1: Add ${remainingToGroup} more eligible piece${remainingToGroup > 1 ? 's' : ''} to unlock free piece.`,
+          subMessage: null,
+          reason: `Requires ${groupSize} items; currently has ${totalEligibleUnits}.`,
+          progress: {
+            current: totalEligibleUnits,
+            target: groupSize,
+            remaining: remainingToGroup,
+            type: 'quantity'
           }
-        }
-        continue
+        })
       }
-    }
+    } else if (promo.type === 'percentage') {
+      const rawDiscount = (eligibleSubtotal * Number(promo.discount_value)) / 100
+      const discount = promo.max_discount_amount
+        ? Math.min(rawDiscount, Number(promo.max_discount_amount))
+        : rawDiscount
+      const rounded = Math.round(discount * 100) / 100
 
-    computedDiscount = Math.round(computedDiscount * 100) / 100
-
-    if (computedDiscount > bestResult.discountAmount || (isFreeShipping && !bestResult.isFreeShipping)) {
-      bestResult = {
-        appliedPromotion: promo,
-        discountAmount: computedDiscount,
-        isFreeShipping,
+      evaluated.push({
+        promotion: promo,
+        status: 'applied',
+        computedDiscount: rounded,
+        isFreeShipping: false,
+        discountLabel: `${Math.round(promo.discount_value)}% OFF`,
         message: `${promo.name} — APPLIED`,
-        status: 'applied'
-      }
+        subMessage: `${Math.round(promo.discount_value)}% off qualifying pieces (-₹${rounded.toLocaleString('en-IN')}).`,
+        reason: 'Qualified for percentage discount.'
+      })
+    } else if (promo.type === 'flat' || promo.type === 'coupon') {
+      const rawDiscount = Number(promo.discount_value)
+      const discount = Math.min(rawDiscount, eligibleSubtotal)
+      const rounded = Math.round(discount * 100) / 100
+
+      evaluated.push({
+        promotion: promo,
+        status: 'applied',
+        computedDiscount: rounded,
+        isFreeShipping: false,
+        discountLabel: `₹${Math.round(promo.discount_value)} OFF`,
+        message: `${promo.name} — APPLIED`,
+        subMessage: `Flat savings of ₹${rounded.toLocaleString('en-IN')} applied.`,
+        reason: 'Qualified for flat/coupon discount.'
+      })
+    } else if (promo.type === 'free_shipping') {
+      evaluated.push({
+        promotion: promo,
+        status: 'applied',
+        computedDiscount: shippingFee,
+        isFreeShipping: true,
+        discountLabel: 'FREE SHIPPING',
+        message: `${promo.name} — APPLIED`,
+        subMessage: 'Complimentary shipping across India applied.',
+        reason: 'Qualified for free shipping.'
+      })
     }
   }
 
-  return bestResult
+  // 3. Deterministic Promotion Selection Engine
+  const appliedCandidates = evaluated.filter(e => e.status === 'applied')
+  const thresholdCandidates = evaluated.filter(e => e.status === 'threshold_not_met')
+
+  if (appliedCandidates.length > 0) {
+    // Sort applied candidates:
+    // 1) display_priority DESC (admin configured precedence)
+    // 2) computedDiscount DESC (best customer discount when priorities tie)
+    // 3) created_at DESC / id ASC (strictly deterministic tiebreaker)
+    appliedCandidates.sort((a, b) => {
+      const pDiff = (b.promotion.display_priority || 0) - (a.promotion.display_priority || 0)
+      if (pDiff !== 0) return pDiff
+      const dDiff = b.computedDiscount - a.computedDiscount
+      if (dDiff !== 0) return dDiff
+      return (a.promotion.id || '').localeCompare(b.promotion.id || '')
+    })
+
+    const selected = appliedCandidates[0]
+
+    // Check if any higher priority promotion was in threshold_not_met
+    const higherPriorityThreshold = thresholdCandidates.find(
+      t => (t.promotion.display_priority || 0) > (selected.promotion.display_priority || 0)
+    )
+
+    const result: PromotionEvaluationResult = {
+      appliedPromotion: selected.promotion,
+      promotionType: selected.promotion.type,
+      promotionName: selected.promotion.name,
+      promotionId: selected.promotion.id,
+      discountAmount: selected.computedDiscount,
+      isFreeShipping: selected.isFreeShipping,
+      shippingDiscount: selected.isFreeShipping ? shippingFee : 0,
+      discountLabel: selected.discountLabel || selected.promotion.name,
+      message: selected.message,
+      subMessage: selected.subMessage || null,
+      status: 'applied',
+      complimentaryItemsCount: selected.complimentaryItemsCount,
+      pendingOpportunity: higherPriorityThreshold
+        ? {
+            promotion: higherPriorityThreshold.promotion,
+            message: higherPriorityThreshold.message,
+            remaining: higherPriorityThreshold.progress?.remaining || 1
+          }
+        : null,
+      selectionReason: `Selected via configured priority ${selected.promotion.display_priority || 0} (${selected.reason})`,
+      debug: evaluated.map(e => ({
+        promotionName: e.promotion.name,
+        priority: e.promotion.display_priority || 0,
+        status: e.status,
+        calculatedDiscount: e.computedDiscount,
+        stackable: e.promotion.allow_stacking,
+        reason: e.reason
+      }))
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Promotion Engine] Selected: "${result.promotionName}" (-₹${result.discountAmount}) Reason: ${result.selectionReason}`)
+    }
+
+    return result
+  }
+
+  if (thresholdCandidates.length > 0) {
+    thresholdCandidates.sort((a, b) => (b.promotion.display_priority || 0) - (a.promotion.display_priority || 0))
+    const topThreshold = thresholdCandidates[0]
+
+    return {
+      appliedPromotion: topThreshold.promotion,
+      promotionType: topThreshold.promotion.type,
+      promotionName: topThreshold.promotion.name,
+      promotionId: topThreshold.promotion.id,
+      discountAmount: 0,
+      isFreeShipping: false,
+      shippingDiscount: 0,
+      discountLabel: topThreshold.discountLabel || topThreshold.promotion.name,
+      message: topThreshold.message,
+      subMessage: null,
+      status: 'threshold_not_met',
+      progress: topThreshold.progress,
+      selectionReason: `Top priority threshold candidate: ${topThreshold.reason}`,
+      debug: evaluated.map(e => ({
+        promotionName: e.promotion.name,
+        priority: e.promotion.display_priority || 0,
+        status: e.status,
+        calculatedDiscount: e.computedDiscount,
+        stackable: e.promotion.allow_stacking,
+        reason: e.reason
+      }))
+    }
+  }
+
+  if (candidatePromotions.length === 1 && evaluated.length > 0 && evaluated[0].status === 'ineligible') {
+    return {
+      appliedPromotion: candidatePromotions[0],
+      promotionType: candidatePromotions[0].type,
+      promotionName: candidatePromotions[0].name,
+      promotionId: candidatePromotions[0].id,
+      discountAmount: 0,
+      isFreeShipping: false,
+      shippingDiscount: 0,
+      discountLabel: null,
+      message: evaluated[0].message,
+      subMessage: null,
+      status: 'ineligible'
+    }
+  }
+
+  return {
+    appliedPromotion: null,
+    promotionType: null,
+    promotionName: null,
+    promotionId: null,
+    discountAmount: 0,
+    isFreeShipping: false,
+    shippingDiscount: 0,
+    discountLabel: null,
+    message: null,
+    subMessage: null,
+    status: 'none'
+  }
 }
 
 /**

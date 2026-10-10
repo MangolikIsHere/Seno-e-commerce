@@ -825,8 +825,9 @@ export default function CheckoutPage() {
                   <p style={{ color: '#d32f2f', fontSize: '11px', margin: '6px 0 0' }}>{couponError}</p>
                 )}
                 {promoResult?.status === 'applied' && promoResult.appliedPromotion && (
-                  <p style={{ color: '#2e7d32', fontSize: '11px', margin: '6px 0 0', fontWeight: 500 }}>
-                    ✨ {promoResult.appliedPromotion.name} applied
+                  <p style={{ color: '#15803d', fontSize: '11px', margin: '6px 0 0', fontWeight: 500 }}>
+                    ✨ {promoResult.discountLabel || promoResult.appliedPromotion.name} applied
+                    {promoResult.subMessage ? ` · ${promoResult.subMessage}` : ''}
                   </p>
                 )}
               </div>
@@ -838,8 +839,8 @@ export default function CheckoutPage() {
               </div>
 
               {promoDiscount > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '10px', color: '#2e7d32' }}>
-                  <span>{promoResult?.appliedPromotion?.name || 'Promotion'}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '10px', color: '#15803d' }}>
+                  <span style={{ fontWeight: 500 }}>{promoResult?.discountLabel || promoResult?.appliedPromotion?.name || 'Promotion'}</span>
                   <strong>-{money(promoDiscount)}</strong>
                 </div>
               )}

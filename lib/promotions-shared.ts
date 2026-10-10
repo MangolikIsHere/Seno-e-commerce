@@ -40,16 +40,51 @@ export interface Promotion {
 
 export interface PromotionEvaluationResult {
   appliedPromotion: Promotion | null
+  promotionType: PromotionType | null
+  promotionName: string | null
+  promotionId: string | null
   discountAmount: number
   isFreeShipping: boolean
+  shippingDiscount: number
+  discountLabel: string | null
   message: string | null
+  subMessage?: string | null
   status: 'applied' | 'threshold_not_met' | 'ineligible' | 'none'
+  complimentaryItemsCount?: number
   progress?: {
     current: number
     target: number
     remaining: number
     type: 'amount' | 'quantity'
   }
+  pendingOpportunity?: {
+    promotion: Promotion
+    message: string
+    remaining: number
+  } | null
+  selectionReason?: string | null
+  debug?: Array<{
+    promotionName: string
+    priority: number
+    status: string
+    calculatedDiscount: number
+    stackable: boolean
+    reason: string
+  }>
+}
+
+/**
+ * Known Category Taxonomy mapping slugs, names, and UUIDs for infallible matching
+ */
+const CATEGORY_MAP: Record<string, { slug: string; name: string; id: string }> = {
+  'topwear': { slug: 'topwear', name: 'topwear', id: '3ee83b18-0221-4fbb-8553-d4e0e892c7bf' },
+  'bottomwear': { slug: 'bottomwear', name: 'bottomwear', id: 'c53387ec-cfcf-49b6-897e-6411cdb9b083' },
+  'western': { slug: 'western', name: 'western', id: '16ea79fb-f8b3-4289-9d11-32d4979470bc' },
+  'ethnic-traditional-wear': { slug: 'ethnic-traditional-wear', name: 'ethnic & traditional wear', id: 'df81bf66-4974-43c4-8bbd-fdb1d262c46e' },
+  'ethnic & traditional wear': { slug: 'ethnic-traditional-wear', name: 'ethnic & traditional wear', id: 'df81bf66-4974-43c4-8bbd-fdb1d262c46e' },
+  'cosmetics': { slug: 'cosmetics', name: 'cosmetics', id: '1b4814e3-db14-48f6-8b5c-aed0aedcb442' },
+  'outerwear': { slug: 'outerwear', name: 'legacy outerwear', id: '72ef1d05-9188-456c-9daf-f9ceea4eec7a' },
+  'accessories': { slug: 'accessories', name: 'legacy accessories', id: 'f3726210-3350-4937-9089-6d418e452f8a' }
 }
 
 /**
@@ -80,34 +115,70 @@ export function getEffectivePromotionStatus(promo: Promotion): PromotionStatus {
 export function isProductEligibleForPromotion(productOrPromo: any, promoOrProduct: any): boolean {
   if (!productOrPromo || !promoOrProduct) return false
   const promo: Promotion = 'discount_value' in productOrPromo && 'applies_to' in productOrPromo ? productOrPromo : promoOrProduct
-  const product: Product = 'discount_value' in productOrPromo && 'applies_to' in productOrPromo ? promoOrProduct : productOrPromo
+  const product: any = 'discount_value' in productOrPromo && 'applies_to' in productOrPromo ? promoOrProduct : productOrPromo
 
   if (!promo || !product) return false
   if (promo.applies_to === 'all') return true
 
   if (promo.applies_to === 'products') {
+    const targetIds = (promo.target_ids || []).map((t: string) => t.toLowerCase())
     return (
-      (Array.isArray(promo.target_ids) && (promo.target_ids.includes(product.id) || promo.target_ids.includes(product.slug))) ||
-      false
+      (product.id && targetIds.includes(product.id.toLowerCase())) ||
+      (product.slug && targetIds.includes(product.slug.toLowerCase()))
     )
   }
 
   if (promo.applies_to === 'category') {
-    const cat = product.category?.toLowerCase() || ''
-    const targetCats = (promo.target_ids || []).map(t => t.toLowerCase())
-    return (
-      targetCats.includes(cat) ||
-      (product.category_id && promo.target_ids.includes(product.category_id)) ||
-      targetCats.some(t => cat.includes(t))
-    )
+    const targetCats = (promo.target_ids || []).map((t: string) => t.toLowerCase())
+
+    // Collect all tokens that describe the product's category
+    const productCategoryTokens = new Set<string>()
+
+    if (product.category && typeof product.category === 'string') {
+      productCategoryTokens.add(product.category.toLowerCase())
+    }
+    if (product.categories?.name && typeof product.categories.name === 'string') {
+      productCategoryTokens.add(product.categories.name.toLowerCase())
+    }
+    if (product.categories?.slug && typeof product.categories.slug === 'string') {
+      productCategoryTokens.add(product.categories.slug.toLowerCase())
+    }
+    if (product.category_id && typeof product.category_id === 'string') {
+      productCategoryTokens.add(product.category_id.toLowerCase())
+      // Also lookup known slug/name for this UUID
+      for (const entry of Object.values(CATEGORY_MAP)) {
+        if (entry.id.toLowerCase() === product.category_id.toLowerCase()) {
+          productCategoryTokens.add(entry.slug)
+          productCategoryTokens.add(entry.name)
+        }
+      }
+    }
+
+    // Expand targetCats to include known UUIDs if targetCats contains slugs
+    const expandedTargets = new Set<string>(targetCats)
+    for (const t of targetCats) {
+      if (CATEGORY_MAP[t]) {
+        expandedTargets.add(CATEGORY_MAP[t].id.toLowerCase())
+        expandedTargets.add(CATEGORY_MAP[t].slug.toLowerCase())
+        expandedTargets.add(CATEGORY_MAP[t].name.toLowerCase())
+      }
+    }
+
+    for (const token of productCategoryTokens) {
+      if (expandedTargets.has(token)) return true
+      for (const target of expandedTargets) {
+        if (token.includes(target) || target.includes(token)) return true
+      }
+    }
+    return false
   }
 
   if (promo.applies_to === 'collection') {
-    const cat = product.category?.toLowerCase() || ''
-    const targetCols = (promo.target_ids || []).map(t => t.toLowerCase())
+    const cat = (product.category || product.categories?.name || '').toLowerCase()
+    const targetCols = (promo.target_ids || []).map((t: string) => t.toLowerCase())
     return (
       targetCols.includes(cat) ||
-      targetCols.some(t => cat.includes(t)) ||
+      targetCols.some((t: string) => cat.includes(t)) ||
       (promo.target_ids.includes('new-arrivals') && !!product.isNew) ||
       (promo.target_ids.includes('bestsellers') && !!product.isBestseller)
     )

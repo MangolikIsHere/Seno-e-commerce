@@ -73,23 +73,33 @@ export function CartDrawer() {
             {promoResult && promoResult.message && (
               <div
                 style={{
-                  background: promoResult.status === 'applied' ? '#f4fbf4' : '#fafafa',
-                  border: `1px solid ${promoResult.status === 'applied' ? '#c8e6c9' : 'var(--border)'}`,
-                  padding: '10px 14px',
+                  background: promoResult.status === 'applied' ? '#f4fbf5' : '#fafafa',
+                  border: `1px solid ${promoResult.status === 'applied' ? '#bbf7d0' : 'var(--border)'}`,
+                  padding: '12px 16px',
                   margin: '0 20px 14px',
                   borderRadius: '2px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '6px',
+                  gap: '4px',
                   fontSize: '11.5px'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Tag size={13} color={promoResult.status === 'applied' ? '#2e7d32' : 'var(--ink)'} />
-                  <span style={{ color: promoResult.status === 'applied' ? '#1b5e20' : 'var(--ink)', fontWeight: 500, flex: 1 }}>
+                  <Tag size={13} color={promoResult.status === 'applied' ? '#15803d' : 'var(--ink)'} />
+                  <span style={{ color: promoResult.status === 'applied' ? '#14532d' : 'var(--ink)', fontWeight: 600, letterSpacing: '0.4px', flex: 1 }}>
                     {promoResult.message}
                   </span>
                 </div>
+                {promoResult.subMessage && (
+                  <p style={{ color: '#166534', margin: '2px 0 0 21px', fontSize: '11px', lineHeight: 1.4 }}>
+                    {promoResult.subMessage}
+                  </p>
+                )}
+                {promoResult.pendingOpportunity && (
+                  <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #bbf7d0', color: '#15803d', fontSize: '10.5px' }}>
+                    ✨ {promoResult.pendingOpportunity.message}
+                  </div>
+                )}
                 {promoResult.status === 'threshold_not_met' && promoResult.appliedPromotion && (
                   <Link
                     href={`/offers/${promoResult.appliedPromotion.slug}`}
@@ -102,7 +112,8 @@ export function CartDrawer() {
                       fontWeight: 600,
                       color: 'var(--ink)',
                       textDecoration: 'underline',
-                      marginTop: '2px'
+                      marginTop: '4px',
+                      marginLeft: '21px'
                     }}
                   >
                     SHOP ELIGIBLE ITEMS →
@@ -175,9 +186,9 @@ export function CartDrawer() {
                 <span style={{ fontSize: '11.5px', color: 'var(--ink)' }}>{(totalWeightGrams / 1000).toFixed(2)} kg</span>
               </div>
               {promoResult && promoResult.discountAmount > 0 && (
-                <div className="subtotal-row" style={{ color: '#2e7d32', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '12px', letterSpacing: '0.5px' }}>
-                    {promoResult.appliedPromotion?.name || 'Promotion Discount'}
+                <div className="subtotal-row" style={{ color: '#15803d', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '12px', letterSpacing: '0.5px', fontWeight: 500 }}>
+                    {promoResult.discountLabel || promoResult.appliedPromotion?.name || 'Promotion Discount'}
                   </span>
                   <strong style={{ fontSize: '13px' }}>-{money(promoResult.discountAmount)}</strong>
                 </div>

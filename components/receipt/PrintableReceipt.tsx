@@ -82,8 +82,8 @@ export function PrintableReceipt({
 
   // Extract stored promotion snapshot
   const promoSnapshot = order.promotion_snapshot || {}
-  const promoCode = order.promotion_code || promoSnapshot.code || (discount > 0 ? 'PROMOTIONAL CODE' : null)
-  const promoTitle = promoSnapshot.name || promoSnapshot.headline || (promoCode ? `Special Offer (${promoCode})` : null)
+  const promoCode = order.promotion_code || promoSnapshot.coupon_code || promoSnapshot.code || null
+  const promoTitle = promoSnapshot.discount_label || promoSnapshot.name || promoSnapshot.headline || (promoCode ? `Special Offer (${promoCode})` : (discount > 0 ? 'Promotional Discount' : null))
 
   if (format === 'compact') {
     return (
@@ -152,7 +152,7 @@ export function PrintableReceipt({
           </div>
           {discount > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Discount ({promoCode || 'PROMO'}):</span>
+              <span>{promoTitle || `Discount (${promoCode || 'PROMO'})`}:</span>
               <span>-{money(discount)}</span>
             </div>
           )}
@@ -517,7 +517,7 @@ export function PrintableReceipt({
 
           {discount > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', color: '#15803d' }}>
-              <span>Promotional Discount</span>
+              <span>{promoTitle || 'Promotional Discount'}</span>
               <span>-{money(discount)}</span>
             </div>
           )}
