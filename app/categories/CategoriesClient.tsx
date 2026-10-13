@@ -41,46 +41,25 @@ const CATEGORY_META: Record<string, { subtitle: string; fallbackImage: string }>
     subtitle: 'Clean formulations & elevated self-care',
     fallbackImage: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80',
   },
+  accessories: {
+    subtitle: 'Gold-plated jewellery & finishing accents',
+    fallbackImage: '/images/categories/accessories-banner.jpg',
+  },
 }
 
 export function CategoriesClient({ initialCategories, initialProducts }: CategoriesClientProps) {
-  // Ensure the 5 canonical SENO categories are always represented in exact order
-  const canonicalCategories = [
-    {
-      name: 'Ethnic & Traditional Wear',
-      slug: 'ethnic-traditional-wear',
-    },
-    {
-      name: 'Western',
-      slug: 'western',
-    },
-    {
-      name: 'Topwear',
-      slug: 'topwear',
-    },
-    {
-      name: 'Bottomwear',
-      slug: 'bottomwear',
-    },
-    {
-      name: 'Cosmetics',
-      slug: 'cosmetics',
-    },
-  ]
-
-  // Merge database category data (images, descriptions) with the canonical list
-  const categoryCards = canonicalCategories.map((c) => {
-    const dbCat = initialCategories.find(
-      (cat) => cat.slug.toLowerCase() === c.slug.toLowerCase() || cat.name.toLowerCase() === c.name.toLowerCase()
-    )
+  // Dynamically map over all active database categories in their configured order
+  const categoryCards = initialCategories.map((c) => {
     const meta = CATEGORY_META[c.slug]
-    const count = initialProducts.filter((p) => p.category?.toLowerCase() === c.name.toLowerCase()).length
+    const count = initialProducts.filter(
+      (p) => p.category?.toLowerCase() === c.name.toLowerCase() || (p.categorySlug && p.categorySlug.toLowerCase() === c.slug.toLowerCase())
+    ).length
 
     return {
-      name: dbCat?.name || c.name,
+      name: c.name,
       slug: c.slug,
-      subtitle: dbCat?.description || meta?.subtitle || 'Explore collection',
-      image: dbCat?.image_url || meta?.fallbackImage,
+      subtitle: c.description || meta?.subtitle || 'Explore collection',
+      image: c.image_url || meta?.fallbackImage || '/images/categories/accessories-banner.jpg',
       count,
       href: `/collections/${c.slug}`,
     }

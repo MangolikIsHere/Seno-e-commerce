@@ -6,7 +6,7 @@ import { CategoriesClient } from './CategoriesClient'
 
 export const metadata: Metadata = {
   title: 'Categories — SENO',
-  description: 'Explore the complete SENO curated collections: Ethnic & Traditional Wear, Western, Topwear, Bottomwear, and Cosmetics.',
+  description: 'Explore the complete SENO curated collections: Ethnic & Traditional Wear, Western, Topwear, Bottomwear, Cosmetics, and Accessories.',
 }
 
 export const revalidate = 60

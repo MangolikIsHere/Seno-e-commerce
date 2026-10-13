@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { cache } from 'react'
 
-export type Category = 'Ethnic & Traditional Wear' | 'Western' | 'Topwear' | 'Bottomwear' | 'Cosmetics' | string
+export type Category = 'Ethnic & Traditional Wear' | 'Western' | 'Topwear' | 'Bottomwear' | 'Cosmetics' | 'Accessories' | string
 
 export interface Variant {
   id: string
@@ -63,6 +63,7 @@ export interface Product {
   slug: string
   name: string
   category: Category
+  categorySlug?: string
   description: string
   details?: string[]
   returnPolicy?: ReturnPolicy
@@ -169,6 +170,7 @@ function mapProductRow(row: any): Product {
     slug: row.slug,
     name: row.name,
     category: row.categories?.name || '',
+    categorySlug: row.categories?.slug || '',
     description: row.description || '',
     details: cleanDetails,
     returnPolicy,
@@ -321,7 +323,7 @@ export const getCollectionProducts = async (
     } else if (normalizedCategory === 'bestsellers') {
        list = list.filter(p => p.isBestseller)
     } else {
-       list = list.filter(p => p.category.toLowerCase() === normalizedCategory)
+       list = list.filter(p => p.category.toLowerCase() === normalizedCategory || (p.categorySlug && p.categorySlug.toLowerCase() === normalizedCategory))
     }
   }
 

@@ -112,10 +112,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const [categories, activePromotions] = await Promise.all([
-    getActiveCategories(),
-    getActivePromotions()
-  ])
+  let categories: any[] = []
+  try {
+    categories = await getActiveCategories()
+  } catch (err: any) {
+    console.error('[RootLayout] Error fetching active categories for navigation:', err?.message || err)
+  }
+  const activePromotions = await getActivePromotions()
   const hasActiveOffers = activePromotions.length > 0
   const headerList = await headers()
   const userAgent = headerList.get('user-agent') || ''

@@ -106,6 +106,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     'topwear',
     'bottomwear',
     'cosmetics',
+    'accessories',
   ]
 
   try {

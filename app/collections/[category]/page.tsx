@@ -35,6 +35,10 @@ function getCategoryMeta(slug: string) {
       title: 'Cosmetics Collection',
       description: 'Beauty, care, and finishing touches from the current SENO catalog.'
     },
+    accessories: {
+      title: 'Accessories & Jewellery',
+      description: 'Discover elegant gold-plated jewellery and everyday accessories that complete your look.'
+    },
     'new-arrivals': {
       title: 'New Arrivals',
       description: 'Discover the latest additions to the SENO seasonal collection.'
@@ -95,7 +99,8 @@ export default async function CategoryPage({ params }: PageProps) {
   const slug = resolvedParams.category.toLowerCase()
 
   const categories = await getActiveCategories()
-  let title = categories.find((category) => category.slug === slug)?.name.toUpperCase() || 'ALL PRODUCTS'
+  const matched = categories.find((category) => category.slug === slug)
+  let title = matched?.name.toUpperCase() || 'ALL PRODUCTS'
   let queryCategory = slug
   if (slug === 'new-arrivals') {
     title = 'NEW ARRIVALS'
@@ -103,11 +108,8 @@ export default async function CategoryPage({ params }: PageProps) {
   } else if (slug === 'bestsellers') {
     title = 'BESTSELLERS'
     queryCategory = 'bestsellers'
-  } else {
-    const matched = categories.find((category) => category.slug === slug)
-    if (matched) {
-      queryCategory = matched.name
-    }
+  } else if (matched) {
+    queryCategory = matched.name
   }
 
   const initialProducts = await getCollectionProducts(queryCategory, { sort: 'Featured' })
@@ -135,6 +137,8 @@ export default async function CategoryPage({ params }: PageProps) {
         categorySlug={slug}
         categoryOptions={categories.map((category) => category.name)}
         initialProducts={initialProducts}
+        categoryBanner={matched?.image_url}
+        categoryDescription={matched?.description}
       />
     </>
   )

@@ -68,14 +68,23 @@ export const metadata: Metadata = {
 }
 
 export default async function HomePage() {
-  const [newArrivals, bestsellers, categories, cosmeticsProducts, featuredPromotions, activePromotions] = await Promise.all([
+  let categories: any[] = []
+  let categoryFetchError: string | null = null
+
+  const [newArrivals, bestsellers, cosmeticsProducts, featuredPromotions, activePromotions] = await Promise.all([
     getNewArrivals(8),
     getBestsellers(8),
-    getActiveCategories(),
     getCollectionProducts('cosmetics', { sort: 'Newest' }).then(p => p.slice(0, 8)),
     getFeaturedHeroPromotions(),
     getActivePromotions(),
   ])
+
+  try {
+    categories = await getActiveCategories()
+  } catch (err: any) {
+    categoryFetchError = err?.message || 'Database error'
+    console.error('[HomePage] Non-critical category fetch notice:', err?.message || err)
+  }
 
   function getProductBadge(product: any): string | undefined {
     for (const promo of activePromotions) {
@@ -103,6 +112,9 @@ export default async function HomePage() {
     },
     cosmetics: {
       subtitle: 'Beauty, care & finishing touches'
+    },
+    accessories: {
+      subtitle: 'Gold-plated jewellery & finishing accents'
     }
   }
 
@@ -156,17 +168,25 @@ export default async function HomePage() {
           </div>
         </div>
 
-        <div className="category-tiles-grid">
-          {categoryTiles.map((cat) => (
-            <Link href={cat.href} key={cat.title} className={`category-tile-card ${cat.className || ''}`}>
-              <SenoImage src={cat.image} alt={cat.title} className="category-tile-img" />
-              <div className="category-tile-overlay">
-                <h3 className="category-tile-title">{cat.title}</h3>
-                <span className="category-tile-subtitle">{cat.subtitle}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
+        {categoryTiles.length > 0 ? (
+          <div className="category-tiles-grid">
+            {categoryTiles.map((cat) => (
+              <Link href={cat.href} key={cat.title} className={`category-tile-card ${cat.className || ''}`}>
+                <SenoImage src={cat.image} alt={cat.title} className="category-tile-img" />
+                <div className="category-tile-overlay">
+                  <h3 className="category-tile-title">{cat.title}</h3>
+                  <span className="category-tile-subtitle">{cat.subtitle}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : categoryFetchError ? (
+          <div style={{ padding: '36px 20px', textAlign: 'center', background: 'var(--surface, #f9f9f9)', borderRadius: '4px', border: '1px solid var(--border)' }}>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)', letterSpacing: '0.4px' }}>
+              The category catalog is momentarily refreshing. Please explore the curated collections below.
+            </p>
+          </div>
+        ) : null}
       </section>
 
       {/* 4. BESTSELLERS */}

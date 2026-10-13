@@ -132,9 +132,22 @@ export function ProductDetailClient({
 
   return (
     <div className="product-detail-container">
-      <Link href={backUrl} onClick={handleBackToShop} className="breadcrumb-back-link">
-        <ArrowLeft size={13} /> BACK TO SHOP
-      </Link>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <Link href={backUrl} onClick={handleBackToShop} className="breadcrumb-back-link">
+          <ArrowLeft size={13} /> BACK TO SHOP
+        </Link>
+        {product.category && (
+          <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <span>/</span>
+            <Link
+              href={`/collections/${(product as any).categorySlug || product.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`}
+              style={{ color: 'var(--ink)', textDecoration: 'none', fontWeight: 500, letterSpacing: '0.8px', textTransform: 'uppercase' }}
+            >
+              {product.category}
+            </Link>
+          </span>
+        )}
+      </div>
 
       <div className="product-detail-grid">
         {/* Gallery */}

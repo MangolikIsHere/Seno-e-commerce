@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
+import Image from 'next/image'
 import { SlidersHorizontal, ChevronDown, X } from 'lucide-react'
 import { ProductCard } from '@/components/ProductCard'
 import { getCollectionProducts, Product } from '@/lib/catalog'
@@ -10,6 +11,8 @@ interface CollectionViewProps {
   categorySlug: string
   categoryOptions?: string[]
   initialProducts?: Product[]
+  categoryBanner?: string | null
+  categoryDescription?: string | null
 }
 
 export function CollectionView({
@@ -17,6 +20,8 @@ export function CollectionView({
   categorySlug,
   categoryOptions = [],
   initialProducts = [],
+  categoryBanner,
+  categoryDescription,
 }: CollectionViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>(
     categorySlug === 'all' || categorySlug === 'new-arrivals' ? 'All' : categoryTitle
@@ -78,15 +83,61 @@ export function CollectionView({
 
   return (
     <div className="catalog-page-container">
-      <div className="catalog-title-row">
-        <div>
-          <span className="section-kicker">COLLECTION BROWSING</span>
-          <h1>{categoryTitle}</h1>
+      {categoryBanner ? (
+        <div className="category-collection-hero-banner" style={{
+          width: '100%',
+          height: 'clamp(200px, 30vw, 340px)',
+          position: 'relative',
+          borderRadius: '4px',
+          overflow: 'hidden',
+          marginBottom: '28px',
+          background: '#f5f5f4'
+        }}>
+          <Image
+            src={categoryBanner}
+            alt={categoryTitle}
+            fill
+            priority
+            style={{ objectFit: 'cover' }}
+            sizes="(max-width: 1200px) 100vw, 1200px"
+          />
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+            padding: 'clamp(18px, 4vw, 32px)',
+            color: '#fff'
+          }}>
+            <span style={{ fontSize: '11px', letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.9 }}>
+              COLLECTION
+            </span>
+            <h1 style={{ fontSize: 'clamp(24px, 4vw, 38px)', fontFamily: 'Georgia, serif', margin: '4px 0 6px', fontWeight: 400, color: '#fff' }}>
+              {categoryTitle}
+            </h1>
+            {categoryDescription && (
+              <p style={{ margin: 0, fontSize: '14px', maxWidth: '640px', opacity: 0.92, lineHeight: 1.4 }}>
+                {categoryDescription}
+              </p>
+            )}
+            <span style={{ fontSize: '12px', marginTop: '6px', opacity: 0.8 }}>
+              {products.length} {products.length === 1 ? 'piece' : 'pieces'} cataloged
+            </span>
+          </div>
         </div>
-        <span className="results-count-text" style={{ fontSize: '13px', color: 'var(--muted)' }}>
-          {products.length} {products.length === 1 ? 'product' : 'products'}
-        </span>
-      </div>
+      ) : (
+        <div className="catalog-title-row">
+          <div>
+            <span className="section-kicker">COLLECTION BROWSING</span>
+            <h1>{categoryTitle}</h1>
+          </div>
+          <span className="results-count-text" style={{ fontSize: '13px', color: 'var(--muted)' }}>
+            {products.length} {products.length === 1 ? 'product' : 'products'}
+          </span>
+        </div>
+      )}
 
       <div className="catalog-toolbar-bar">
         <button
