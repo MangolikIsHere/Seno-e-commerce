@@ -274,6 +274,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
     }
 
     setVariants(newVariants)
+    setIsDirty(true)
   }
 
   const handleAddSingleVariant = () => {
@@ -289,10 +290,12 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
         is_active: true
       }
     ])
+    setIsDirty(true)
   }
 
   const handleRemoveVariant = (index: number) => {
     setVariants(variants.filter((_, idx) => idx !== index))
+    setIsDirty(true)
   }
 
   const handleVariantChange = (index: number, field: keyof AdminProductVariant, value: any) => {
@@ -300,6 +303,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
       if (idx !== index) return v
       return { ...v, [field]: value }
     }))
+    setIsDirty(true)
   }
 
   // Explicit Final Save Action (Only trigger for persisting product)
@@ -496,10 +500,10 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   }
 
   return (
-    <div className="product-editor-page" style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '80px' }}>
+    <div className="product-editor-page">
       {/* Top Header */}
-      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
+      <div className="admin-editor-top-bar">
+        <div className="admin-editor-top-bar-info">
           <Link 
             href="/admin/products" 
             style={{ 
@@ -523,15 +527,17 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
         </div>
 
         {initialData?.slug && (
-          <Link
-            href={`/products/${initialData.slug}`}
-            target="_blank"
-            className="outline-btn"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', textDecoration: 'none' }}
-          >
-            <span>View on Storefront</span>
-            <ExternalLink size={12} />
-          </Link>
+          <div className="admin-editor-top-bar-actions">
+            <Link
+              href={`/products/${initialData.slug}`}
+              target="_blank"
+              className="outline-btn"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', textDecoration: 'none' }}
+            >
+              <span>View on Storefront</span>
+              <ExternalLink size={12} />
+            </Link>
+          </div>
         )}
       </div>
 
@@ -572,7 +578,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
       )}
 
       {/* Tabs Navigation */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', marginBottom: '24px' }}>
+      <div className="admin-form-tabs">
         {[
           { id: 'details', label: '1. Basic Details', icon: Package },
           { id: 'pricing', label: '2. Pricing & Logistics', icon: DollarSign },
@@ -597,20 +603,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                 }
                 setActiveTab(tab.id as any)
               }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '12px 18px',
-                fontSize: '12px',
-                fontWeight: 600,
-                letterSpacing: '0.5px',
-                background: 'transparent',
-                border: 'none',
-                borderBottom: isActiveTab ? '2px solid var(--ink)' : '2px solid transparent',
-                color: isActiveTab ? 'var(--ink)' : 'var(--muted)',
-                cursor: 'pointer'
-              }}
+              className={`admin-form-tab-btn ${isActiveTab ? 'active' : ''}`}
             >
               <Icon size={14} />
               <span>{tab.label}</span>
@@ -634,12 +627,12 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
       >
         {/* TAB 1: BASIC DETAILS */}
         {activeTab === 'details' && (
-          <div className="admin-table-card" style={{ padding: '24px' }}>
+          <div className="admin-form-card">
             <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Piece Identification</h3>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '6px', color: 'var(--ink)' }}>
+            <div className="admin-form-two-col">
+              <div className="admin-form-field">
+                <label className="admin-form-label">
                   Product Title *
                 </label>
                 <input
@@ -649,21 +642,13 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                   onChange={e => setName(e.target.value)}
                   onBlur={() => { if (!slug) handleAutoSlug() }}
                   required
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    fontSize: '13px',
-                    border: '1px solid var(--border)',
-                    borderRadius: '2px',
-                    background: 'var(--surface-subtle)',
-                    color: 'var(--ink)'
-                  }}
+                  className="admin-form-input"
                 />
               </div>
 
-              <div>
+              <div className="admin-form-field">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, color: 'var(--ink)' }}>
+                  <label className="admin-form-label" style={{ marginBottom: 0 }}>
                     URL Slug *
                   </label>
                   <button
@@ -680,22 +665,14 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                   value={slug}
                   onChange={e => setSlug(toClientSlug(e.target.value))}
                   required
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    fontSize: '13px',
-                    border: '1px solid var(--border)',
-                    borderRadius: '2px',
-                    background: 'var(--surface-subtle)',
-                    fontFamily: 'monospace',
-                    color: 'var(--ink)'
-                  }}
+                  className="admin-form-input"
+                  style={{ fontFamily: 'monospace' }}
                 />
               </div>
             </div>
 
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '6px', color: 'var(--ink)' }}>
+              <label className="admin-form-label">
                 Editorial Description
               </label>
               <textarea
@@ -703,45 +680,30 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                 placeholder="Narrative craft notes, tailoring silhouette, provenance, and material composition..."
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px 14px',
-                  fontSize: '13px',
-                  lineHeight: '1.6',
-                  border: '1px solid var(--border)',
-                  borderRadius: '2px',
-                  background: 'var(--surface-subtle)',
-                  color: 'var(--ink)',
-                  resize: 'vertical'
-                }}
+                className="admin-form-textarea"
+                style={{ lineHeight: '1.6', resize: 'vertical' }}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '6px', color: 'var(--ink)' }}>
+              <label className="admin-form-label">
                 Garment Details & Specifications (Bullet Points)
               </label>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', alignItems: 'center' }}>
                 <input
                   type="text"
                   placeholder="e.g. 100% Japanese Selvedge Wool, horn buttons, custom cupro lining..."
                   value={newDetailText}
                   onChange={e => setNewDetailText(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddDetail() } }}
-                  style={{
-                    flex: 1,
-                    padding: '9px 12px',
-                    fontSize: '12px',
-                    border: '1px solid var(--border)',
-                    borderRadius: '2px',
-                    background: 'var(--surface-subtle)'
-                  }}
+                  className="admin-form-input"
+                  style={{ flex: 1, minWidth: 0, minHeight: '40px' }}
                 />
                 <button
                   type="button"
                   onClick={handleAddDetail}
                   className="outline-btn"
-                  style={{ padding: '8px 16px', fontSize: '11px' }}
+                  style={{ padding: '8px 16px', fontSize: '11px', minHeight: '40px', flexShrink: 0 }}
                 >
                   <Plus size={13} /> Add
                 </button>
@@ -769,12 +731,12 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
 
         {/* TAB 2: PRICING & CLASSIFICATION */}
         {activeTab === 'pricing' && (
-          <div className="admin-table-card" style={{ padding: '24px' }}>
+          <div className="admin-form-card">
             <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Commercial & Logistics Pricing</h3>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '6px', color: 'var(--ink)' }}>
+            <div className="admin-form-two-col">
+              <div className="admin-form-field">
+                <label className="admin-form-label">
                   Retail Price (₹ INR) *
                 </label>
                 <input
@@ -784,20 +746,13 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                   onChange={e => setPrice(e.target.value)}
                   min={0}
                   required
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    border: '1px solid var(--border)',
-                    borderRadius: '2px',
-                    background: 'var(--surface-subtle)'
-                  }}
+                  className="admin-form-input"
+                  style={{ fontSize: '14px', fontWeight: 600 }}
                 />
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>
+              <div className="admin-form-field">
+                <label className="admin-form-label-muted">
                   Compare-at Price (₹ INR Original/Markdown)
                 </label>
                 <input
@@ -806,34 +761,21 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                   value={compareAtPrice}
                   onChange={e => setCompareAtPrice(e.target.value)}
                   min={0}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    fontSize: '14px',
-                    border: '1px solid var(--border)',
-                    borderRadius: '2px',
-                    background: 'var(--surface-subtle)'
-                  }}
+                  className="admin-form-input"
+                  style={{ fontSize: '14px' }}
                 />
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '6px', color: 'var(--ink)' }}>
+            <div className="admin-form-two-col">
+              <div className="admin-form-field">
+                <label className="admin-form-label">
                   Primary Department / Category *
                 </label>
                 <select
                   value={categoryId}
                   onChange={e => setCategoryId(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    fontSize: '13px',
-                    border: '1px solid var(--border)',
-                    borderRadius: '2px',
-                    background: 'var(--surface-subtle)'
-                  }}
+                  className="admin-form-select"
                 >
                   <option value="">Select Category</option>
                   {categoryOptions.map((c: any) => (
@@ -842,8 +784,8 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                 </select>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '6px', color: 'var(--ink)' }}>
+              <div className="admin-form-field">
+                <label className="admin-form-label">
                   Default Shipping Weight (Grams) *
                 </label>
                 <input
@@ -853,24 +795,33 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                   onChange={e => setDefaultWeightGrams(Number(e.target.value))}
                   min={50}
                   required
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    fontSize: '13px',
-                    border: '1px solid var(--border)',
-                    borderRadius: '2px',
-                    background: 'var(--surface-subtle)'
-                  }}
+                  className="admin-form-input"
                 />
               </div>
             </div>
 
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginBottom: '24px' }}>
-              <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '10px' }}>Delivery & Logistics</label>
+              <label className="admin-form-label" style={{ marginBottom: '10px' }}>Delivery & Logistics</label>
               <div style={{ display: 'grid', gap: '10px' }}>
-                <label><input type="radio" name="shipping-method" checked={shippingMethod === 'weight_based'} onChange={() => setShippingMethod('weight_based')} /> Weight Based</label>
-                <label><input type="radio" name="shipping-method" checked={shippingMethod === 'custom'} onChange={() => setShippingMethod('custom')} /> Custom Delivery Charge</label>
-                {shippingMethod === 'custom' && <input type="number" min="0" step="0.01" value={customDeliveryCharge} onChange={e => setCustomDeliveryCharge(e.target.value)} placeholder="Delivery charge in ₹" required />}
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                  <input type="radio" name="shipping-method" checked={shippingMethod === 'weight_based'} onChange={() => setShippingMethod('weight_based')} /> Weight Based
+                </label>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                  <input type="radio" name="shipping-method" checked={shippingMethod === 'custom'} onChange={() => setShippingMethod('custom')} /> Custom Delivery Charge
+                </label>
+                {shippingMethod === 'custom' && (
+                  <input 
+                    type="number" 
+                    min="0" 
+                    step="0.01" 
+                    value={customDeliveryCharge} 
+                    onChange={e => setCustomDeliveryCharge(e.target.value)} 
+                    placeholder="Delivery charge in ₹" 
+                    required 
+                    className="admin-form-input"
+                    style={{ maxWidth: '240px', marginTop: '4px' }}
+                  />
+                )}
               </div>
             </div>
 
@@ -878,7 +829,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginBottom: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                 <RotateCcw size={15} color="var(--ink)" />
-                <label style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, color: 'var(--ink)' }}>
+                <label className="admin-form-label" style={{ margin: 0 }}>
                   Customer Return & Exchange Policy
                 </label>
               </div>
@@ -886,7 +837,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                 Define if this piece is eligible for customer returns and configure the return window shown on the product page.
               </p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+              <div className="admin-return-policy-options">
                 <label
                   style={{
                     display: 'flex',
@@ -945,7 +896,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
               {isReturnable && (
                 <div style={{ padding: '16px', background: 'var(--surface-subtle)', borderRadius: '2px', border: '1px solid var(--border)', display: 'grid', gap: '14px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '6px', color: 'var(--ink)' }}>
+                    <label className="admin-form-label">
                       Return Window Duration (Days)
                     </label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
@@ -955,14 +906,15 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                           type="button"
                           onClick={() => setReturnWindowDays(days)}
                           style={{
-                            padding: '5px 12px',
+                            padding: '6px 14px',
                             fontSize: '11px',
                             fontWeight: 600,
                             border: returnWindowDays === days ? '1px solid var(--ink)' : '1px solid var(--border)',
                             background: returnWindowDays === days ? 'var(--ink)' : '#fff',
                             color: returnWindowDays === days ? '#fff' : 'var(--ink)',
                             borderRadius: '2px',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            minHeight: '36px'
                           }}
                         >
                           {days} Days
@@ -975,14 +927,8 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                       max="90"
                       value={returnWindowDays}
                       onChange={e => setReturnWindowDays(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                      style={{
-                        maxWidth: '180px',
-                        padding: '8px 12px',
-                        fontSize: '13px',
-                        border: '1px solid var(--border)',
-                        borderRadius: '2px',
-                        background: '#fff'
-                      }}
+                      className="admin-form-input"
+                      style={{ maxWidth: '180px', background: '#fff' }}
                       placeholder="e.g. 14"
                     />
                     <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
@@ -991,7 +937,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>
+                    <label className="admin-form-label-muted">
                       Custom Policy Terms / Notes (Optional)
                     </label>
                     <input
@@ -999,14 +945,8 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                       value={returnPolicyNotes}
                       onChange={e => setReturnPolicyNotes(e.target.value)}
                       placeholder="e.g. Must be in pristine condition with original tags and protective packaging."
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        fontSize: '12px',
-                        border: '1px solid var(--border)',
-                        borderRadius: '2px',
-                        background: '#fff'
-                      }}
+                      className="admin-form-input"
+                      style={{ background: '#fff' }}
                     />
                   </div>
                 </div>
@@ -1014,10 +954,10 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
             </div>
 
             <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '8px', color: 'var(--ink)' }}>
+              <label className="admin-form-label" style={{ marginBottom: '8px' }}>
                 Curated Collections
               </label>
-              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 {collections.map((coll: any) => {
                   const checked = selectedCollectionIds.includes(coll.id)
                   return (
@@ -1029,10 +969,12 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                         gap: '8px', 
                         fontSize: '13px', 
                         cursor: 'pointer',
-                        padding: '6px 12px',
+                        padding: '8px 14px',
                         background: checked ? 'var(--ink)' : 'var(--surface-subtle)',
                         color: checked ? '#ffffff' : 'var(--ink)',
-                        borderRadius: '2px'
+                        borderRadius: '2px',
+                        minHeight: '38px',
+                        userSelect: 'none'
                       }}
                     >
                       <input
@@ -1055,11 +997,11 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
             </div>
 
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
-              <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: '12px', color: 'var(--ink)' }}>
+              <label className="admin-form-label" style={{ marginBottom: '12px' }}>
                 Storefront Merchandising Badges & Availability
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer' }}>
+              <div className="admin-merchandising-grid">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', minHeight: '36px' }}>
                   <input
                     type="checkbox"
                     checked={isActive}
@@ -1067,7 +1009,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                   />
                   <strong>Active Online (Live Storefront)</strong>
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', minHeight: '36px' }}>
                   <input
                     type="checkbox"
                     checked={isNew}
@@ -1075,7 +1017,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                   />
                   <span>New Arrival Badge</span>
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', minHeight: '36px' }}>
                   <input
                     type="checkbox"
                     checked={isBestseller}
@@ -1083,7 +1025,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                   />
                   <span>Bestseller Badge</span>
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', minHeight: '36px' }}>
                   <input
                     type="checkbox"
                     checked={isFeatured}
@@ -1098,7 +1040,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
 
         {/* TAB 3: MEDIA & GALLERY */}
         {activeTab === 'media' && (
-          <div className="admin-table-card" style={{ padding: '24px' }}>
+          <div className="admin-form-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Luxury Media Gallery</h3>
@@ -1111,7 +1053,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
             {/* Upload Box */}
             <div style={{
               border: '2px dashed var(--border)',
-              padding: '30px',
+              padding: '24px 16px',
               textAlign: 'center',
               borderRadius: '4px',
               background: 'var(--surface-subtle)',
@@ -1138,26 +1080,20 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
 
               <div style={{ margin: '16px auto', fontSize: '11px', color: 'var(--muted)' }}>— OR PASTE IMAGE URL —</div>
 
-              <div style={{ display: 'flex', gap: '8px', maxWidth: '500px', margin: '0 auto' }}>
+              <div className="admin-gallery-url-row">
                 <input
                   type="url"
                   placeholder="https://images.unsplash.com/..."
                   value={imageUrlInput}
                   onChange={e => setImageUrlInput(e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    fontSize: '12px',
-                    border: '1px solid var(--border)',
-                    borderRadius: '2px',
-                    background: '#ffffff'
-                  }}
+                  className="admin-form-input"
+                  style={{ flex: 1, minHeight: '40px' }}
                 />
                 <button
                   type="button"
                   onClick={handleAddImageUrl}
                   className="outline-btn"
-                  style={{ padding: '8px 14px', fontSize: '11px' }}
+                  style={{ padding: '8px 14px', fontSize: '11px', flexShrink: 0, minHeight: '40px' }}
                 >
                   Add URL
                 </button>
@@ -1170,7 +1106,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                 No imagery added yet. Upload photography above to activate gallery.
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
+              <div className="admin-gallery-preview-grid">
                 {images.map((img, idx) => (
                   <div
                     key={idx}
@@ -1265,7 +1201,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
 
         {/* TAB 4: VARIANTS & INVENTORY */}
         {activeTab === 'variants' && (
-          <div className="admin-table-card" style={{ padding: '24px' }}>
+          <div className="admin-form-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Variant Combinations & Database Stock</h3>
@@ -1278,7 +1214,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                 type="button"
                 onClick={handleAddSingleVariant}
                 className="outline-btn"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', minHeight: '38px' }}
               >
                 <Plus size={13} /> Add Single Variant
               </button>
@@ -1296,7 +1232,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                 <Sparkles size={15} color="var(--ink)" />
                 <span>Matrix Combination Generator</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr auto', gap: '12px', alignItems: 'flex-end' }}>
+              <div className="admin-matrix-generator-grid">
                 <div>
                   <label style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, color: 'var(--muted)', marginBottom: '4px' }}>
                     Sizes (Comma-separated)
@@ -1306,7 +1242,8 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                     value={matrixSizes}
                     onChange={e => setMatrixSizes(e.target.value)}
                     placeholder="XS, S, M, L, XL"
-                    style={{ width: '100%', padding: '8px 10px', fontSize: '12px', border: '1px solid var(--border)', borderRadius: '2px' }}
+                    className="admin-form-input"
+                    style={{ minHeight: '38px', padding: '6px 10px', fontSize: '12px', background: '#fff' }}
                   />
                 </div>
                 <div>
@@ -1318,7 +1255,8 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                     value={matrixColours}
                     onChange={e => setMatrixColours(e.target.value)}
                     placeholder="Black, White, Raw Indigo"
-                    style={{ width: '100%', padding: '8px 10px', fontSize: '12px', border: '1px solid var(--border)', borderRadius: '2px' }}
+                    className="admin-form-input"
+                    style={{ minHeight: '38px', padding: '6px 10px', fontSize: '12px', background: '#fff' }}
                   />
                 </div>
                 <div>
@@ -1330,22 +1268,23 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                     min={0}
                     value={matrixInitialStock}
                     onChange={e => setMatrixInitialStock(Number(e.target.value))}
-                    style={{ width: '100%', padding: '8px 10px', fontSize: '12px', border: '1px solid var(--border)', borderRadius: '2px' }}
+                    className="admin-form-input"
+                    style={{ minHeight: '38px', padding: '6px 10px', fontSize: '12px', background: '#fff' }}
                   />
                 </div>
                 <button
                   type="button"
                   onClick={handleGenerateMatrix}
                   className="dark-btn"
-                  style={{ padding: '9px 16px', fontSize: '11px', letterSpacing: '1px' }}
+                  style={{ padding: '9px 16px', fontSize: '11px', letterSpacing: '1px', minHeight: '38px' }}
                 >
                   Generate All
                 </button>
               </div>
             </div>
 
-            {/* Variants Table */}
-            <div style={{ overflowX: 'auto' }}>
+            {/* Desktop Variants Table (>= 768px) */}
+            <div className="admin-variant-desktop-table">
               <table className="admin-table">
                 <thead>
                   <tr>
@@ -1360,7 +1299,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                 </thead>
                 <tbody>
                   {variants.map((v, idx) => (
-                    <tr key={idx}>
+                    <tr key={v.id || idx}>
                       <td>
                         <input
                           type="text"
@@ -1431,6 +1370,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                           type="button"
                           onClick={() => handleRemoveVariant(idx)}
                           style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                          aria-label={`Remove variant ${idx + 1}`}
                         >
                           <Trash2 size={14} />
                         </button>
@@ -1440,33 +1380,142 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Responsive Variant Cards (< 768px) */}
+            <div className="admin-variant-mobile-cards">
+              {variants.map((v, idx) => (
+                <div className="admin-variant-card" key={v.id || idx}>
+                  <div className="admin-variant-card-header">
+                    <div className="admin-variant-card-title">
+                      <span className="admin-variant-badge">#{idx + 1}</span>
+                      <span className="admin-variant-summary">
+                        {v.size || 'Size'} / {v.colour || 'Colour'}
+                      </span>
+                      {v.quantity === 0 && (
+                        <span className="admin-variant-out-of-stock-badge">Sold Out</span>
+                      )}
+                    </div>
+                    <div className="admin-variant-card-header-actions">
+                      <label className="admin-variant-toggle-label">
+                        <input
+                          type="checkbox"
+                          checked={v.is_active}
+                          onChange={e => handleVariantChange(idx, 'is_active', e.target.checked)}
+                        />
+                        <span>{v.is_active ? 'Active' : 'Off'}</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveVariant(idx)}
+                        className="admin-variant-delete-btn"
+                        aria-label={`Remove variant ${idx + 1}`}
+                        title="Remove variant"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="admin-variant-card-body">
+                    <div className="admin-variant-form-row two-cols">
+                      <div className="admin-variant-field">
+                        <label className="admin-variant-field-label">Size *</label>
+                        <input
+                          type="text"
+                          value={v.size}
+                          onChange={e => handleVariantChange(idx, 'size', e.target.value)}
+                          placeholder="e.g. M"
+                          className="admin-variant-input"
+                        />
+                      </div>
+                      <div className="admin-variant-field">
+                        <label className="admin-variant-field-label">Colour *</label>
+                        <input
+                          type="text"
+                          value={v.colour}
+                          onChange={e => handleVariantChange(idx, 'colour', e.target.value)}
+                          placeholder="e.g. Washed Black"
+                          className="admin-variant-input"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="admin-variant-field">
+                      <div className="admin-variant-field-label-row">
+                        <label className="admin-variant-field-label">SKU (Unique) *</label>
+                        <span className="admin-variant-field-hint">Authoritative identifier</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={v.sku}
+                        onChange={e => handleVariantChange(idx, 'sku', e.target.value)}
+                        placeholder="e.g. SENO-WOOL-M-BLK"
+                        className="admin-variant-input sku-input"
+                      />
+                    </div>
+
+                    <div className="admin-variant-form-row two-cols">
+                      <div className="admin-variant-field">
+                        <label className="admin-variant-field-label">Stock Quantity *</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={v.quantity}
+                          onChange={e => handleVariantChange(idx, 'quantity', Number(e.target.value))}
+                          className={`admin-variant-input ${v.quantity === 0 ? 'stock-zero' : ''}`}
+                        />
+                      </div>
+                      <div className="admin-variant-field">
+                        <label className="admin-variant-field-label">Price Override (₹)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={v.price_override ?? ''}
+                          onChange={e => handleVariantChange(idx, 'price_override', e.target.value ? Number(e.target.value) : null)}
+                          placeholder="Default"
+                          className="admin-variant-input"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         {/* Form Action Controls */}
-        <div style={{
-          position: 'sticky',
-          bottom: 0,
-          zIndex: 10,
-          marginTop: '28px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderTop: '1px solid var(--border)',
-          padding: '14px 0',
-          background: 'var(--background)'
-        }}>
-          <span style={{ fontSize: '12px', color: isDirty ? '#9a3412' : 'var(--muted)', fontWeight: 600 }}>{isDirty ? 'Unsaved changes' : 'All changes saved'}</span>
-          <Link href="/admin/products" className="outline-btn" style={{ padding: '12px 20px', fontSize: '11px', textDecoration: 'none' }}>
-            Cancel
-          </Link>
+        <div className="product-form-action-bar">
+          <div className="action-bar-status">
+            <span style={{ fontSize: '12px', color: isDirty ? '#9a3412' : 'var(--muted)', fontWeight: 600 }}>
+              {isDirty ? '● Unsaved changes' : '✓ All changes saved'}
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+              {activeTab === 'details' && 'Step 1 of 4 • Basic Details'}
+              {activeTab === 'pricing' && 'Step 2 of 4 • Pricing & Shipping'}
+              {activeTab === 'media' && `Step 3 of 4 • Gallery (${images.length})`}
+              {activeTab === 'variants' && `Step 4 of 4 • Variants (${variants.length})`}
+            </span>
+          </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div className="action-bar-buttons">
+            <Link
+              href="/admin/products"
+              className="outline-btn action-bar-cancel-btn"
+              onClick={(e) => {
+                if (isDirty && !window.confirm('You have unsaved changes. Are you sure you want to discard them and return to catalog?')) {
+                  e.preventDefault()
+                }
+              }}
+            >
+              Cancel
+            </Link>
+
             {activeTab !== 'variants' ? (
               <button
                 key="btn-continue"
                 type="button"
-                className="dark-btn"
+                className="dark-btn action-bar-submit-btn"
                 onClick={() => {
                   if (!validateCurrentTab()) {
                     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1476,16 +1525,6 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                   else if (activeTab === 'pricing') setActiveTab('media')
                   else if (activeTab === 'media') setActiveTab('variants')
                   window.scrollTo({ top: 0, behavior: 'smooth' })
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '14px 28px',
-                  fontSize: '11px',
-                  letterSpacing: '1.5px',
-                  fontWeight: 600,
-                  borderRadius: '2px'
                 }}
               >
                 <span>CONTINUE</span>
@@ -1497,28 +1536,22 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                 type="button"
                 disabled={isPending}
                 onClick={handleExplicitSave}
-                className="dark-btn"
+                className="dark-btn action-bar-submit-btn"
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '14px 28px',
-                  fontSize: '11px',
-                  letterSpacing: '1.5px',
-                  fontWeight: 600,
-                  borderRadius: '2px',
                   opacity: isPending ? 0.7 : 1
                 }}
               >
                 {isPending ? (
                   <>
                     <RefreshCw size={14} className="animate-spin" />
-                    <span>SYNCHRONIZING WITH SUPABASE...</span>
+                    <span className="desktop-btn-label">SYNCHRONIZING WITH SUPABASE...</span>
+                    <span className="mobile-btn-label">Saving...</span>
                   </>
                 ) : (
                   <>
                     <Check size={14} />
-                    <span>{mode === 'create' ? 'CREATE & PUBLISH PIECE' : 'SAVE CHANGES TO DATABASE'}</span>
+                    <span className="desktop-btn-label">{mode === 'create' ? 'CREATE & PUBLISH PIECE' : 'SAVE CHANGES TO DATABASE'}</span>
+                    <span className="mobile-btn-label">{mode === 'create' ? 'Publish Piece' : 'Save Changes'}</span>
                   </>
                 )}
               </button>
