@@ -60,13 +60,27 @@ export function ProductDetailClient({
     }
   }
 
+  // Reset selectedColour if no longer available in active colours
+  useEffect(() => {
+    if (selectedColour && !product.colors.some(c => c.trim().toLowerCase() === selectedColour.trim().toLowerCase())) {
+      setSelectedColour(product.colors.length === 1 ? product.colors[0] : '')
+    }
+  }, [product.colors, selectedColour])
+
+  // Reset selectedSize if no longer available in active sizes
+  useEffect(() => {
+    if (selectedSize && !product.sizes.some(s => s.trim().toLowerCase() === selectedSize.trim().toLowerCase())) {
+      setSelectedSize(product.sizes.length === 1 ? product.sizes[0] : '')
+    }
+  }, [product.sizes, selectedSize])
+
   const wishlisted = isWishlisted(product.slug)
   const galleryImages = product.images.length > 0 ? product.images : [product.image]
 
-  // Find currently selected variant
+  // Find currently selected variant (case-insensitive to avoid matching issues between Black vs BLACK)
   const selectedVariant = product.variants.find(v =>
-    (!selectedSize || v.size === selectedSize) &&
-    (!selectedColour || v.colour === selectedColour)
+    (!selectedSize || (v.size || '').trim().toLowerCase() === selectedSize.trim().toLowerCase()) &&
+    (!selectedColour || (v.colour || '').trim().toLowerCase() === selectedColour.trim().toLowerCase())
   )
 
   const displayPrice = selectedVariant?.priceOverride ?? product.price
@@ -99,16 +113,22 @@ export function ProductDetailClient({
   }
 
   const isSizeAvailable = (sz: string) => {
-    const v = product.variants.find(v => v.size === sz && (!selectedColour || v.colour === selectedColour))
-    return v && v.inventoryQuantity > 0
+    const v = product.variants.find(v =>
+      (v.size || '').trim().toLowerCase() === sz.trim().toLowerCase() &&
+      (!selectedColour || (v.colour || '').trim().toLowerCase() === selectedColour.trim().toLowerCase())
+    )
+    return !!(v && v.inventoryQuantity > 0)
   }
 
   const isColourAvailable = (col: string) => {
-    const v = product.variants.find(v => v.colour === col && (!selectedSize || v.size === selectedSize))
-    return v && v.inventoryQuantity > 0
+    const v = product.variants.find(v =>
+      (v.colour || '').trim().toLowerCase() === col.trim().toLowerCase() &&
+      (!selectedSize || (v.size || '').trim().toLowerCase() === selectedSize.trim().toLowerCase())
+    )
+    return !!(v && v.inventoryQuantity > 0)
   }
 
-  const canAddToCart = selectedVariant && selectedVariant.inventoryQuantity > 0
+  const canAddToCart = !product.soldOut && product.variants.length > 0 && !!selectedVariant && selectedVariant.inventoryQuantity > 0
 
   return (
     <div className="product-detail-container">
@@ -279,12 +299,12 @@ export function ProductDetailClient({
 
           {/* Inventory Availability Status */}
           <div className="inventory-status-notice">
-            {product.soldOut ? (
-              <span className="status-soldout">SOLD OUT</span>
+            {product.soldOut || product.variants.length === 0 ? (
+              <span className="status-soldout">OUT OF STOCK / UNAVAILABLE</span>
             ) : selectedVariant ? (
               selectedVariant.inventoryQuantity > 0 ? (
                 <span className="status-instock">
-                  <Check size={12} /> IN STOCK ({selectedVariant.inventoryQuantity} UNITS REMAINING)
+                  <Check size={12} /> IN STOCK ({selectedVariant.inventoryQuantity} {selectedVariant.inventoryQuantity === 1 ? 'UNIT' : 'UNITS'} REMAINING)
                 </span>
               ) : (
                 <span className="status-soldout">SELECTED VARIATION OUT OF STOCK</span>
@@ -305,7 +325,7 @@ export function ProductDetailClient({
               </button>
               <span>{quantity}</span>
               <button
-                onClick={() => setQuantity(q => Math.min(selectedVariant?.inventoryQuantity || 10, q + 1))}
+                onClick={() => setQuantity(q => Math.min(selectedVariant?.inventoryQuantity || 1, q + 1))}
                 disabled={!selectedVariant || quantity >= selectedVariant.inventoryQuantity}
               >
                 <Plus size={13} />
@@ -318,7 +338,7 @@ export function ProductDetailClient({
               onClick={handleAddToCart}
             >
               <ShoppingBag size={14} />
-              {addedNotice ? 'ADDED TO BAG' : canAddToCart ? 'ADD TO BAG' : 'OUT OF STOCK'}
+              {addedNotice ? 'ADDED TO BAG' : canAddToCart ? 'ADD TO BAG' : (product.soldOut || product.variants.length === 0 ? 'OUT OF STOCK' : selectedVariant ? 'OUT OF STOCK' : 'SELECT OPTIONS')}
             </button>
 
             <button

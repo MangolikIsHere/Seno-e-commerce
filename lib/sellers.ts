@@ -1,11 +1,13 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { invalidateProductCache } from '@/lib/catalog-server'
-import { notifyOrderItemFulfillmentChanged } from '@/lib/notifications/service'
+import { notifyOrderItemFulfillmentChanged, getUserNotifications } from '@/lib/notifications/service'
 import { checkIsAdmin } from '@/lib/admin'
+import { reconcileProductVariants, ReconcileVariantInput } from '@/lib/variantReconciliation'
+import { revalidateCatalogPaths } from '@/lib/adminCatalog'
+import { getAdminSupabase } from '@/lib/supabaseAdmin'
 
 export type SellerStatus = 'pending' | 'commission_proposed' | 'commission_negotiation' | 'approved' | 'suspended' | 'rejected'
 
@@ -24,15 +26,6 @@ export interface Seller {
   contact_phone?: string
   payout_details?: any
   created_at: string
-}
-
-function getAdminSupabase() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Missing Supabase admin credentials (NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY).')
-  }
-  return createSupabaseClient(supabaseUrl, supabaseServiceKey)
 }
 
 /**
@@ -128,12 +121,8 @@ export async function getMySellerRecord(): Promise<Seller | null> {
     return data as Seller
   }
 
-  // If user is Admin without a personal reseller record, treat them as the SENO platform seller
-  const isAdmin = await checkIsAdmin()
-  if (isAdmin) {
-    return await getPlatformSellerRecord()
-  }
-
+  // Strictly return null if user does not have a registered seller store.
+  // SENO platform products are managed exclusively via the Admin panel.
   return null
 }
 
@@ -242,11 +231,12 @@ export async function requestCommissionChange(proposalId: string, requestedRate:
 // -------------------------------------------------------------
 
 export async function getSellerProducts() {
-  const supabase = await createClient()
   const seller = await getMySellerRecord()
   if (!seller) return []
 
-  const { data, error } = await supabase
+  // Authoritative query strictly isolated to the authenticated seller's store
+  const adminSupabase = getAdminSupabase()
+  const { data, error } = await adminSupabase
     .from('products')
     .select('*, categories(id, name, slug), product_images(*), product_variants(id, sku, size, colour, is_active, inventory(quantity, low_stock_threshold))')
     .eq('seller_id', seller.id)
@@ -269,6 +259,70 @@ export async function getSellerProducts() {
       return variant.is_active && quantity > 0 && quantity <= Number(inventory?.low_stock_threshold || 5)
     })
   }))
+}
+
+/**
+ * Effortless Seller Inventory Management:
+ * Direct stock updates without needing to reopen the full product creation/edit form.
+ * Preserves variant IDs, deletes obsolete combinations, updates quantities, and recalculates products.is_sold_out.
+ */
+export async function quickUpdateProductInventory(productId: string, variants: ReconcileVariantInput[]) {
+  const isAdmin = await checkIsAdmin()
+  const seller = await getMySellerRecord()
+
+  if (!isAdmin && (!seller || seller.seller_status !== 'approved')) {
+    throw new Error('Unauthorized: You must have an active approved seller account.')
+  }
+
+  const cleanId = (productId || '').trim()
+  if (!cleanId) {
+    throw new Error('Product ID is required.')
+  }
+
+  if (!Array.isArray(variants) || variants.length === 0) {
+    throw new Error('Please configure at least one active variant.')
+  }
+
+  const adminSupabase = getAdminSupabase()
+
+  // 1. Authoritative validation of product existence and ownership
+  const { data: product, error: fetchErr } = await adminSupabase
+    .from('products')
+    .select('id, name, slug, seller_id')
+    .eq('id', cleanId)
+    .maybeSingle()
+
+  if (fetchErr || !product) {
+    throw new Error('Product not found.')
+  }
+
+  // Strict seller isolation
+  if (!isAdmin && seller && product.seller_id !== seller.id) {
+    throw new Error('Unauthorized: You can only manage inventory for your own products.')
+  }
+
+  // 2. Authoritative inventory reconciliation via core variantReconciliation engine
+  const reconResult = await reconcileProductVariants(adminSupabase, product.id, variants, {
+    productSlug: product.slug
+  })
+
+  // 3. Revalidate affected routes and storefront caches
+  revalidatePath('/seller/products')
+  revalidatePath('/seller/dashboard')
+  revalidatePath('/admin/products')
+  if (product.slug) {
+    revalidatePath(`/products/${product.slug}`)
+    invalidateProductCache(product.slug)
+  }
+  revalidatePath('/')
+  revalidatePath('/collections/all')
+
+  return {
+    success: true,
+    totalStock: reconResult.totalActiveStock,
+    isSoldOut: reconResult.isSoldOut,
+    activeVariantCount: reconResult.activeVariantIds.length
+  }
 }
 
 export async function toggleProductSoldOutAction(formData: FormData) {
@@ -310,31 +364,112 @@ export async function toggleProductSoldOutAction(formData: FormData) {
 }
 
 export async function getSellerStudioStats() {
+  return await getSellerDashboardData()
+}
+
+export async function getSellerDashboardData() {
   const seller = await getMySellerRecord()
   if (!seller) return null
   const products = await getSellerProducts()
   const orders = await getSellerOrders()
+  const notifRes = await getUserNotifications(10)
+
+  const activeProducts = products.filter((product: any) => product.is_active && product.approval_status === 'approved')
   const pendingProducts = products.filter((product: any) => product.approval_status === 'submitted')
-  const lowStockProducts = products.filter((product: any) => product.low_stock)
+  const rejectedProducts = products.filter((product: any) => product.approval_status === 'rejected')
+  const lowStockProducts = products.filter((product: any) => product.low_stock && product.total_stock > 0)
   const outOfStockProducts = products.filter((product: any) => product.total_stock === 0)
+
+  const newOrders = orders.filter((o: any) => o.fulfillment_status === 'unfulfilled')
+  const processingOrders = orders.filter((o: any) => o.fulfillment_status === 'processing')
+  const completedOrders = orders.filter((o: any) => o.fulfillment_status === 'delivered')
+  const inTransitOrders = orders.filter((o: any) => ['dispatched', 'in_transit', 'out_for_delivery'].includes(o.fulfillment_status))
+  const cancelledOrders = orders.filter((o: any) => ['cancelled', 'returned', 'delivery_failed'].includes(o.fulfillment_status))
+
+  const grossSales = orders.reduce((sum: number, o: any) => sum + Number(o.total_price || 0), 0)
+  const commissionDeducted = orders.reduce((sum: number, o: any) => sum + Number(o.commission_amount || 0), 0)
+  const netEarnings = orders.reduce((sum: number, o: any) => sum + Number(o.seller_payout_amount || 0), 0)
+
+  const actions: { label: string; href: string; severity?: 'urgent' | 'warning' | 'info' }[] = []
+  if (newOrders.length > 0) {
+    actions.push({
+      label: `${newOrders.length} new customer order item${newOrders.length > 1 ? 's' : ''} awaiting dispatch`,
+      href: '/seller/orders',
+      severity: 'urgent'
+    })
+  }
+  rejectedProducts.forEach((p: any) => {
+    actions.push({
+      label: `"${p.name}" requires revisions: ${p.rejection_reason || 'Check requirements'}`,
+      href: `/seller/products/${p.id}/edit`,
+      severity: 'urgent'
+    })
+  })
+  outOfStockProducts.forEach((p: any) => {
+    actions.push({
+      label: `"${p.name}" is completely out of stock`,
+      href: '/seller/products',
+      severity: 'warning'
+    })
+  })
+  lowStockProducts.forEach((p: any) => {
+    actions.push({
+      label: `"${p.name}" has variants running low`,
+      href: '/seller/products',
+      severity: 'info'
+    })
+  })
 
   return {
     seller,
     products,
+    orders,
     metrics: {
+      totalOrders: orders.length,
+      newOrders: newOrders.length,
+      processingOrders: processingOrders.length,
+      completedOrders: completedOrders.length,
+      inTransitOrders: inTransitOrders.length,
+      cancelledOrders: cancelledOrders.length,
       totalProducts: products.length,
-      activeProducts: products.filter((product: any) => product.is_active && product.approval_status === 'approved').length,
+      activeProducts: activeProducts.length,
       pendingReview: pendingProducts.length,
+      rejectedProducts: rejectedProducts.length,
       lowStock: lowStockProducts.length,
       outOfStock: outOfStockProducts.length,
-      orders: orders.length,
-      commissionRate: Number(seller.commission_rate || 0)
+      commissionRate: Number(seller.commission_rate || 0),
+      grossSales,
+      commissionDeducted,
+      netEarnings,
+      orders: orders.length
     },
-    actions: [
-      ...pendingProducts.map((product: any) => ({ label: `${product.name} is awaiting review`, href: '/seller/products' })),
-      ...lowStockProducts.map((product: any) => ({ label: `${product.name} needs stock attention`, href: '/seller/products' })),
-      ...outOfStockProducts.map((product: any) => ({ label: `${product.name} is out of stock`, href: '/seller/products' }))
-    ].slice(0, 6)
+    actions: actions.slice(0, 8),
+    recentOrders: orders.slice(0, 6),
+    recentNotifications: notifRes.notifications.slice(0, 6),
+    unreadNotificationsCount: notifRes.unreadCount
+  }
+}
+
+export async function getSellerEarningsData() {
+  const seller = await getMySellerRecord()
+  if (!seller) return null
+
+  const orders = await getSellerOrders()
+
+  const grossSales = orders.reduce((sum: number, o: any) => sum + Number(o.total_price || 0), 0)
+  const totalCommission = orders.reduce((sum: number, o: any) => sum + Number(o.commission_amount || 0), 0)
+  const netEarnings = orders.reduce((sum: number, o: any) => sum + Number(o.seller_payout_amount || 0), 0)
+
+  return {
+    seller,
+    summary: {
+      grossSales,
+      totalCommission,
+      netEarnings,
+      currentCommissionRate: Number(seller.commission_rate || 0),
+      paidOrdersCount: orders.length
+    },
+    items: orders
   }
 }
 
@@ -474,41 +609,8 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
     await supabase.from('collection_products').delete().eq('product_id', productId)
     if (collection_ids.length) await supabase.from('collection_products').insert(collection_ids.map((collection_id, display_order) => ({ collection_id, product_id: productId, display_order })))
 
-    // Handle variants
-    // 1. Fetch existing variants
-    const { data: existingVariants } = await supabase.from('product_variants').select('id, sku').eq('product_id', productId)
-    const existingSkus = existingVariants?.map(v => v.sku) || []
-    
-    for (const v of variants) {
-      if (existingSkus.includes(v.sku)) {
-        // Update existing variant stock
-        const existingVar = existingVariants?.find(ev => ev.sku === v.sku)
-        if (existingVar) {
-          await supabase.from('product_variants').update({ size: v.size || null, colour: v.colour || null }).eq('id', existingVar.id)
-          await supabase.from('inventory').update({ quantity: parseInt(v.quantity) || 0 }).eq('variant_id', existingVar.id)
-        }
-      } else {
-        // Insert new variant
-        const { data: newVar } = await supabase.from('product_variants').insert({
-          product_id: productId, size: v.size || null, colour: v.colour || null, sku: v.sku
-        }).select().single()
-        if (newVar) {
-          await supabase.from('inventory').insert({ variant_id: newVar.id, quantity: parseInt(v.quantity) || 0 })
-        }
-      }
-    }
-
-    // Remove deleted variants
-    const incomingSkus = variants.map(v => v.sku)
-    const skusToDelete = existingSkus.filter(sku => !incomingSkus.includes(sku))
-    if (skusToDelete.length > 0) {
-      const varsToDelete = existingVariants?.filter(v => skusToDelete.includes(v.sku))
-      if (varsToDelete) {
-        for (const vd of varsToDelete) {
-          await supabase.from('product_variants').delete().eq('id', vd.id)
-        }
-      }
-    }
+    // Reconcile variants and inventory authoritatively
+    await reconcileProductVariants(supabase, productId, variants, { productSlug: slug })
   } else {
     // Insert Product
     const { data: product, error: productError } = await supabase
@@ -559,36 +661,17 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
 
     if (collection_ids.length) await supabase.from('collection_products').insert(collection_ids.map((collection_id, display_order) => ({ collection_id, product_id: product.id, display_order })))
 
-    // Insert Variants
+    // Insert Variants via authoritative reconciler
     if (variants && variants.length > 0) {
-      for (const v of variants) {
-        const { data: variant, error: varError } = await supabase
-          .from('product_variants')
-          .insert({
-            product_id: product.id,
-            size: v.size || null,
-            colour: v.colour || null,
-            sku: v.sku
-          })
-          .select()
-          .single()
-          
-        if (!varError && variant) {
-          await supabase
-            .from('inventory')
-            .insert({
-              variant_id: variant.id,
-              quantity: parseInt(v.quantity) || 0
-            })
-        }
-      }
+      await reconcileProductVariants(supabase, product.id, variants, { productSlug: slug })
     }
   }
 
+  await revalidateCatalogPaths(slug)
   revalidatePath('/seller/products')
-  invalidateProductCache()
   if (finalProductId) {
     revalidatePath(`/seller/products/${finalProductId}`)
+    revalidatePath(`/seller/products/${finalProductId}/edit`)
   }
   return { id: finalProductId }
 }
@@ -643,10 +726,31 @@ export async function updateSellerVariantInventory(variantId: string, quantity: 
     if (error) throw new Error(error.message)
   }
 
-  const slug = (variant.products as any).slug
+  // Recalculate total active inventory for the product and sync is_sold_out
+  const productId = (variant as any).product_id || (variant.products as any)?.id
+  if (productId) {
+    const { data: activeVars } = await adminSupabase
+      .from('product_variants')
+      .select('id, inventory(quantity)')
+      .eq('product_id', productId)
+      .eq('is_active', true)
+
+    const totalStock = (activeVars || []).reduce((sum: number, v: any) => {
+      const q = Array.isArray(v.inventory) ? v.inventory[0]?.quantity : v.inventory?.quantity
+      return sum + Number(q || 0)
+    }, 0)
+
+    const shouldBeSoldOut = totalStock === 0
+    await adminSupabase
+      .from('products')
+      .update({ is_sold_out: shouldBeSoldOut, updated_at: new Date().toISOString() })
+      .eq('id', productId)
+  }
+
+  const slug = (variant.products as any)?.slug
+  await revalidateCatalogPaths(slug)
   revalidatePath('/seller/products')
   revalidatePath('/admin/products')
-  invalidateProductCache(slug)
   if (slug) {
     revalidatePath(`/products/${slug}`)
   }
@@ -769,99 +873,162 @@ export async function getSellerOrderById(orderId: string) {
 }
 
 export async function updateSellerOrderFulfillment(formData: FormData): Promise<void> {
-  const supabase = await createClient()
-  const seller = await getMySellerRecord()
-  if (!seller) throw new Error('Unauthorized: No active seller account.')
-
   const orderItemId = String(formData.get('orderItemId') || '')
   const status = String(formData.get('status') || 'unfulfilled')
-  const trackingNumber = String(formData.get('trackingNumber') || '').trim()
-  const carrier = String(formData.get('carrier') || '').trim()
-  const estimatedDeliveryDate = String(formData.get('estimatedDeliveryDate') || '').trim()
+  const trackingNumber = String(formData.get('trackingNumber') || '')
+  const carrier = String(formData.get('carrier') || '')
+  const estimatedDeliveryDate = String(formData.get('estimatedDeliveryDate') || '')
 
-  if (!orderItemId) {
-    throw new Error('Order item is required.')
-  }
-
-  const allowedStatuses = ['unfulfilled', 'processing', 'dispatched', 'in_transit', 'out_for_delivery', 'delivered', 'cancelled', 'returned', 'delivery_failed']
-  if (!allowedStatuses.includes(status)) {
-    throw new Error('Invalid fulfillment status.')
-  }
-
-  const { data: itemData, error } = await supabase
-    .from('order_items')
-    .update({
-      fulfillment_status: status,
-      tracking_number: trackingNumber || null,
-      carrier: carrier || null,
-      estimated_delivery_date: estimatedDeliveryDate ? new Date(estimatedDeliveryDate).toISOString() : null
-    })
-    .eq('id', orderItemId)
-    .eq('seller_id', seller.id)
-    .select('order_id')
-    .single()
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  notifyOrderItemFulfillmentChanged(orderItemId, status, trackingNumber, carrier).catch(() => {})
-
-  revalidatePath('/seller/orders')
-  revalidatePath('/seller/dashboard')
-  revalidatePath('/admin/orders')
-  revalidatePath('/account')
-  revalidatePath(`/seller/orders/${orderItemId}`)
-  if (itemData?.order_id) {
-    revalidatePath(`/admin/orders/${itemData.order_id}`)
-    revalidatePath(`/account/orders/${itemData.order_id}`)
-    revalidatePath(`/account/orders/${itemData.order_id}/track`)
-  }
+  await updateFulfillmentStatus(orderItemId, status, trackingNumber, carrier, estimatedDeliveryDate)
 }
 
-export async function updateFulfillmentStatus(orderItemId: string, status: string, tracking: string, carrier: string) {
+export async function updateFulfillmentStatus(
+  orderItemId: string,
+  status: string,
+  tracking: string,
+  carrier: string,
+  estimatedDeliveryDate?: string
+) {
   const supabase = await createClient()
-  const seller = await getMySellerRecord()
-  if (!seller) throw new Error('Unauthorized: No active seller account.')
-  
-  const { data: itemData, error } = await supabase
-    .from('order_items')
-    .update({ 
-      fulfillment_status: status,
-      tracking_number: tracking || null,
-      carrier: carrier || null
-    })
-    .eq('id', orderItemId)
-    .eq('seller_id', seller.id)
-    .select('order_id')
-    .single()
-    
-  if (error) {
-    throw new Error(error.message)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('Authentication required. Please log in.')
   }
-  
-  notifyOrderItemFulfillmentChanged(orderItemId, status, tracking, carrier).catch(() => {})
 
+  const isAdmin = await checkIsAdmin()
+  const seller = await getMySellerRecord()
+
+  if (!isAdmin && (!seller || seller.seller_status !== 'approved')) {
+    throw new Error('Unauthorized: No active approved seller account.')
+  }
+
+  const cleanItemId = String(orderItemId || '').trim()
+  if (!cleanItemId) {
+    throw new Error('Order item ID is required.')
+  }
+
+  const cleanStatus = String(status || '').trim()
+  const allowedStatuses = [
+    'unfulfilled',
+    'processing',
+    'dispatched',
+    'in_transit',
+    'out_for_delivery',
+    'delivered',
+    'cancelled',
+    'returned',
+    'delivery_failed'
+  ]
+  if (!allowedStatuses.includes(cleanStatus)) {
+    throw new Error(`Invalid fulfillment status: "${cleanStatus}". Supported: ${allowedStatuses.join(', ')}`)
+  }
+
+  const cleanTracking = String(tracking || '').trim()
+  const cleanCarrier = String(carrier || '').trim()
+
+  const adminSupabase = getAdminSupabase()
+
+  // 1. Authoritative lookup of existing order item
+  const { data: existingItem, error: fetchErr } = await adminSupabase
+    .from('order_items')
+    .select('id, seller_id, order_id, fulfillment_status')
+    .eq('id', cleanItemId)
+    .maybeSingle()
+
+  if (fetchErr || !existingItem) {
+    throw new Error('Order item record not found.')
+  }
+
+  // 2. Strict seller ownership verification: Sellers can only update their own items
+  if (!isAdmin && seller && existingItem.seller_id !== seller.id) {
+    throw new Error('Unauthorized: You cannot modify order items belonging to another merchant.')
+  }
+
+  // 3. Prepare payload
+  const updatePayload: Record<string, any> = {
+    fulfillment_status: cleanStatus,
+    tracking_number: cleanTracking || null,
+    carrier: cleanCarrier || null,
+    updated_at: new Date().toISOString()
+  }
+
+  if (estimatedDeliveryDate !== undefined && estimatedDeliveryDate !== null && estimatedDeliveryDate !== '') {
+    try {
+      updatePayload.estimated_delivery_date = new Date(estimatedDeliveryDate).toISOString()
+    } catch {
+      // keep null or omit
+    }
+  }
+
+  if (cleanStatus === 'delivered') {
+    updatePayload.delivered_at = new Date().toISOString()
+  } else if (cleanStatus === 'in_transit' || cleanStatus === 'dispatched') {
+    updatePayload.in_transit_at = new Date().toISOString()
+  }
+
+  // 4. Authoritative update using adminSupabase (guaranteeing trigger safety and no RLS disconnect)
+  const { data: updatedItem, error: updateErr } = await adminSupabase
+    .from('order_items')
+    .update(updatePayload)
+    .eq('id', cleanItemId)
+    .select('id, order_id, fulfillment_status, tracking_number, carrier, estimated_delivery_date')
+    .single()
+
+  if (updateErr) {
+    console.error('[Fulfillment] Error updating order item:', updateErr)
+    throw new Error(updateErr.message || 'Failed to persist fulfillment details.')
+  }
+
+  // 5. Non-blocking notifications: Failure must never reverse successful DB update
+  notifyOrderItemFulfillmentChanged(cleanItemId, cleanStatus, cleanTracking, cleanCarrier).catch(notifErr => {
+    console.warn('[Fulfillment] Notification dispatch error (non-fatal):', notifErr)
+  })
+
+  // 6. Cache revalidations
   revalidatePath('/seller/orders')
   revalidatePath('/seller/dashboard')
   revalidatePath('/admin/orders')
   revalidatePath('/account')
-  if (itemData?.order_id) {
-    revalidatePath(`/admin/orders/${itemData.order_id}`)
-    revalidatePath(`/account/orders/${itemData.order_id}`)
-    revalidatePath(`/account/orders/${itemData.order_id}/track`)
+  revalidatePath(`/seller/orders/${cleanItemId}`)
+  if (existingItem.order_id) {
+    revalidatePath(`/admin/orders/${existingItem.order_id}`)
+    revalidatePath(`/account/orders/${existingItem.order_id}`)
+    revalidatePath(`/account/orders/${existingItem.order_id}/track`)
+  }
+
+  return {
+    success: true,
+    item: updatedItem
   }
 }
 
 export async function cancelAndRefundOrderItemAction(orderItemId: string, reason: string): Promise<void> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Authentication required.')
+
+  const isAdmin = await checkIsAdmin()
   const seller = await getMySellerRecord()
-  if (!seller) throw new Error('Unauthorized: No active seller account.')
+  if (!isAdmin && (!seller || seller.seller_status !== 'approved')) {
+    throw new Error('Unauthorized: No active seller account.')
+  }
+
+  const adminSupabase = getAdminSupabase()
+  const { data: item } = await adminSupabase
+    .from('order_items')
+    .select('id, seller_id, order_id')
+    .eq('id', orderItemId)
+    .maybeSingle()
+
+  if (!item) throw new Error('Order item not found.')
+  if (!isAdmin && seller && item.seller_id !== seller.id) {
+    throw new Error('Unauthorized: You cannot cancel orders belonging to another merchant.')
+  }
 
   // 1. Call RPC to initiate cancellation and idempotently get refund_event_id
-  const { data: cancelRes, error: cancelError } = await supabase.rpc('cancel_paid_order_item', {
+  const { data: cancelRes, error: cancelError } = await adminSupabase.rpc('cancel_paid_order_item', {
     p_order_item_id: orderItemId,
-    p_seller_id: seller.id,
+    p_seller_id: item.seller_id,
     p_reason: reason || 'Cancelled by seller'
   })
 
@@ -917,7 +1084,7 @@ export async function cancelAndRefundOrderItemAction(orderItemId: string, reason
           receipt: refund_event_id,
           notes: {
             order_item_id: orderItemId,
-            seller_id: seller.id
+            seller_id: seller?.id || item.seller_id
           }
         })
       })
@@ -943,8 +1110,6 @@ export async function cancelAndRefundOrderItemAction(orderItemId: string, reason
 
   // 3. Update refund status
   // We use the admin client since this updates payment events
-  const adminSupabase = getAdminSupabase()
-
   await adminSupabase.rpc('update_refund_status', {
     p_refund_event_id: refund_event_id,
     p_status: refundStatus === 'processed' ? 'processed' : (refundStatus === 'failed' ? 'failed' : 'pending'),

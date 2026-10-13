@@ -1,10 +1,14 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
-import Link from 'next/link'
+import { getMySellerRecord } from '@/lib/sellers'
+import { SellerNav } from '@/components/seller/SellerNav'
+import { SellerMobileNav } from '@/components/seller/SellerMobileNav'
+import './seller.css'
 
 export const metadata: Metadata = {
-  title: 'Seller Portal — SENO',
+  title: 'Seller Studio — SENO Luxury Portal',
+  description: 'Manage your SENO storefront, product listings, consignments, and store earnings with ease.',
   robots: {
     index: false,
     follow: false
@@ -23,14 +27,20 @@ export default async function SellerLayout({
     redirect('/account/login')
   }
 
-  // We don't strictly block all of /seller, because /seller/register must be accessible
-  // to regular customers who want to apply. We'll do strict checks in the individual pages
-  // like /seller/dashboard, /seller/products, etc.
+  const seller = await getMySellerRecord()
+  const hasActiveStudio = seller && seller.seller_status !== 'pending' && seller.seller_status !== 'rejected'
 
   return (
-    <div className="seller-layout">
-      {/* We can add a simple top nav or sidebar for sellers if needed, or rely on the main nav. */}
-      {children}
+    <div className="seller-portal-shell">
+      {hasActiveStudio && (
+        <>
+          <SellerMobileNav seller={seller} />
+          <SellerNav seller={seller} />
+        </>
+      )}
+      <div className={`seller-portal-content ${hasActiveStudio ? 'has-seller-nav' : ''}`}>
+        {children}
+      </div>
     </div>
   )
 }

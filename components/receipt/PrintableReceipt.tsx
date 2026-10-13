@@ -1,5 +1,6 @@
 import React from 'react'
 import { money } from '@/lib/catalog'
+import { getAuthoritativeSellerInfo } from '@/lib/sellerOrderHelpers'
 
 export interface PrintableReceiptProps {
   order: any
@@ -127,21 +128,27 @@ export function PrintableReceipt({
         {/* Items */}
         <div style={{ borderBottom: '1px dashed #111', paddingBottom: '8px', marginBottom: '8px' }}>
           <div style={{ fontWeight: 700, marginBottom: '4px' }}>ITEMS ({items.length})</div>
-          {items.map((item: any, idx: number) => (
-            <div key={item.id || idx} style={{ marginBottom: '6px' }}>
-              <div style={{ fontWeight: 600 }}>{item.product_name}</div>
-              <div style={{ fontSize: '10px', color: '#555', display: 'flex', justifyContent: 'space-between' }}>
-                <span>
-                  {item.variant_details?.size ? `Size: ${item.variant_details.size}` : ''}
-                  {item.variant_details?.colour ? ` · ${item.variant_details.colour}` : ''}
-                </span>
-                <span>{item.quantity} × {money(Number(item.unit_price))}</span>
+          {items.map((item: any, idx: number) => {
+            const sellerInfo = getAuthoritativeSellerInfo(item)
+            return (
+              <div key={item.id || idx} style={{ marginBottom: '6px' }}>
+                <div style={{ fontWeight: 600 }}>{item.product_name}</div>
+                <div style={{ fontSize: '9px', color: '#555', marginTop: '1px' }}>
+                  Seller: {sellerInfo.name}
+                </div>
+                <div style={{ fontSize: '10px', color: '#555', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>
+                    {item.variant_details?.size ? `Size: ${item.variant_details.size}` : ''}
+                    {item.variant_details?.colour ? ` · ${item.variant_details.colour}` : ''}
+                  </span>
+                  <span>{item.quantity} × {money(Number(item.unit_price))}</span>
+                </div>
+                <div style={{ textAlign: 'right', fontWeight: 600 }}>
+                  {money(Number(item.total_price))}
+                </div>
               </div>
-              <div style={{ textAlign: 'right', fontWeight: 600 }}>
-                {money(Number(item.total_price))}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Pricing Summary */}
@@ -408,11 +415,17 @@ export function PrintableReceipt({
                       {colour && colour !== 'Default' ? ` · Colour: ${colour}` : ''}
                       {item.sku ? ` · SKU: ${item.sku}` : ''}
                     </div>
-                    {audience === 'admin' && item.sellers?.store_name && (
-                      <div style={{ fontSize: '11px', color: '#888888', marginTop: '2px' }}>
-                        Origin: {item.sellers.store_name}
-                      </div>
-                    )}
+                    {(() => {
+                      const sellerInfo = getAuthoritativeSellerInfo(item)
+                      return (
+                        <div style={{ fontSize: '11px', color: '#555555', marginTop: '3px' }}>
+                          Seller: <strong style={{ color: '#111111' }}>{sellerInfo.name}</strong>
+                          {sellerInfo.isMissing && (
+                            <span style={{ color: '#b91c1c', marginLeft: '4px' }}>[Unattributed]</span>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </td>
                   <td style={{ padding: '14px 4px', textAlign: 'center', fontSize: '13px', color: '#111111' }}>
                     {item.quantity}

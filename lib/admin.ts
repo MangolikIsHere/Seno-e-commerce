@@ -1,18 +1,17 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
-import { notifyOrderItemFulfillmentChanged, notifyRefundEvent } from '@/lib/notifications/service'
-
-function getAdminSupabase() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Missing Supabase admin credentials (NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY).')
-  }
-  return createSupabaseClient(supabaseUrl, supabaseServiceKey)
-}
+import { getAdminSupabase } from '@/lib/supabaseAdmin'
+import { 
+  notifyOrderItemFulfillmentChanged, 
+  notifyRefundEvent,
+  notifyOrderCancelled,
+  notifySellerProductDecision,
+  notifySellerCommissionChanged,
+  notifySellerAccountStatusChanged,
+  notifySellerRefund
+} from '@/lib/notifications/service'
 
 export async function checkIsAdmin() {
   const supabase = await createClient()
@@ -101,6 +100,8 @@ export async function cancelAdminOrderAction(formData: FormData) {
     console.error('Error releasing unpaid reservation:', error)
     throw new Error('Failed to cancel the order and release inventory.')
   }
+
+  notifyOrderCancelled(orderId, 'admin_cancelled').catch(() => {})
 
   // Revalidate caches so inventory updates show immediately on storefront
   revalidatePath('/admin/orders')
@@ -198,6 +199,7 @@ export async function refundAdminOrderAction(formData: FormData) {
   }
 
   notifyRefundEvent(orderId, 'refund_completed', refundAmount).catch(() => {})
+  notifySellerRefund(orderId, refundAmount).catch(() => {})
 
   revalidatePath('/admin/orders')
   revalidatePath(`/admin/orders/${orderId}`)
@@ -227,6 +229,13 @@ export async function updateSellerStatus(sellerId: string, status: string, commi
   if (!isAdmin) throw new Error('Unauthorized')
   const supabase = getAdminSupabase()
 
+  // Fetch previous state for notification context
+  const { data: previousSeller } = await supabase
+    .from('sellers')
+    .select('commission_rate, seller_status')
+    .eq('id', sellerId)
+    .maybeSingle()
+
   const updates: any = { seller_status: status }
   if (commissionRate !== undefined) {
     updates.commission_rate = commissionRate
@@ -246,7 +255,17 @@ export async function updateSellerStatus(sellerId: string, status: string, commi
     }
   }
 
+  // Authoritative Notifications to Seller
+  if (previousSeller && previousSeller.seller_status !== status) {
+    notifySellerAccountStatusChanged(sellerId, status).catch(() => {})
+  }
+  if (commissionRate !== undefined && previousSeller && Number(previousSeller.commission_rate) !== Number(commissionRate)) {
+    notifySellerCommissionChanged(sellerId, commissionRate, Number(previousSeller.commission_rate)).catch(() => {})
+  }
+
   revalidatePath('/admin/sellers')
+  revalidatePath('/seller/dashboard')
+  revalidatePath('/seller/earnings')
 }
 
 // -------------------------------------------------------------
@@ -304,8 +323,11 @@ export async function proposeCommission(sellerId: string, rate: number, message?
 
   if (sellerError) throw new Error(sellerError.message)
 
+  notifySellerAccountStatusChanged(sellerId, 'commission_proposed', message).catch(() => {})
+
   revalidatePath('/admin/sellers')
   revalidatePath(`/admin/sellers/${sellerId}`)
+  revalidatePath('/seller/dashboard')
 }
 
 export async function approveCommissionRequest(sellerId: string, proposalId: string, approvedRate: number) {
@@ -349,20 +371,85 @@ export async function getPendingProducts() {
 
 export async function updateProductApproval(productId: string, status: string, reason?: string) {
   const isAdmin = await checkIsAdmin()
-  if (!isAdmin) throw new Error('Unauthorized')
+  if (!isAdmin) throw new Error('Unauthorized: Admin access required.')
   const supabase = getAdminSupabase()
 
-  const { error } = await supabase
-    .from('products')
-    .update({
-      approval_status: status,
-      rejection_reason: reason || null
-    })
-    .eq('id', productId)
+  const cleanId = (productId || '').trim()
+  if (!cleanId) {
+    throw new Error('Product ID or slug is required.')
+  }
 
-  if (error) throw new Error(error.message)
+  // Support both UUID and slug in case route parameter or slug was passed
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId)
+
+  let findQuery = supabase
+    .from('products')
+    .select('id, name, slug, seller_id, approval_status, is_active, published_at')
+
+  if (isUuid) {
+    findQuery = findQuery.eq('id', cleanId)
+  } else {
+    findQuery = findQuery.eq('slug', cleanId)
+  }
+
+  const { data: existing, error: findError } = await findQuery.maybeSingle()
+
+  if (findError) {
+    throw new Error(`Database error verifying product: ${findError.message}`)
+  }
+
+  if (!existing) {
+    throw new Error(`Product "${cleanId}" not found in database.`)
+  }
+
+  // Perform authoritative status update
+  const updatePayload: any = {
+    approval_status: status,
+    rejection_reason: reason || null,
+    updated_at: new Date().toISOString()
+  }
+
+  if (status === 'approved' && !existing.published_at) {
+    updatePayload.published_at = new Date().toISOString()
+  }
+
+  const { data: updatedProduct, error: updateError } = await supabase
+    .from('products')
+    .update(updatePayload)
+    .eq('id', existing.id)
+    .select('id, name, slug, seller_id, approval_status, is_active')
+    .single()
+
+  if (updateError) {
+    throw new Error(`Failed to update approval status: ${updateError.message}`)
+  }
+
+  if (!updatedProduct) {
+    throw new Error(`Product "${existing.name}" (${existing.id}) was not found during update verification.`)
+  }
+
+  // Security Invariant: Approval must NEVER transfer or mutate product ownership
+  if (updatedProduct.seller_id !== existing.seller_id) {
+    throw new Error('Critical error: Product ownership altered during approval.')
+  }
+
+  // Dispatch seller notification if product belongs to a seller
+  try {
+    await notifySellerProductDecision(existing.id, status as any, reason)
+  } catch (notifErr) {
+    console.warn('Failed to send seller notification:', notifErr)
+  }
+
   revalidatePath('/admin/products')
   revalidatePath('/seller/products')
+  revalidatePath('/seller/dashboard')
+  if (existing.slug) {
+    revalidatePath(`/products/${existing.slug}`)
+  }
+  revalidatePath('/')
+  revalidatePath('/collections/all')
+
+  return { success: true, product: updatedProduct }
 }
 
 export async function getPlatformOrders() {
@@ -372,7 +459,17 @@ export async function getPlatformOrders() {
 
   const { data, error } = await supabase
     .from('orders')
-    .select('*, profiles(full_name, email), order_items(*, sellers(store_name, slug))')
+    .select(`
+      *,
+      profiles(full_name, email, phone),
+      order_items(
+        *,
+        sellers(id, store_name, seller_type, slug),
+        products(
+          product_images(url, is_primary)
+        )
+      )
+    `)
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -391,7 +488,7 @@ export async function getAdminOrderById(orderId: string) {
       profiles(full_name, email, phone),
       order_items(
         *,
-        sellers(store_name, seller_type, slug),
+        sellers(id, store_name, seller_type, slug),
         products(
           product_images(url, is_primary)
         )
@@ -424,14 +521,25 @@ export async function updateAdminOrderFulfillment(formData: FormData): Promise<v
     throw new Error('Invalid fulfillment status.')
   }
 
+  const updatePayload: Record<string, any> = {
+    fulfillment_status: status,
+    tracking_number: trackingNumber || null,
+    carrier: carrier || null,
+    estimated_delivery_date: estimatedDeliveryDate ? new Date(estimatedDeliveryDate).toISOString() : null,
+    updated_at: new Date().toISOString()
+  }
+
+  if (status === 'delivered') {
+    updatePayload.delivered_at = new Date().toISOString()
+  } else if (status === 'in_transit' || status === 'dispatched') {
+    updatePayload.in_transit_at = new Date().toISOString()
+  } else if (status === 'out_for_delivery') {
+    updatePayload.out_for_delivery_at = new Date().toISOString()
+  }
+
   const { data: itemData, error } = await supabase
     .from('order_items')
-    .update({
-      fulfillment_status: status,
-      tracking_number: trackingNumber || null,
-      carrier: carrier || null,
-      estimated_delivery_date: estimatedDeliveryDate ? new Date(estimatedDeliveryDate).toISOString() : null
-    })
+    .update(updatePayload)
     .eq('id', orderItemId)
     .select('order_id')
     .single()
@@ -450,6 +558,70 @@ export async function updateAdminOrderFulfillment(formData: FormData): Promise<v
     revalidatePath(`/account/orders/${itemData.order_id}`)
     revalidatePath(`/account/orders/${itemData.order_id}/track`)
   }
+}
+
+export async function updateAdminSellerGroupFulfillment(formData: FormData): Promise<void> {
+  const isAdmin = await checkIsAdmin()
+  if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
+
+  const orderId = String(formData.get('orderId') || '')
+  const sellerId = String(formData.get('sellerId') || '')
+  const status = String(formData.get('status') || 'unfulfilled')
+  const trackingNumber = String(formData.get('trackingNumber') || '').trim()
+  const carrier = String(formData.get('carrier') || '').trim()
+  const estimatedDeliveryDate = String(formData.get('estimatedDeliveryDate') || '').trim()
+
+  if (!orderId || !sellerId) {
+    throw new Error('Order ID and Seller ID are required.')
+  }
+
+  const allowedStatuses = ['unfulfilled', 'processing', 'dispatched', 'in_transit', 'out_for_delivery', 'delivered', 'cancelled', 'returned', 'delivery_failed']
+  if (!allowedStatuses.includes(status)) {
+    throw new Error('Invalid fulfillment status.')
+  }
+
+  const updatePayload: Record<string, any> = {
+    fulfillment_status: status,
+    tracking_number: trackingNumber || null,
+    carrier: carrier || null,
+    estimated_delivery_date: estimatedDeliveryDate ? new Date(estimatedDeliveryDate).toISOString() : null,
+    updated_at: new Date().toISOString()
+  }
+
+  if (status === 'delivered') {
+    updatePayload.delivered_at = new Date().toISOString()
+  } else if (status === 'in_transit' || status === 'dispatched') {
+    updatePayload.in_transit_at = new Date().toISOString()
+  } else if (status === 'out_for_delivery') {
+    updatePayload.out_for_delivery_at = new Date().toISOString()
+  }
+
+  let query = supabase.from('order_items').update(updatePayload).eq('order_id', orderId)
+  if (sellerId === 'null' || sellerId === 'missing') {
+    query = query.is('seller_id', null)
+  } else {
+    query = query.eq('seller_id', sellerId)
+  }
+
+  const { data: updatedItems, error } = await query.select('id')
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  if (updatedItems && updatedItems.length > 0) {
+    for (const itm of updatedItems) {
+      notifyOrderItemFulfillmentChanged(itm.id, status, trackingNumber, carrier).catch(() => {})
+    }
+  }
+
+  revalidatePath('/admin/orders')
+  revalidatePath(`/admin/orders/${orderId}`)
+  revalidatePath('/seller/orders')
+  revalidatePath('/account')
+  revalidatePath(`/account/orders/${orderId}`)
+  revalidatePath(`/account/orders/${orderId}/track`)
 }
 
 export interface AdminOverviewStats {

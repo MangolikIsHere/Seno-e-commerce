@@ -21,18 +21,26 @@ import { useNotifications } from '@/context/NotificationContext'
 import { useAuth } from '@/context/AuthContext'
 import { NotificationRecord, NotificationType } from '@/lib/notifications/types'
 
-function getNotificationIcon(type: NotificationType) {
-  switch (type) {
+function getNotificationIcon(type: NotificationType, data?: any) {
+  const effectiveType = (data?.original_type as NotificationType) || type
+  switch (effectiveType) {
     case 'order_placed':
       return <ShoppingBag size={16} className="notif-icon notif-icon-neutral" />
     case 'payment_confirmed':
     case 'order_delivered':
+    case 'seller_product_approved':
+    case 'seller_account_approved':
       return <CheckCircle2 size={16} className="notif-icon notif-icon-success" />
     case 'payment_failed':
     case 'order_cancelled':
     case 'seller_item_cancelled':
+    case 'seller_product_suspended':
+    case 'seller_account_suspended':
+    case 'seller_account_rejected':
     case 'admin_payment_failed':
       return <XCircle size={16} className="notif-icon notif-icon-danger" />
+    case 'seller_product_rejected':
+      return <AlertCircle size={16} className="notif-icon notif-icon-warning" />
     case 'order_processing':
     case 'order_dispatched':
     case 'order_in_transit':
@@ -44,6 +52,8 @@ function getNotificationIcon(type: NotificationType) {
       return <RotateCcw size={16} className="notif-icon notif-icon-warning" />
     case 'seller_new_order':
       return <Package size={16} className="notif-icon notif-icon-neutral" />
+    case 'seller_commission_updated':
+      return <CheckCircle2 size={16} className="notif-icon notif-icon-info" />
     case 'admin_new_order':
       return <ShieldAlert size={16} className="notif-icon notif-icon-neutral" />
     default:
@@ -236,7 +246,7 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
                     }}
                   >
                     <div className="notif-item-icon-col">
-                      {getNotificationIcon(notif.type)}
+                      {getNotificationIcon(notif.type, notif.data)}
                     </div>
                     <div className="notif-item-content">
                       <div className="notif-item-top">

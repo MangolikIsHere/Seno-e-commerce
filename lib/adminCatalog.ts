@@ -2,8 +2,10 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { checkIsAdmin } from '@/lib/admin'
+import { getAdminSupabase } from '@/lib/supabaseAdmin'
 import { revalidatePath } from 'next/cache'
 import { invalidateProductCache } from '@/lib/catalog-server'
+import { reconcileProductVariants } from '@/lib/variantReconciliation'
 import fs from 'fs'
 import path from 'path'
 
@@ -67,6 +69,7 @@ export async function revalidateCatalogPaths(slug?: string) {
     revalidatePath('/collections/all')
     revalidatePath('/search')
     revalidatePath('/admin/products')
+    revalidatePath('/seller/products')
     if (slug) {
       revalidatePath(`/products/${slug}`)
     }
@@ -171,9 +174,9 @@ export async function getAdminCatalogProducts(filters?: {
   status?: string // 'all' | 'active' | 'inactive' | 'approved' | 'submitted' | 'rejected' | 'low_stock' | 'sold_out'
   sort?: string
 }) {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
 
   const query = supabase
     .from('products')
@@ -203,7 +206,7 @@ export async function getAdminCatalogProducts(filters?: {
   let products = (data || []).map((p: any) => {
     const rawVariants = p.product_variants || []
     const variants = rawVariants.map((v: any) => {
-      let qty = 10
+      let qty = 0
       if (v.inventory) {
         if (Array.isArray(v.inventory) && v.inventory.length > 0) {
           qty = Number(v.inventory[0]?.quantity ?? 0)
@@ -275,9 +278,9 @@ export async function getAdminProductById(id: string) {
   const cleanId = (id || '').trim()
   if (!cleanId) return null
 
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
 
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId)
 
@@ -308,26 +311,28 @@ export async function getAdminProductById(id: string) {
     return null
   }
 
-  const variants = (data.product_variants || []).map((v: any) => {
-    let qty = 10
-    if (v.inventory) {
-      if (Array.isArray(v.inventory) && v.inventory.length > 0) {
-        qty = Number(v.inventory[0]?.quantity ?? 0)
-      } else if (v.inventory.quantity !== undefined) {
-        qty = Number(v.inventory.quantity ?? 0)
+  const variants = (data.product_variants || [])
+    .filter((v: any) => v.is_active !== false)
+    .map((v: any) => {
+      let qty = 0
+      if (v.inventory) {
+        if (Array.isArray(v.inventory) && v.inventory.length > 0) {
+          qty = Number(v.inventory[0]?.quantity ?? 0)
+        } else if (v.inventory.quantity !== undefined) {
+          qty = Number(v.inventory.quantity ?? 0)
+        }
       }
-    }
-    return {
-      id: v.id,
-      size: v.size || '',
-      colour: v.colour || '',
-      sku: v.sku,
-      price_override: v.price_override ? Number(v.price_override) : null,
-      weight_grams_override: v.weight_grams_override ? Number(v.weight_grams_override) : null,
-      quantity: isNaN(qty) ? 0 : qty,
-      is_active: v.is_active
-    }
-  })
+      return {
+        id: v.id,
+        size: v.size || '',
+        colour: v.colour || '',
+        sku: v.sku,
+        price_override: v.price_override ? Number(v.price_override) : null,
+        weight_grams_override: v.weight_grams_override ? Number(v.weight_grams_override) : null,
+        quantity: isNaN(qty) ? 0 : qty,
+        is_active: v.is_active
+      }
+    })
 
   const images = (data.product_images || [])
     .sort((a: any, b: any) => a.display_order - b.display_order)
@@ -353,9 +358,9 @@ export async function getAdminProductById(id: string) {
  * Create a new product as a platform admin.
  */
 export async function createAdminProduct(input: CreateProductInput) {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized: only SENO administrators can create products.')
+  const supabase = getAdminSupabase()
 
   if (!input.name || !input.name.trim()) throw new Error('Product name is required.')
   if (input.price === undefined || input.price === null || Number(input.price) < 0) {
@@ -466,35 +471,9 @@ export async function createAdminProduct(input: CreateProductInput) {
     await supabase.from('product_images').insert(imgRows)
   }
 
-  // 6. Insert Variants & Inventory
+  // 6. Insert Variants & Inventory via Authoritative Reconciler
   if (input.variants && input.variants.length > 0) {
-    for (let i = 0; i < input.variants.length; i++) {
-      const v = input.variants[i]
-      const varSku = v.sku?.trim() || `${finalSlug.toUpperCase()}-${internalSlugify(v.size || 'STD').toUpperCase()}-${internalSlugify(v.colour || 'DEF').toUpperCase()}`
-
-      const { data: newVariant, error: varErr } = await supabase
-        .from('product_variants')
-        .insert({
-          product_id: productId,
-          size: v.size || null,
-          colour: v.colour || null,
-          sku: varSku,
-          price_override: v.price_override ? Number(v.price_override) : null,
-          weight_grams_override: v.weight_grams_override ? Number(v.weight_grams_override) : null,
-          is_active: v.is_active !== undefined ? v.is_active : true
-        })
-        .select()
-        .single()
-
-      if (newVariant?.id) {
-        // Insert inventory
-        await supabase.from('inventory').insert({
-          variant_id: newVariant.id,
-          quantity: Math.max(0, Number(v.quantity || 0)),
-          low_stock_threshold: 5
-        })
-      }
-    }
+    await reconcileProductVariants(supabase, productId, input.variants, { productSlug: finalSlug })
   }
 
   await revalidateCatalogPaths(finalSlug)
@@ -505,9 +484,9 @@ export async function createAdminProduct(input: CreateProductInput) {
  * Update an existing product.
  */
 export async function updateAdminProduct(id: string, input: UpdateProductInput) {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized: only SENO administrators can edit products.')
+  const supabase = getAdminSupabase()
 
   if (!input.name || !input.name.trim()) throw new Error('Product name is required.')
   if (input.price === undefined || input.price === null || Number(input.price) < 0) {
@@ -600,59 +579,9 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
     await supabase.from('product_images').insert(imgRows)
   }
 
-  // 5. Sync Variants & Inventory
+  // 5. Sync Variants & Inventory via Authoritative Reconciler
   if (input.variants) {
-    // Process each variant: update existing or insert new
-    for (const v of input.variants) {
-      if (v.id) {
-        // Update variant
-        await supabase
-          .from('product_variants')
-          .update({
-            size: v.size || null,
-            colour: v.colour || null,
-            sku: v.sku,
-            price_override: v.price_override ? Number(v.price_override) : null,
-            weight_grams_override: v.weight_grams_override ? Number(v.weight_grams_override) : null,
-            is_active: v.is_active !== undefined ? v.is_active : true,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', v.id)
-
-        // Upsert inventory
-        const qty = Math.max(0, Number(v.quantity || 0))
-        const { data: invRow } = await supabase.from('inventory').select('id').eq('variant_id', v.id).maybeSingle()
-        if (invRow) {
-          await supabase.from('inventory').update({ quantity: qty, updated_at: new Date().toISOString() }).eq('variant_id', v.id)
-        } else {
-          await supabase.from('inventory').insert({ variant_id: v.id, quantity: qty, low_stock_threshold: 5 })
-        }
-      } else {
-        // New variant added during edit
-        const varSku = v.sku?.trim() || `${finalSlug.toUpperCase()}-${internalSlugify(v.size || 'STD').toUpperCase()}-${internalSlugify(v.colour || 'DEF').toUpperCase()}`
-        const { data: newVar } = await supabase
-          .from('product_variants')
-          .insert({
-            product_id: id,
-            size: v.size || null,
-            colour: v.colour || null,
-            sku: varSku,
-            price_override: v.price_override ? Number(v.price_override) : null,
-            weight_grams_override: v.weight_grams_override ? Number(v.weight_grams_override) : null,
-            is_active: v.is_active !== undefined ? v.is_active : true
-          })
-          .select()
-          .single()
-
-        if (newVar?.id) {
-          await supabase.from('inventory').insert({
-            variant_id: newVar.id,
-            quantity: Math.max(0, Number(v.quantity || 0)),
-            low_stock_threshold: 5
-          })
-        }
-      }
-    }
+    await reconcileProductVariants(supabase, id, input.variants, { productSlug: finalSlug })
   }
 
   await revalidateCatalogPaths(finalSlug)
@@ -663,9 +592,9 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
  * Toggle product active status (Deactivate / Reactivate).
  */
 export async function toggleProductActive(id: string, is_active: boolean) {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
 
   const { data: product, error } = await supabase
     .from('products')
@@ -684,9 +613,9 @@ export async function toggleProductActive(id: string, is_active: boolean) {
  * Quick update inventory quantity for a variant.
  */
 export async function updateVariantInventory(variantId: string, quantity: number) {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
 
   const qty = Math.max(0, Number(quantity))
 

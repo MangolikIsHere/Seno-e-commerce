@@ -168,12 +168,19 @@ export function ProductForm({
     const baseSlug = (slug || slugify(name) || 'ITEM').toUpperCase().slice(0, 8)
     const baseColour = variants[0]?.colour || 'Black'
 
-    const newVariants: VariantItem[] = standardSizes.map(size => ({
-      size,
-      colour: baseColour,
-      sku: `${baseSlug}-${baseColour.toUpperCase().slice(0, 3)}-${size}`,
-      quantity: '10'
-    }))
+    const newVariants: VariantItem[] = standardSizes.map(size => {
+      const existing = variants.find(v =>
+        (v.size || '').trim().toLowerCase() === size.toLowerCase() &&
+        (v.colour || '').trim().toLowerCase() === baseColour.toLowerCase()
+      )
+      return {
+        id: existing?.id,
+        size,
+        colour: baseColour,
+        sku: existing?.sku || `${baseSlug}-${baseColour.toUpperCase().slice(0, 3)}-${size}`,
+        quantity: existing ? existing.quantity : '10'
+      }
+    })
 
     setVariants(newVariants)
   }
@@ -1346,6 +1353,7 @@ export function ProductForm({
 
       {/* Sticky Bottom Navigation Footer */}
       <div 
+        className="seller-form-sticky-footer"
         style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 

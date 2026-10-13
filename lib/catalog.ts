@@ -127,16 +127,35 @@ function mapProductRow(row: any): Product {
             return isNaN(q) ? 10 : q
           }
         }
-        return 10
+        return 0
       })(),
     }))
 
-  const sizes = Array.from(new Set(variants.map(v => v.size).filter(Boolean))) as string[]
-  const colors = Array.from(new Set(variants.map(v => v.colour).filter(Boolean))) as string[]
+  // Deduplicate and normalize sizes safely (case-insensitive)
+  const seenSizes = new Set<string>()
+  const sizes: string[] = []
+  for (const v of variants) {
+    const s = v.size?.trim()
+    if (s && !seenSizes.has(s.toLowerCase())) {
+      seenSizes.add(s.toLowerCase())
+      sizes.push(s)
+    }
+  }
+
+  // Deduplicate and normalize colours safely (case-insensitive e.g. Black vs BLACK)
+  const seenColors = new Set<string>()
+  const colors: string[] = []
+  for (const v of variants) {
+    const c = v.colour?.trim()
+    if (c && !seenColors.has(c.toLowerCase())) {
+      seenColors.add(c.toLowerCase())
+      colors.push(c)
+    }
+  }
   const color = colors.length > 0 ? colors[0] : 'Default'
   
   const totalInventory = variants.reduce((sum: number, v: Variant) => sum + v.inventoryQuantity, 0)
-  const soldOut = row.is_sold_out || (totalInventory === 0 && variants.length > 0)
+  const soldOut = row.is_sold_out || (variants.length > 0 && totalInventory === 0) || variants.length === 0
 
   const returnPolicy = parseReturnPolicy(row.details)
   const cleanDetails = Array.isArray(row.details)

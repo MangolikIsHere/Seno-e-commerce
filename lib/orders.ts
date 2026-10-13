@@ -174,6 +174,26 @@ export async function placeOrderAction(
       }
     }
 
+    // Verify all requested variants exist and are currently active
+    const variantIds = input.items.map(item => item.variant_id)
+    const { data: dbVariants } = await supabase
+      .from('product_variants')
+      .select('id, is_active, sku, products!inner(name, is_active, approval_status, is_sold_out)')
+      .in('id', variantIds)
+
+    for (const item of input.items) {
+      const match = dbVariants?.find(v => v.id === item.variant_id)
+      if (!match) {
+        return { success: false, error: 'One or more items in your bag no longer exist. Please update your bag.' }
+      }
+      if (!match.is_active) {
+        return { success: false, error: `The selected piece (${match.sku}) is no longer available. Please remove it from your bag.` }
+      }
+      if (!(match.products as any)?.is_active || (match.products as any)?.approval_status !== 'approved' || (match.products as any)?.is_sold_out) {
+        return { success: false, error: `Product "${(match.products as any)?.name}" is currently unavailable.` }
+      }
+    }
+
     let verifiedShippingAddress: OrderAddress | null = null
 
     // 1. If saved address selected, verify it belongs strictly to this user

@@ -33,7 +33,7 @@ export async function createNotification(params: CreateNotificationParams): Prom
       deep_link: deepLink
     }
 
-    const { data, error } = await admin.rpc('create_system_notification', {
+    let notifRes = await admin.rpc('create_system_notification', {
       p_user_id: params.userId,
       p_type: params.type,
       p_title: params.title,
@@ -42,10 +42,33 @@ export async function createNotification(params: CreateNotificationParams): Prom
       p_idempotency_key: params.idempotencyKey || null
     })
 
-    if (error) {
-      console.error('[NotificationService] RPC error:', error)
-      return { success: false, error: error.message }
+    if (notifRes.error) {
+      // If Postgres enum mismatch (22P02), fallback to valid enum type while preserving original_type in payload
+      if (notifRes.error.code === '22P02' && params.type.startsWith('seller_')) {
+        const isNegative = ['seller_product_rejected', 'seller_product_suspended', 'seller_account_suspended', 'seller_account_rejected'].includes(params.type)
+        const fallbackType: NotificationType = isNegative ? 'seller_item_cancelled' : 'seller_new_order'
+        const fallbackData = {
+          ...payloadData,
+          original_type: params.type
+        }
+
+        notifRes = await admin.rpc('create_system_notification', {
+          p_user_id: params.userId,
+          p_type: fallbackType,
+          p_title: params.title,
+          p_message: params.message,
+          p_data: fallbackData,
+          p_idempotency_key: params.idempotencyKey || null
+        })
+      }
     }
+
+    if (notifRes.error) {
+      console.error('[NotificationService] RPC error:', notifRes.error)
+      return { success: false, error: notifRes.error.message }
+    }
+
+    const data = notifRes.data
 
     // Trigger Web Push in background if this is a newly created notification
     if (data?.success && !data?.idempotent) {
@@ -632,5 +655,220 @@ export async function notifyRefundEvent(orderId: string, type: 'refund_initiated
     }
   } catch (err) {
     console.error('[NotificationService] notifyRefundEvent failed:', err)
+  }
+}
+
+/**
+ * 7. Seller Product Decision (Approval, Rejection, Needs Revision, Suspended):
+ * Notifies the product owner with actionable guidance.
+ */
+export async function notifySellerProductDecision(
+  productId: string,
+  action: 'approved' | 'rejected' | 'suspended' | 'draft',
+  reason?: string
+) {
+  try {
+    const admin = getAdminClient()
+    const { data: product } = await admin
+      .from('products')
+      .select('id, name, seller_id, sellers(id, user_id, store_name)')
+      .eq('id', productId)
+      .maybeSingle()
+
+    if (!product) return
+    const seller = (product as any).sellers
+    if (!seller || !seller.user_id) return
+
+    let notifType: NotificationType = 'seller_product_approved'
+    let title = 'Product Approved'
+    let message = `"${product.name}" has been approved by SENO Admin and is now active.`
+
+    if (action === 'rejected') {
+      notifType = 'seller_product_rejected'
+      title = 'Product Requires Changes'
+      message = `"${product.name}" requires adjustments before it can be listed: ${reason || 'Please check guidelines and resubmit.'}`
+    } else if (action === 'suspended') {
+      notifType = 'seller_product_suspended'
+      title = 'Product Suspended'
+      message = `"${product.name}" has been suspended from the catalog: ${reason || 'Contact SENO admin for details.'}`
+    } else if (action === 'draft') {
+      notifType = 'seller_notice'
+      title = 'Product Moved to Draft'
+      message = `"${product.name}" has been placed in draft status${reason ? `: ${reason}` : '.'}`
+    }
+
+    await createNotification({
+      userId: seller.user_id,
+      type: notifType,
+      title,
+      message,
+      data: {
+        product_id: product.id,
+        product_name: product.name,
+        action,
+        reason,
+        deep_link: action === 'rejected' ? `/seller/products/${product.id}/edit` : '/seller/products'
+      },
+      idempotencyKey: `seller_prod_${productId}_${action}_${Date.now()}`
+    })
+  } catch (err) {
+    console.error('[NotificationService] notifySellerProductDecision failed:', err)
+  }
+}
+
+/**
+ * 8. Seller Commission Update:
+ * Notifies seller of authoritative rate adjustment and effective time.
+ */
+export async function notifySellerCommissionChanged(
+  sellerId: string,
+  newRate: number,
+  previousRate?: number
+) {
+  try {
+    const admin = getAdminClient()
+    const { data: seller } = await admin
+      .from('sellers')
+      .select('id, user_id, store_name, commission_rate')
+      .eq('id', sellerId)
+      .maybeSingle()
+
+    if (!seller || !seller.user_id) return
+
+    const nowIso = new Date().toISOString()
+    const message = previousRate !== undefined && previousRate !== newRate
+      ? `Your platform commission rate is now ${newRate}% (previously ${previousRate}%). This applies to all new orders.`
+      : `Your platform commission rate has been set to ${newRate}%. This applies to all new orders.`
+
+    await createNotification({
+      userId: seller.user_id,
+      type: 'seller_commission_updated',
+      title: 'Commission Rate Updated',
+      message,
+      data: {
+        seller_id: sellerId,
+        new_rate: newRate,
+        previous_rate: previousRate,
+        effective_at: nowIso,
+        deep_link: '/seller/earnings'
+      },
+      idempotencyKey: `seller_comm_${sellerId}_${newRate}_${Date.now()}`
+    })
+  } catch (err) {
+    console.error('[NotificationService] notifySellerCommissionChanged failed:', err)
+  }
+}
+
+/**
+ * 9. Seller Account Status Changed:
+ * Notifies seller when account is approved, suspended, or rejected.
+ */
+export async function notifySellerAccountStatusChanged(
+  sellerId: string,
+  newStatus: string,
+  reason?: string
+) {
+  try {
+    const admin = getAdminClient()
+    const { data: seller } = await admin
+      .from('sellers')
+      .select('id, user_id, store_name')
+      .eq('id', sellerId)
+      .maybeSingle()
+
+    if (!seller || !seller.user_id) return
+
+    let notifType: NotificationType = 'seller_account_approved'
+    let title = 'Seller Account Approved'
+    let message = `Congratulations! Your store "${seller.store_name}" is approved on SENO.`
+    let deepLink = '/seller/dashboard'
+
+    if (newStatus === 'suspended') {
+      notifType = 'seller_account_suspended'
+      title = 'Store Suspended'
+      message = `Your seller account "${seller.store_name}" has been suspended: ${reason || 'Please contact SENO partner support.'}`
+      deepLink = '/seller/help'
+    } else if (newStatus === 'rejected') {
+      notifType = 'seller_account_rejected'
+      title = 'Application Decision'
+      message = `Your application for "${seller.store_name}" was not approved at this time: ${reason || 'Please review requirements.'}`
+      deepLink = '/seller/register'
+    } else if (newStatus === 'commission_proposed') {
+      notifType = 'seller_notice'
+      title = 'Commission Proposal Received'
+      message = `SENO has sent you a commission proposal for "${seller.store_name}". Please review and confirm.`
+      deepLink = '/seller/dashboard'
+    }
+
+    await createNotification({
+      userId: seller.user_id,
+      type: notifType,
+      title,
+      message,
+      data: {
+        seller_id: sellerId,
+        status: newStatus,
+        reason,
+        deep_link: deepLink
+      },
+      idempotencyKey: `seller_status_${sellerId}_${newStatus}_${Date.now()}`
+    })
+  } catch (err) {
+    console.error('[NotificationService] notifySellerAccountStatusChanged failed:', err)
+  }
+}
+
+/**
+ * 10. Seller Refund Notification:
+ * Notifies affected sellers when an administrator or payment gateway issues a refund.
+ */
+export async function notifySellerRefund(orderId: string, amount: number, orderItemId?: string) {
+  try {
+    const admin = getAdminClient()
+    const { data: order } = await admin
+      .from('orders')
+      .select(`
+        id,
+        order_number,
+        order_items (
+          id,
+          seller_id,
+          product_name,
+          seller_payout_amount,
+          sellers:seller_id (
+            id,
+            user_id
+          )
+        )
+      `)
+      .eq('id', orderId)
+      .maybeSingle()
+
+    if (!order) return
+
+    const notifiedSellers = new Set<string>()
+    for (const item of (order.order_items as any[]) || []) {
+      if (orderItemId && item.id !== orderItemId) continue
+      const seller = item.sellers
+      if (seller && seller.user_id && !notifiedSellers.has(seller.id)) {
+        notifiedSellers.add(seller.id)
+        await createNotification({
+          userId: seller.user_id,
+          type: 'refund_completed',
+          title: 'Order Refunded',
+          message: `Order #${order.order_number} (${item.product_name || 'items'}) was refunded (₹${amount.toLocaleString('en-IN')}).`,
+          data: {
+            order_id: order.id,
+            order_number: order.order_number,
+            order_item_id: item.id,
+            amount,
+            deep_link: '/seller/orders'
+          },
+          idempotencyKey: `seller_refund_${order.id}_${seller.id}_${item.id || 'all'}`
+        })
+      }
+    }
+  } catch (err) {
+    console.error('[NotificationService] notifySellerRefund failed:', err)
   }
 }

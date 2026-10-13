@@ -257,12 +257,17 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
 
     for (const c of effectiveColors) {
       for (const s of effectiveSizes) {
-        const sku = `SENO-${currentBaseSlug.slice(0, 4)}-${toClientSlug(s).toUpperCase()}-${toClientSlug(c).toUpperCase().slice(0, 3)}`
+        const existing = variants.find(v =>
+          (v.size || '').trim().toLowerCase() === s.toLowerCase() &&
+          (v.colour || '').trim().toLowerCase() === c.toLowerCase()
+        )
+        const sku = existing?.sku || `SENO-${currentBaseSlug.slice(0, 4)}-${toClientSlug(s).toUpperCase()}-${toClientSlug(c).toUpperCase().slice(0, 3)}`
         newVariants.push({
+          id: existing?.id,
           size: s,
           colour: c,
           sku,
-          quantity: matrixInitialStock,
+          quantity: existing ? existing.quantity : matrixInitialStock,
           is_active: true
         })
       }

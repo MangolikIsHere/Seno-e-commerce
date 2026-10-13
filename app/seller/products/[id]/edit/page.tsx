@@ -26,8 +26,9 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     notFound()
   }
 
-  // Get inventory for variants
-  const variantsWithInventory = await Promise.all(product.product_variants.map(async (v: any) => {
+  // Get inventory for active variants only
+  const activeVariants = (product.product_variants || []).filter((v: any) => v.is_active !== false)
+  const variantsWithInventory = await Promise.all(activeVariants.map(async (v: any) => {
     const { data: inv } = await supabase.from('inventory').select('quantity').eq('variant_id', v.id).single()
     return { ...v, quantity: inv?.quantity || 0 }
   }))

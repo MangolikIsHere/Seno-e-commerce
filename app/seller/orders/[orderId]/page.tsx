@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, MapPin, PackageCheck, Truck, Phone, Mail, CalendarDays } from 'lucide-react'
-import { getMySellerRecord, getSellerOrderById, updateSellerOrderFulfillment } from '@/lib/sellers'
+import { getMySellerRecord, getSellerOrderById } from '@/lib/sellers'
 import { money } from '@/lib/catalog'
 import { PaidCancelForm } from '../PaidCancelForm'
+import { FulfillmentForm } from '../FulfillmentForm'
 
 const FULFILLMENT_OPTIONS = [
   'unfulfilled',
@@ -119,41 +120,22 @@ export default async function SellerOrderDetailPage({ params }: { params: Promis
 
         <aside style={{ display: 'grid', gap: '24px' }}>
           <div className="admin-table-card" style={{ padding: '24px' }}>
-            <h2 style={{ fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 18px' }}>Fulfillment control</h2>
-            <form action={updateSellerOrderFulfillment} style={{ display: 'grid', gap: '14px' }}>
-              <input type="hidden" name="orderItemId" value={order.order_items?.[0]?.id || order.id} />
-              <label style={{ display: 'grid', gap: '6px', fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase' }}>
-                Status
-                <select name="status" defaultValue={order.fulfillment_status || 'unfulfilled'} className="input-field" style={{ fontSize: '12px' }}>
-                  {FULFILLMENT_OPTIONS.map(option => (
-                    <option key={option} value={option}>{formatStateLabel(option)}</option>
-                  ))}
-                </select>
-              </label>
+            <h2 style={{ fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 18px' }}>
+              Fulfillment Control
+            </h2>
+            <FulfillmentForm
+              orderItemId={order.order_items?.[0]?.id || order.id}
+              initialStatus={order.fulfillment_status || 'unfulfilled'}
+              initialTracking={order.tracking_number || ''}
+              initialCarrier={order.carrier || ''}
+              initialEstimatedDelivery={order.estimated_delivery_date || ''}
+            />
 
-              <label style={{ display: 'grid', gap: '6px', fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase' }}>
-                Carrier
-                <input name="carrier" defaultValue={order.carrier || ''} className="input-field" placeholder="Delhivery" />
-              </label>
-
-              <label style={{ display: 'grid', gap: '6px', fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase' }}>
-                Tracking / consignment
-                <input name="trackingNumber" defaultValue={order.tracking_number || ''} className="input-field" placeholder="ABC123456" />
-              </label>
-
-              <label style={{ display: 'grid', gap: '6px', fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase' }}>
-                Estimated delivery date
-                <input type="date" name="estimatedDeliveryDate" defaultValue={order.estimated_delivery_date ? new Date(order.estimated_delivery_date).toISOString().slice(0, 10) : ''} className="input-field" />
-              </label>
-
-              {order.payment_status === 'paid' && order.fulfillment_status !== 'cancelled' ? (
-                <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-                  <PaidCancelForm orderItemId={order.order_items?.[0]?.id || order.id} />
-                </div>
-              ) : order.fulfillment_status !== 'cancelled' ? (
-                <button type="submit" className="button button-primary" style={{ justifyContent: 'center' }}>Update fulfillment</button>
-              ) : null}
-            </form>
+            {order.payment_status === 'paid' && order.fulfillment_status !== 'cancelled' && (
+              <div style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                <PaidCancelForm orderItemId={order.order_items?.[0]?.id || order.id} />
+              </div>
+            )}
           </div>
 
           <div className="admin-table-card" style={{ padding: '24px' }}>
