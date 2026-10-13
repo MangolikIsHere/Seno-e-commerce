@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import { createClient } from '@/utils/supabase/server'
 import { supabase as publicSupabase } from '@/lib/supabase'
 import { checkIsAdmin } from '@/lib/admin'
@@ -29,25 +29,12 @@ function formatSupabaseError(error: any): string {
 }
 
 /**
- * Helper to obtain the appropriate Supabase client for reading categories.
- * Tries the SSR server client first (with request cookies); falls back to the public Supabase client
- * if cookies() is called outside of a request context (such as during static prerendering).
- */
-async function getReadClient() {
-  try {
-    return await createClient()
-  } catch {
-    return publicSupabase
-  }
-}
-
-/**
  * Fetch active storefront categories ordered by display_order, then name.
  * Queries only supported columns in the deployed schema.
  */
-export async function getActiveCategories(): Promise<CategoryRecord[]> {
-  const supabase = await getReadClient()
-  const { data, error } = await supabase
+const getCachedActiveCategories = unstable_cache(
+  async (): Promise<CategoryRecord[]> => {
+  const { data, error } = await publicSupabase
     .from('categories')
     .select('id, name, slug, description, image_url, display_order, is_active, created_at, updated_at')
     .eq('is_active', true)
@@ -65,7 +52,14 @@ export async function getActiveCategories(): Promise<CategoryRecord[]> {
     throw new Error(`Failed to fetch active categories: ${formatted}`)
   }
 
-  return (data || []) as CategoryRecord[]
+    return (data || []) as CategoryRecord[]
+  },
+  ['seno-active-categories'],
+  { revalidate: 300, tags: ['categories'] }
+)
+
+export async function getActiveCategories(): Promise<CategoryRecord[]> {
+  return getCachedActiveCategories()
 }
 
 /**
@@ -116,6 +110,7 @@ export async function slugify(value: string): Promise<string> {
  */
 export async function revalidateCategoryPaths(slug?: string) {
   try {
+    revalidateTag('categories', 'seconds')
     revalidatePath('/')
     revalidatePath('/categories')
     revalidatePath('/collections/all')

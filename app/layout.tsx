@@ -113,12 +113,17 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   let categories: any[] = []
-  try {
-    categories = await getActiveCategories()
-  } catch (err: any) {
-    console.error('[RootLayout] Error fetching active categories for navigation:', err?.message || err)
-  }
-  const activePromotions = await getActivePromotions()
+  const [categoryResult, activePromotions] = await Promise.all([
+    getActiveCategories().catch((err: unknown) => {
+      console.error('[RootLayout] Error fetching active categories for navigation:', err)
+      return []
+    }),
+    getActivePromotions().catch((err: unknown) => {
+      console.error('[RootLayout] Error fetching active promotions for navigation:', err)
+      return []
+    }),
+  ])
+  categories = categoryResult
   const hasActiveOffers = activePromotions.length > 0
   const headerList = await headers()
   const userAgent = headerList.get('user-agent') || ''

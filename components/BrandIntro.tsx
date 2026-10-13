@@ -47,7 +47,6 @@ export function BrandIntro() {
       id="seno-brand-intro"
       className={`seno-brand-intro ${phase === 'exiting' ? 'intro-exiting' : ''}`}
       aria-hidden="true"
-      onClick={() => setPhase('removed')}
     >
       <div className="intro-stage">
         <img className="intro-mark" src="/seno-splash-logo.png" alt="SENO" />

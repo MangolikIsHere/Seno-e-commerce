@@ -158,7 +158,7 @@ export default async function AdminPaymentsPage() {
                       <span className="admin-order-number">#{t.order_number}</span>
                       <span className="admin-order-date">{new Date(t.created_at).toLocaleDateString('en-IN')}</span>
                     </div>
-                    <span className={`status-pill ${t.payment_status === 'paid' ? 'paid' : 'pending'}`}>
+                    <span className={`status-pill ${t.payment_status === 'paid' ? 'paid' : t.payment_status === 'failed' ? 'rejected' : 'pending'}`}>
                       {t.payment_status?.toUpperCase()}
                     </span>
                   </div>

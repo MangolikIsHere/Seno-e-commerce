@@ -378,13 +378,8 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
 
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{
-                              width: '8px',
-                              height: '8px',
-                              borderRadius: '50%',
-                              background: isSoldOut ? '#ef4444' : product.isLowStock ? '#f59e0b' : '#10b981'
-                            }} />
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: isSoldOut ? '#ef4444' : 'inherit' }}>
+                            <span className={`stock-dot ${isSoldOut ? 'empty' : product.isLowStock ? 'low' : 'healthy'}`} />
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: isSoldOut ? '#B4232D' : product.isLowStock ? '#946200' : 'inherit' }}>
                               {isSoldOut ? 'OUT OF STOCK' : `${product.totalStock} units`}
                             </span>
                           </div>
@@ -398,18 +393,13 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                             onClick={() => handleToggleActive(product.id, product.is_active)}
                             disabled={isPending}
                             title={product.is_active ? 'Click to deactivate' : 'Click to activate'}
+                            className={`status-pill ${product.is_active ? 'active' : 'draft'}`}
                             style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              padding: '4px 10px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              borderRadius: '12px',
                               border: 'none',
                               cursor: 'pointer',
-                              background: product.is_active ? '#ecfdf5' : '#f3f4f6',
-                              color: product.is_active ? '#065f46' : '#6b7280'
+                              padding: '4px 10px',
+                              borderRadius: '12px',
+                              fontSize: '11px'
                             }}
                           >
                             {product.is_active ? <Eye size={12} /> : <EyeOff size={12} />}

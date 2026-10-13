@@ -8,7 +8,7 @@ import { supabase as publicSupabase } from '@/lib/supabase'
 import { checkIsAdmin } from '@/lib/admin'
 import { Product, getCatalogProducts, getCollectionProducts } from '@/lib/catalog'
 import { CartItem } from '@/context/StoreContext'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import {
   Promotion,
   PromotionType,
@@ -60,7 +60,8 @@ function writeLocalPromotions(promotions: Promotion[]): void {
  * Retrieves all promotions. Supabase is strictly authoritative in production.
  * If the Supabase table has 0 records, returns an empty array.
  */
-export async function getAllPromotions(): Promise<Promotion[]> {
+const getCachedAllPromotions = unstable_cache(
+  async (): Promise<Promotion[]> => {
   try {
     const { data, error } = await publicSupabase
       .from('promotions')
@@ -91,7 +92,14 @@ export async function getAllPromotions(): Promise<Promotion[]> {
     }))
   }
 
-  return []
+    return []
+  },
+  ['seno-all-promotions'],
+  { revalidate: 60, tags: ['promotions'] }
+)
+
+export async function getAllPromotions(): Promise<Promotion[]> {
+  return getCachedAllPromotions()
 }
 
 /**
@@ -642,6 +650,7 @@ export async function savePromotionAction(
     }
 
     // 3. Immediate Cache Invalidation across all affected routes
+    revalidateTag('promotions', 'seconds')
     revalidatePath('/', 'layout')
     revalidatePath('/')
     revalidatePath('/offers')
@@ -677,6 +686,7 @@ export async function deletePromotionAction(id: string): Promise<{ success: bool
       writeLocalPromotions(localList)
     }
 
+    revalidateTag('promotions', 'seconds')
     revalidatePath('/', 'layout')
     revalidatePath('/')
     revalidatePath('/offers')
@@ -718,6 +728,7 @@ export async function togglePromotionStatusAction(
       }
     }
 
+    revalidateTag('promotions', 'seconds')
     revalidatePath('/', 'layout')
     revalidatePath('/')
     revalidatePath('/offers')

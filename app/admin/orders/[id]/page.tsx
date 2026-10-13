@@ -113,7 +113,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               <span className={`status-pill ${order.payment_status === 'paid' ? 'paid' : order.payment_status === 'unpaid' ? 'pending' : 'rejected'}`}>
                 Payment: {order.payment_status?.toUpperCase()}
               </span>
-              <span className={`status-pill ${['cancelled', 'returned', 'delivery_failed'].includes(order.status) ? 'rejected' : order.status === 'delivered' ? 'approved' : 'processing'}`}>
+              <span className={`status-pill ${['cancelled', 'returned', 'delivery_failed'].includes(order.status) ? 'rejected' : order.status === 'delivered' ? 'approved' : ['shipped', 'dispatched', 'in_transit'].includes(order.status) ? 'shipped' : 'processing'}`}>
                 Fulfillment: {order.status?.toUpperCase()}
               </span>
             </div>

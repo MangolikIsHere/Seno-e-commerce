@@ -38,20 +38,20 @@ async function test(name, fn) {
 async function run() {
   console.log('=== SENO Active Categories Fetching Verification ===\n')
 
-  // 1. Root Cause Proof: meta_title does not exist on deployed table
-  await test('Replicate and confirm root cause: selecting non-existent column meta_title triggers code 42703', async () => {
+  // 1. Root Cause Proof & Schema Health
+  await test('Confirm error handling: selecting non-existent column triggers code 42703 with formatted error', async () => {
     const { data, error } = await anonClient
       .from('categories')
-      .select('id, name, meta_title')
+      .select('id, name, non_existent_column_for_test')
       .limit(1)
 
-    assert(error, 'Expected error when selecting non-existent column meta_title')
+    assert(error, 'Expected error when selecting non-existent column')
     assert.strictEqual(error.code, '42703', `Expected error code 42703, got ${error.code}`)
     assert(
-      error.message.includes('column categories.meta_title does not exist'),
+      error.message.includes('column categories.non_existent_column_for_test does not exist'),
       `Unexpected error message: ${error.message}`
     )
-    console.log('Confirmed root cause error:', { code: error.code, message: error.message })
+    console.log('Confirmed error behavior on non-existent column:', { code: error.code, message: error.message })
   })
 
   // 2. Verified query with supported columns succeeds and returns all 6 active categories

@@ -21,7 +21,12 @@ export default async function AdminSellerDetailPage({ params }: { params: { id: 
         </Link>
         <div>
           <h1 className="admin-page-title">{seller.store_name}</h1>
-          <p className="admin-page-subtitle">Application Status: <span style={{ textTransform: 'uppercase', fontWeight: 600 }}>{seller.seller_status}</span></p>
+          <p className="admin-page-subtitle">
+            Application Status:{' '}
+            <span className={`status-pill ${seller.seller_status === 'approved' ? 'approved' : seller.seller_status === 'rejected' ? 'rejected' : seller.seller_status === 'suspended' ? 'suspended' : 'pending'}`}>
+              {seller.seller_status}
+            </span>
+          </p>
         </div>
       </div>
 

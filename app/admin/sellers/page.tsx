@@ -124,7 +124,7 @@ export default async function AdminSellersPage() {
                         <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
                           <Link
                             href={`/admin/sellers/${seller.id}`}
-                            className="button button-outline"
+                            className={`button ${seller.seller_status === 'pending' ? 'button-attention-amber' : 'button-outline'}`}
                             style={{ fontSize: '11px', padding: '5px 12px' }}
                           >
                             Review

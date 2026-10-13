@@ -29,21 +29,10 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/api/admin') ||
     pathname.startsWith('/api/seller')
 
-  // 3. Fast-path optimization for unauthenticated visitors on public routes.
-  // If the visitor has no Supabase auth token cookies, there is no session to refresh.
+  // 3. Public storefront routes do not need a session refresh. The browser client
+  // and protected server routes validate the session when user data is required.
   if (!isProtectedOrAuthSensitive) {
-    const hasAuthTokenCookie = request.cookies
-      .getAll()
-      .some(
-        (c) =>
-          c.name.startsWith('sb-') &&
-          c.name.includes('-auth-token') &&
-          !c.name.endsWith('-code-verifier')
-      )
-
-    if (!hasAuthTokenCookie) {
-      return supabaseResponse
-    }
+    return supabaseResponse
   }
 
   // 4. Initialize Supabase SSR client to validate or refresh session for authenticated users or protected routes

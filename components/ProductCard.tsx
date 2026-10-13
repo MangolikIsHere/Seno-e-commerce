@@ -40,6 +40,15 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
   const primaryImg = product.image
   const secondaryImg = product.hoverImage && product.hoverImage !== product.image ? product.hoverImage : null
 
+  const handleProductLinkClick = () => {
+    if (!returnContext) return
+    try {
+      sessionStorage.setItem('seno_return_context', returnContext)
+    } catch {
+      // Storage can be unavailable in privacy-restricted browsers.
+    }
+  }
+
   return (
     <article className="product-card group" style={{ position: 'relative' }}>
       {/* Image section: navigates to product */}
@@ -48,6 +57,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
         className="product-visual-wrapper"
         style={{ display: 'block', position: 'relative' }}
         data-return-context={returnContext || undefined}
+        onClick={handleProductLinkClick}
       >
         <div className="product-visual" style={{ position: 'relative', overflow: 'hidden', aspectRatio: '3 / 4', background: 'var(--card-bg)' }}>
           <SenoImage
@@ -124,6 +134,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
         href={`/products/${product.slug}`} 
         style={{ display: 'block' }} 
         data-return-context={returnContext || undefined}
+        onClick={handleProductLinkClick}
       >
         <div className="product-details-info" style={{ marginTop: '12px' }}>
           <span className="product-category-label" style={{ fontSize: '9.5px', letterSpacing: '1.4px', textTransform: 'uppercase', color: 'var(--muted)' }}>
@@ -147,4 +158,3 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
     </article>
   )
 }
-

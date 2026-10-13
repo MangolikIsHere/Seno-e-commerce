@@ -557,7 +557,7 @@ export function AdminOrdersClient({ initialOrders }: AdminOrdersClientProps) {
 
                           {/* Fulfillment */}
                           <td style={{ verticalAlign: 'top' }}>
-                            <span className={`status-pill ${order.status === 'delivered' ? 'approved' : order.status === 'cancelled' ? 'rejected' : 'processing'}`}>
+                            <span className={`status-pill ${order.status === 'delivered' ? 'approved' : order.status === 'cancelled' ? 'rejected' : (order.status === 'shipped' || order.status === 'dispatched') ? 'shipped' : 'processing'}`}>
                               {order.status?.toUpperCase() || 'UNFULFILLED'}
                             </span>
                           </td>
@@ -844,7 +844,7 @@ export function AdminOrdersClient({ initialOrders }: AdminOrdersClientProps) {
                         ) : (
                           <>
                             <span className="admin-order-amount">{money(Number(order.total_amount || 0))}</span>
-                            <span className={`status-pill ${order.status === 'delivered' ? 'approved' : order.status === 'cancelled' ? 'rejected' : 'processing'}`} style={{ fontSize: '10px' }}>
+                            <span className={`status-pill ${order.status === 'delivered' ? 'approved' : order.status === 'cancelled' ? 'rejected' : (order.status === 'shipped' || order.status === 'dispatched') ? 'shipped' : 'processing'}`} style={{ fontSize: '10px' }}>
                               {order.status}
                             </span>
                           </>

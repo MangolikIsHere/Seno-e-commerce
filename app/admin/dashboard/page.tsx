@@ -52,7 +52,7 @@ export default async function AdminDashboardPage() {
         <div className="admin-attention-card">
           <div className="admin-attention-header">
             <div className="admin-attention-icon-wrap">
-              <AlertCircle size={18} color="var(--ink)" />
+              <AlertCircle size={17} />
             </div>
             <div>
               <h2 className="admin-attention-title">Action Required Today</h2>
@@ -61,21 +61,21 @@ export default async function AdminDashboardPage() {
           </div>
           <div className="admin-attention-pills">
             {stats.pendingOrdersCount > 0 && (
-              <Link href="/admin/orders" className="admin-attention-pill">
+              <Link href="/admin/orders" className="admin-attention-pill pill-amber">
                 <span className="admin-attention-pill-count">{stats.pendingOrdersCount}</span>
                 <span>orders pending settlement / processing</span>
                 <ChevronRight size={14} />
               </Link>
             )}
             {stats.pendingSellersCount > 0 && (
-              <Link href="/admin/sellers" className="admin-attention-pill">
+              <Link href="/admin/sellers" className="admin-attention-pill pill-amber">
                 <span className="admin-attention-pill-count">{stats.pendingSellersCount}</span>
                 <span>seller application{stats.pendingSellersCount > 1 ? 's' : ''} awaiting review</span>
                 <ChevronRight size={14} />
               </Link>
             )}
             {stats.pendingProductsCount > 0 && (
-              <Link href="/admin/products?status=submitted" className="admin-attention-pill">
+              <Link href="/admin/products?status=submitted" className="admin-attention-pill pill-blue">
                 <span className="admin-attention-pill-count">{stats.pendingProductsCount}</span>
                 <span>product{stats.pendingProductsCount > 1 ? 's' : ''} awaiting curation approval</span>
                 <ChevronRight size={14} />
@@ -88,11 +88,13 @@ export default async function AdminDashboardPage() {
       {/* KPI Metrics Grid */}
       <div className="kpi-grid">
         {/* Total Settled Revenue */}
-        <div className="kpi-card">
+        <div className="kpi-card kpi-card-green">
           <div>
             <div className="kpi-label">
               <span>Settled Gross Volume</span>
-              <TrendingUp size={15} color="var(--muted)" />
+              <span className="kpi-icon-wrap green">
+                <TrendingUp size={14} />
+              </span>
             </div>
             <div className="kpi-value">{money(stats.totalRevenue)}</div>
           </div>
@@ -102,11 +104,13 @@ export default async function AdminDashboardPage() {
         </div>
 
         {/* Orders Count */}
-        <div className="kpi-card">
+        <div className="kpi-card kpi-card-blue">
           <div>
             <div className="kpi-label">
               <span>Platform Orders</span>
-              <ShoppingBag size={15} color="var(--muted)" />
+              <span className="kpi-icon-wrap blue">
+                <ShoppingBag size={14} />
+              </span>
             </div>
             <div className="kpi-value">{stats.totalOrdersCount}</div>
           </div>
@@ -116,11 +120,13 @@ export default async function AdminDashboardPage() {
         </div>
 
         {/* Sellers */}
-        <div className="kpi-card">
+        <div className="kpi-card kpi-card-violet">
           <div>
             <div className="kpi-label">
               <span>Seller Ecosystem</span>
-              <Store size={15} color="var(--muted)" />
+              <span className="kpi-icon-wrap violet">
+                <Store size={14} />
+              </span>
             </div>
             <div className="kpi-value">{stats.approvedSellersCount}</div>
           </div>
@@ -130,11 +136,13 @@ export default async function AdminDashboardPage() {
         </div>
 
         {/* Catalog */}
-        <div className="kpi-card">
+        <div className="kpi-card kpi-card-amber">
           <div>
             <div className="kpi-label">
               <span>Curated Catalog</span>
-              <Package size={15} color="var(--muted)" />
+              <span className="kpi-icon-wrap amber">
+                <Package size={14} />
+              </span>
             </div>
             <div className="kpi-value">{stats.approvedProductsCount}</div>
           </div>
@@ -298,7 +306,11 @@ export default async function AdminDashboardPage() {
                       <span className={`status-pill ${seller.seller_status === 'approved' ? 'approved' : seller.seller_status === 'suspended' ? 'suspended' : 'pending'}`}>
                         {seller.seller_status}
                       </span>
-                      <Link href={`/admin/sellers`} className="button button-ghost" style={{ padding: '6px 10px', fontSize: '11px' }}>
+                      <Link
+                        href={`/admin/sellers`}
+                        className={`button ${seller.seller_status === 'pending' ? 'button-attention-amber' : 'button-ghost'}`}
+                        style={{ padding: '6px 12px', fontSize: '11px' }}
+                      >
                         Review
                       </Link>
                     </div>
