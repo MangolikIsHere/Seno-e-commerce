@@ -124,7 +124,56 @@ export function GlobalNavigationTransition() {
 
   return (
     <div className="seno-nav-loader-container" aria-label="Loading page" role="status">
-      <div className="seno-nav-loader-s" aria-hidden="true">S</div>
+      <div className="seno-nav-loader-backdrop" aria-hidden="true" />
+      <div className="seno-nav-loader-medallion" aria-hidden="true">
+        <svg
+          className="seno-nav-loader-halo"
+          viewBox="0 0 88 88"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id="senoNavHaloGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#C5A059" stopOpacity="0.95" />
+              <stop offset="40%" stopColor="#171717" stopOpacity="0.85" />
+              <stop offset="100%" stopColor="#171717" stopOpacity="0.05" />
+            </linearGradient>
+          </defs>
+          {/* Subtle outer static guide track */}
+          <circle
+            cx="44"
+            cy="44"
+            r="39"
+            stroke="rgba(23, 23, 23, 0.08)"
+            strokeWidth="1"
+          />
+          {/* Delicate inner dashed horology ring */}
+          <circle
+            cx="44"
+            cy="44"
+            r="34"
+            stroke="rgba(197, 160, 89, 0.22)"
+            strokeWidth="0.75"
+            strokeDasharray="2 3.5"
+          />
+          {/* Rotating luxury accent arc */}
+          <circle
+            className="seno-nav-loader-arc"
+            cx="44"
+            cy="44"
+            r="39"
+            stroke="url(#senoNavHaloGrad)"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeDasharray="54 191"
+          />
+        </svg>
+
+        <div className="seno-nav-loader-content">
+          <span className="seno-nav-loader-s">S</span>
+          <span className="seno-nav-loader-brand">SENO</span>
+        </div>
+      </div>
     </div>
   )
 }

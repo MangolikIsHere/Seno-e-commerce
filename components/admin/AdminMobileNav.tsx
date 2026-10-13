@@ -18,7 +18,8 @@ import {
   ArrowUpRight,
   User,
   ShieldCheck,
-  LogOut
+  LogOut,
+  ChevronRight
 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -157,9 +158,13 @@ export function AdminMobileNav({ adminEmail }: AdminMobileNavProps) {
                       href={item.href}
                       className={`admin-mobile-nav-link ${isActive ? 'active' : ''}`}
                       onClick={() => setIsOpen(false)}
+                      aria-current={isActive ? 'page' : undefined}
                     >
-                      <Icon size={18} strokeWidth={isActive ? 2 : 1.5} />
-                      <span>{item.label}</span>
+                      <span className="admin-mobile-nav-link-main">
+                        <Icon size={18} strokeWidth={isActive ? 2 : 1.5} />
+                        <span>{item.label}</span>
+                      </span>
+                      <ChevronRight size={15} />
                     </Link>
                   )
                 })}
@@ -212,6 +217,39 @@ export function AdminMobileNav({ adminEmail }: AdminMobileNavProps) {
           </button>
         </div>
       </aside>
+
+      <nav className="admin-mobile-bottom-bar" aria-label="Quick admin navigation">
+        {[
+          { label: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
+          { label: 'Orders', href: '/admin/orders', icon: ShoppingBag },
+          { label: 'Products', href: '/admin/products', icon: PackageCheck },
+          { label: 'Sellers', href: '/admin/sellers', icon: Store },
+        ].map((item) => {
+          const Icon = item.icon
+          const active = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`admin-bottom-nav-item ${active ? 'active' : ''}`}
+              aria-current={active ? 'page' : undefined}
+            >
+              <Icon size={17} strokeWidth={active ? 2 : 1.6} />
+              <span>{item.label}</span>
+            </Link>
+          )
+        })}
+        <button
+          type="button"
+          className={`admin-bottom-nav-item ${isOpen ? 'active' : ''}`}
+          onClick={() => setIsOpen(true)}
+          aria-label="More admin options"
+          aria-expanded={isOpen}
+        >
+          <Menu size={17} />
+          <span>More</span>
+        </button>
+      </nav>
     </div>
   )
 }

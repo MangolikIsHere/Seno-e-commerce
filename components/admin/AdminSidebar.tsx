@@ -79,6 +79,7 @@ export function AdminSidebar({ adminEmail }: AdminSidebarProps) {
                 key={item.href}
                 href={item.href}
                 className={`admin-nav-item ${isActive ? 'active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
               >
                 <Icon size={16} strokeWidth={isActive ? 2 : 1.6} />
                 <span>{item.label}</span>
@@ -98,6 +99,7 @@ export function AdminSidebar({ adminEmail }: AdminSidebarProps) {
                 key={item.href}
                 href={item.href}
                 className={`admin-nav-item ${isActive ? 'active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
               >
                 <Icon size={16} strokeWidth={isActive ? 2 : 1.6} />
                 <span>{item.label}</span>
@@ -117,6 +119,7 @@ export function AdminSidebar({ adminEmail }: AdminSidebarProps) {
                 key={item.href}
                 href={item.href}
                 className={`admin-nav-item ${isActive ? 'active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
               >
                 <Icon size={16} strokeWidth={isActive ? 2 : 1.6} />
                 <span>{item.label}</span>

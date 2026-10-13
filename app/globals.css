@@ -3545,6 +3545,36 @@ textarea.input-field {
   background: var(--surface-subtle);
 }
 
+/* Admin navigation follows the Seller Studio's quiet, grouped rhythm while
+   keeping the denser information architecture needed for operations. */
+.admin-sidebar {
+  width: 248px;
+  box-shadow: 1px 0 0 rgba(23, 23, 23, 0.015);
+}
+
+.admin-sidebar-scroll-container {
+  padding: 20px 14px;
+  gap: 20px;
+}
+
+.admin-sidebar-header {
+  padding: 4px 10px 16px;
+}
+
+.admin-nav-group {
+  gap: 2px;
+}
+
+.admin-nav-item {
+  min-height: 42px;
+  padding: 10px 12px;
+}
+
+.admin-nav-item.active {
+  border-left: 0;
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
 .admin-profile-pill {
   display: flex;
   align-items: center;
@@ -3802,6 +3832,227 @@ textarea.input-field {
   }
 }
 
+/* Seller-inspired persistent mobile quick navigation. The drawer remains the
+   source of truth for less frequent admin destinations. */
+.admin-mobile-bottom-bar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .admin-content-area {
+    padding: 18px 12px calc(82px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .admin-mobile-header {
+    padding: 10px 12px;
+    min-height: 56px;
+  }
+
+  .admin-mobile-header-brand {
+    min-width: 0;
+  }
+
+  .admin-mobile-header-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .admin-mobile-menu-trigger {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    padding: 6px 9px;
+  }
+
+  .admin-mobile-menu-label {
+    display: none;
+  }
+
+  .admin-mobile-drawer {
+    width: min(340px, calc(100vw - 20px));
+  }
+
+  .admin-mobile-nav-link {
+    justify-content: space-between;
+  }
+
+  .admin-mobile-nav-link-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .admin-mobile-nav-link > svg {
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .admin-mobile-bottom-bar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 50;
+    display: flex;
+    align-items: stretch;
+    min-height: 60px;
+    padding-bottom: env(safe-area-inset-bottom, 8px);
+    background: rgba(255, 255, 255, 0.96);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.04);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .admin-bottom-nav-item {
+    flex: 1;
+    min-width: 0;
+    min-height: 52px;
+    padding: 7px 3px 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: var(--muted);
+    font-size: 9.5px;
+    font-weight: 500;
+    line-height: 1.1;
+    white-space: nowrap;
+    touch-action: manipulation;
+  }
+
+  .admin-bottom-nav-item.active {
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  .admin-top-bar {
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+
+  .admin-page-title {
+    font-size: clamp(25px, 8vw, 32px);
+  }
+
+  .admin-page-subtitle {
+    font-size: 12px;
+  }
+
+  .admin-header-actions {
+    width: 100%;
+  }
+
+  .admin-header-actions .button {
+    flex: 1;
+    justify-content: center;
+    min-height: 42px;
+  }
+
+  .admin-attention-card {
+    padding: 15px;
+    margin-bottom: 22px;
+  }
+
+  .admin-attention-pills {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-attention-pill {
+    min-width: 0;
+    align-items: flex-start;
+  }
+
+  .admin-attention-pill span:not(.admin-attention-pill-count) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+
+  .kpi-card {
+    min-height: 112px;
+    padding: 14px;
+  }
+
+  .kpi-label {
+    gap: 6px;
+    font-size: 9.5px;
+    letter-spacing: 0.7px;
+  }
+
+  .kpi-value {
+    font-size: clamp(21px, 7vw, 27px);
+    overflow-wrap: anywhere;
+  }
+
+  .kpi-meta {
+    font-size: 10.5px;
+    line-height: 1.35;
+  }
+
+  .admin-grid-two-col {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .admin-table-card {
+    margin-bottom: 18px;
+  }
+
+  .admin-table-header-row {
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .admin-view-all-link {
+    flex-shrink: 0;
+  }
+
+  .admin-seller-row-item {
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .admin-seller-row-item > div:first-child {
+    min-width: 0;
+  }
+
+  .admin-seller-row-item > div:first-child div {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 359px) {
+  .admin-content-area {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .kpi-card {
+    padding: 12px 10px;
+  }
+
+  .kpi-icon-wrap {
+    width: 23px;
+    height: 23px;
+  }
+
+  .admin-page-title {
+    font-size: 25px;
+  }
+}
+
 /* CONTENT CONTAINER */
 .admin-content-area {
   flex: 1;
@@ -3812,6 +4063,7 @@ textarea.input-field {
 .admin-page-container {
   max-width: 1280px;
   margin: 0 auto;
+  width: 100%;
 }
 
 /* ADMIN TOP BAR */
@@ -5423,70 +5675,179 @@ textarea.input-field {
 
 .seno-nav-loader-container {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  width: 108px;
-  height: 108px;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
-  background: rgba(251, 251, 250, 0.9);
-  border: 1px solid rgba(34, 34, 34, 0.12);
-  border-radius: 50%;
-  box-shadow: 0 18px 45px rgba(34, 34, 34, 0.1), 0 2px 8px rgba(34, 34, 34, 0.06);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transform: translate(-50%, -50%);
+  z-index: 99999;
   pointer-events: none;
   opacity: 0;
-  animation: senoNavigationFeedback 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards;
-  will-change: opacity, transform;
+  animation: senoNavFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) 0.08s forwards;
+  will-change: opacity;
 }
 
-@keyframes senoNavigationFeedback {
+@keyframes senoNavFadeIn {
   from {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.86);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
   }
+}
+
+.seno-nav-loader-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(251, 251, 250, 0.38);
+  backdrop-filter: blur(8px) saturate(160%);
+  -webkit-backdrop-filter: blur(8px) saturate(160%);
+  pointer-events: none;
+}
+
+.seno-nav-loader-medallion {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(135% 135% at 20% 20%, rgba(255, 255, 255, 0.96) 0%, rgba(251, 250, 248, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 24px 48px -12px rgba(23, 23, 23, 0.14),
+    0 8px 20px -4px rgba(23, 23, 23, 0.06),
+    inset 0 0 0 1px rgba(197, 160, 89, 0.18),
+    inset 0 1px 2px rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  animation: senoMedallionIn 0.34s cubic-bezier(0.16, 1, 0.3, 1) 0.08s forwards;
+  opacity: 0;
+  transform: scale(0.92);
+  will-change: transform, opacity;
+}
+
+.seno-nav-loader-medallion::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(197, 160, 89, 0.22) 0%, rgba(197, 160, 89, 0) 70%);
+  z-index: -1;
+  pointer-events: none;
+  animation: senoHaloGlow 2.2s ease-in-out infinite;
+}
+
+@keyframes senoHaloGlow {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes senoMedallionIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.seno-nav-loader-halo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.seno-nav-loader-arc {
+  transform-origin: 44px 44px;
+  animation: senoHaloRotate 1.7s cubic-bezier(0.42, 0.08, 0.58, 0.92) infinite;
+}
+
+@keyframes senoHaloRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.seno-nav-loader-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  user-select: none;
+  transform: translateY(-1px);
 }
 
 .seno-nav-loader-s {
-  font-family: Georgia, serif;
-  font-size: 46px;
-  font-weight: 700;
-  color: var(--ink);
-  letter-spacing: -3px;
+  font-family: "Didot", "Bodoni MT", "Cinzel", Georgia, "Times New Roman", serif;
+  font-size: 33px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
   line-height: 1;
-  opacity: 0.86;
-  transform: translateY(-2px);
-  animation: premiumSPulse 1.35s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  background: linear-gradient(180deg, #171717 0%, #2a2a2a 70%, #434343 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #171717;
+  display: block;
+  animation: senoLuxuryBreathe 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  will-change: transform, opacity;
 }
 
-@keyframes premiumSPulse {
+@keyframes senoLuxuryBreathe {
   0%, 100% {
-    opacity: 0.58;
-    transform: translateY(-2px) scale(0.96);
+    transform: scale(0.985);
+    opacity: 0.92;
   }
   50% {
+    transform: scale(1.02);
     opacity: 1;
-    transform: translateY(-2px) scale(1.04);
   }
+}
+
+.seno-nav-loader-brand {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;
+  text-transform: uppercase;
+  color: #7b7874;
+  margin-top: 3px;
+  opacity: 0.85;
+  line-height: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .seno-nav-loader-container,
-  .seno-nav-loader-s {
-    animation: none;
+  .seno-nav-loader-medallion,
+  .seno-nav-loader-arc,
+  .seno-nav-loader-s,
+  .seno-nav-loader-medallion::before {
+    animation: none !important;
   }
 
-  .seno-nav-loader-container {
+  .seno-nav-loader-container,
+  .seno-nav-loader-medallion {
     opacity: 1;
-    transform: translate(-50%, -50%);
+    transform: none;
   }
 }
 
@@ -6271,7 +6632,9 @@ textarea.input-field {
    The full-screen "S" overlay is redundant and disruptive inside the APK.
    ========================================================================== */
 
-.seno-android-app .seno-nav-loader-container {
+.seno-android-app .seno-nav-loader-container,
+.seno-android-app .seno-nav-loader-backdrop,
+.seno-android-app .seno-nav-loader-medallion {
   display: none !important;
 }
 
