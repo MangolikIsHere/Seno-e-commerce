@@ -195,7 +195,21 @@ function mapProductRow(row: any): Product {
 }
 
 const selectQuery = `
-  *,
+  id,
+  seller_id,
+  category_id,
+  slug,
+  name,
+  description,
+  details,
+  price,
+  compare_at_price,
+  default_weight_grams,
+  shipping_method,
+  custom_delivery_charge,
+  is_new,
+  is_bestseller,
+  created_at,
   categories!inner(name, slug, is_active),
   product_images(url, is_primary, display_order),
   product_variants(id, size, colour, sku, price_override, weight_grams_override, is_active, inventory(quantity))

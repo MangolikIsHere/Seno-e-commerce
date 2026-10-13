@@ -37,6 +37,7 @@ export function ProductDetailClient({
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false)
   const [buyNowPolicyModalOpen, setBuyNowPolicyModalOpen] = useState(false)
   const [addedNotice, setAddedNotice] = useState(false)
+  const [wishlistNotice, setWishlistNotice] = useState(false)
   const [backUrl, setBackUrl] = useState('/collections/all')
 
   // Read return context saved by ProductCard when navigating to this product
@@ -101,10 +102,17 @@ export function ProductDetailClient({
         router.push('/checkout')
         return
       }
+
     } catch {
       // Ignore storage restrictions
     }
     setBuyNowPolicyModalOpen(true)
+  }
+
+  const handleWishlistToggle = () => {
+    toggleWishlist(product.slug)
+    setWishlistNotice(true)
+    window.setTimeout(() => setWishlistNotice(false), 1800)
   }
 
   const handleContinueBuyNowCheckout = () => {
@@ -356,11 +364,17 @@ export function ProductDetailClient({
 
             <button
               className={`wishlist-toggle-icon-btn ${wishlisted ? 'active' : ''}`}
-              onClick={() => toggleWishlist(product.slug)}
+              onClick={handleWishlistToggle}
               title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
             >
               <Heart size={18} fill={wishlisted ? 'currentColor' : 'none'} />
             </button>
+            {wishlistNotice && (
+              <span className="product-action-feedback" role="status">
+                {wishlisted ? 'REMOVED FROM WISHLIST' : 'SAVED TO WISHLIST'}
+              </span>
+            )}
           </div>
 
           {canAddToCart && (

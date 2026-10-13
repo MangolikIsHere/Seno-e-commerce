@@ -65,17 +65,17 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params
-  const [product, activePromotions] = await Promise.all([
-    getCachedProduct(slug),
-    getActivePromotions()
-  ])
+  const product = await getCachedProduct(slug)
 
   if (!product) {
     notFound()
   }
 
+  const [activePromotions, relatedProducts] = await Promise.all([
+    getActivePromotions(),
+    getCachedRelatedProducts(product, 4),
+  ])
   const applicablePromotion = activePromotions.find(promo => isProductEligibleForPromotion(product, promo)) || null
-  const relatedProducts = await getCachedRelatedProducts(product, 4)
 
   // Schema.org Product Structured Data
   const jsonLd = {

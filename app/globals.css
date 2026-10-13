@@ -1866,6 +1866,15 @@ a {
   border-color: var(--clay);
 }
 
+.product-action-feedback {
+  grid-column: 1 / -1;
+  color: var(--clay);
+  font-size: 10px;
+  letter-spacing: 1.3px;
+  text-align: right;
+  text-transform: uppercase;
+}
+
 .product-info-sidebar .buy-now-btn {
   min-height: 48px;
   margin-top: 10px;
@@ -5414,42 +5423,71 @@ textarea.input-field {
 
 .seno-nav-loader-container {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  top: 50%;
+  left: 50%;
+  width: 108px;
+  height: 108px;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 99999;
-  /* Fully opaque and instant — old page must NEVER show through, even for 1ms */
-  background-color: #fbfbfa;
-  opacity: 1;
-  /* Block all touch/click interaction with old page while navigating */
-  pointer-events: all;
-  transition: opacity 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-  will-change: opacity;
+  z-index: 9999;
+  background: rgba(251, 251, 250, 0.9);
+  border: 1px solid rgba(34, 34, 34, 0.12);
+  border-radius: 50%;
+  box-shadow: 0 18px 45px rgba(34, 34, 34, 0.1), 0 2px 8px rgba(34, 34, 34, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  animation: senoNavigationFeedback 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards;
+  will-change: opacity, transform;
 }
 
-.seno-nav-loader-container.revealing {
-  opacity: 0;
-  pointer-events: none;
+@keyframes senoNavigationFeedback {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 .seno-nav-loader-s {
-  font-family: var(--font-outfit), sans-serif;
-  font-size: 32px;
-  font-weight: 500;
+  font-family: Georgia, serif;
+  font-size: 46px;
+  font-weight: 700;
   color: var(--ink);
-  letter-spacing: -1px;
-  opacity: 0.8;
-  animation: pulseRotate 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  letter-spacing: -3px;
+  line-height: 1;
+  opacity: 0.86;
+  transform: translateY(-2px);
+  animation: premiumSPulse 1.35s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-@keyframes pulseRotate {
-  0%   { transform: scale(0.95); opacity: 0.5; }
-  50%  { transform: scale(1.05); opacity: 1; }
-  100% { transform: scale(0.95); opacity: 0.5; }
+@keyframes premiumSPulse {
+  0%, 100% {
+    opacity: 0.58;
+    transform: translateY(-2px) scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seno-nav-loader-container,
+  .seno-nav-loader-s {
+    animation: none;
+  }
+
+  .seno-nav-loader-container {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
 }
 
 /* ==========================================================================
