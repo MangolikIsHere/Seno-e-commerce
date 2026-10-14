@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { Heart, Check } from 'lucide-react'
 import { Product, money } from '@/lib/catalog'
+import { getColourSwatchHex, normalizeColourKey } from '@/lib/colours'
 import { useStore } from '@/context/StoreContext'
 import { SenoImage } from '@/components/SenoImage'
 
@@ -16,6 +17,7 @@ interface ProductCardProps {
 export function ProductCard({ product, returnContext, promotionBadge }: ProductCardProps) {
   const { toggleWishlist, isWishlisted, addToCart } = useStore()
   const [added, setAdded] = useState(false)
+  const [activeColour, setActiveColour] = useState<string | null>(null)
 
   const wishlisted = isWishlisted(product.slug)
   const activePromoBadge = promotionBadge || (product as any).promotionBadge
@@ -29,7 +31,10 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    const availableVariant = product.variants?.find(v => v.inventoryQuantity > 0)
+    const availableVariant = product.variants?.find(v =>
+      (!activeColour || (v.colour || '').trim().toLowerCase() === activeColour.trim().toLowerCase()) &&
+      v.inventoryQuantity > 0
+    ) || product.variants?.find(v => v.inventoryQuantity > 0)
     if (availableVariant) {
       addToCart(product, availableVariant)
       setAdded(true)
@@ -37,8 +42,15 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
     }
   }
 
-  const primaryImg = product.image
+  const colourPrimaryImg = activeColour
+    ? (product.colourPrimaries?.[normalizeColourKey(activeColour)] || product.colourImages?.[normalizeColourKey(activeColour)]?.[0])
+    : null
+
+  const primaryImg = colourPrimaryImg || product.image
   const secondaryImg = product.hoverImage && product.hoverImage !== product.image ? product.hoverImage : null
+  const productHref = activeColour
+    ? `/products/${product.slug}?colour=${encodeURIComponent(activeColour)}`
+    : `/products/${product.slug}`
 
   const handleProductLinkClick = () => {
     if (!returnContext) return
@@ -53,7 +65,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
     <article className="product-card group" style={{ position: 'relative' }}>
       {/* Image section: navigates to product */}
       <Link
-        href={`/products/${product.slug}`}
+        href={productHref}
         className="product-visual-wrapper"
         style={{ display: 'block', position: 'relative' }}
         data-return-context={returnContext || undefined}
@@ -67,7 +79,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
 
-          {secondaryImg && (
+          {secondaryImg && !activeColour && (
             <SenoImage
               src={secondaryImg}
               alt=""
@@ -97,7 +109,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
             ) : null}
           </div>
 
-          {/* Quick Add - inside image block, absolute positioned, stops propagation, marked data-no-navigation */}
+          {/* Quick Add */}
           {!product.soldOut && (
             <button
               className="quick-add-btn"
@@ -116,7 +128,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
             </button>
           )}
 
-          {/* Wishlist - inside image block, absolute positioned, stops propagation, marked data-no-navigation */}
+          {/* Wishlist */}
           <button
             className={`wishlist-btn ${wishlisted ? 'liked' : ''}`}
             aria-label={wishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
@@ -131,7 +143,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
 
       {/* Text section: navigates to product */}
       <Link 
-        href={`/products/${product.slug}`} 
+        href={productHref} 
         style={{ display: 'block' }} 
         data-return-context={returnContext || undefined}
         onClick={handleProductLinkClick}
@@ -143,6 +155,54 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
           <h3 className="product-name-heading" style={{ fontSize: '13px', fontWeight: 500, margin: '4px 0 6px', color: 'var(--ink)' }}>
             {product.name}
           </h3>
+
+          {/* Subtle Colour Swatches Indicator */}
+          {product.colors && product.colors.length > 1 && product.colors[0] !== 'Default' && (
+            <div
+              className="product-card-swatches"
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', margin: '4px 0 6px' }}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+            >
+              {product.colors.slice(0, 5).map(col => {
+                const hex = getColourSwatchHex(col)
+                const isSelected = (activeColour || product.colors[0]).trim().toLowerCase() === col.trim().toLowerCase()
+                return (
+                  <button
+                    key={col}
+                    type="button"
+                    title={col}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setActiveColour(col)
+                    }}
+                    onMouseEnter={() => setActiveColour(col)}
+                    style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      backgroundColor: hex,
+                      border: hex.toLowerCase() === '#ffffff' || hex.toLowerCase() === '#fff' ? '1px solid #ccc' : '1px solid rgba(0,0,0,0.15)',
+                      padding: 0,
+                      cursor: 'pointer',
+                      outline: isSelected ? '1px solid var(--ink)' : 'none',
+                      outlineOffset: '1px',
+                      transition: 'transform 0.15s ease'
+                    }}
+                  />
+                )
+              })}
+              {product.colors.length > 5 && (
+                <span style={{ fontSize: '9.5px', color: 'var(--muted)' }}>
+                  +{product.colors.length - 5}
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="product-price-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className="current-price" style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--ink)' }}>
               {money(product.price)}

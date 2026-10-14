@@ -151,8 +151,8 @@ export function CartDrawer() {
                 <div className="cart-item-row" key={item.variant_id}>
                   <div style={{ width: '70px', height: '90px', flexShrink: 0, overflow: 'hidden', background: 'var(--surface-subtle)', borderRadius: '2px' }}>
                     <SenoImage
-                      src={item.product.image}
-                      alt={item.product.name}
+                      src={item.image_url || item.product.image}
+                      alt={`${item.product.name} ${item.colour ? `- ${item.colour}` : ''}`}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                   </div>

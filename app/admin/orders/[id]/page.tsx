@@ -217,9 +217,13 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                   {/* Seller Items List */}
                   <div style={{ padding: '0 16px' }}>
                     {group.items.map((item: any, itmIdx: number) => {
-                      const primaryImage = item.products?.product_images?.find((img: any) => img.is_primary)?.url || item.products?.product_images?.[0]?.url
                       const variantColour = item.variant_details?.colour
                       const variantSize = item.variant_details?.size
+                      const colourImages = item.products?.details?.__colour_images || {}
+                      const colourPrimaries = item.products?.details?.__colour_primaries || {}
+                      const normCol = variantColour ? variantColour.trim().toLowerCase() : ''
+                      const colourSpecificImage = normCol ? (colourPrimaries[normCol] || colourImages[normCol]?.[0]) : null
+                      const primaryImage = colourSpecificImage || item.products?.product_images?.find((img: any) => img.is_primary)?.url || item.products?.product_images?.[0]?.url
 
                       return (
                         <div

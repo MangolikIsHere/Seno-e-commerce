@@ -27,10 +27,11 @@ import {
 import { submitSellerProduct } from '@/lib/sellers'
 import { createClient } from '@/utils/supabase/client'
 import { money, parseReturnPolicy } from '@/lib/catalog'
+import { ProductColoursManager } from '@/components/ProductColoursManager'
 
 type Step = 1 | 2 | 3 | 4 | 5
-type ImageItem = { url: string; display_order?: number; is_primary?: boolean }
-type VariantItem = { size: string; colour: string; sku: string; quantity: string; id?: string }
+type ImageItem = { url: string; display_order?: number; is_primary?: boolean; colour?: string | null; is_colour_primary?: boolean }
+type VariantItem = { size: string; colour: string; sku: string; quantity: string | number; id?: string; price_override?: number | null; is_active?: boolean }
 
 const slugify = (value: string) => 
   value
@@ -281,7 +282,7 @@ export function ProductForm({
 
   const stepsList = [
     { title: 'Basic Information', desc: 'Title, URL & Category' },
-    { title: 'Media', desc: 'Photos & Cover' },
+    { title: 'Colours & Images', desc: 'Colour Groups & Galleries' },
     { title: 'Pricing & Delivery', desc: 'Price & Shipping' },
     { title: 'Variants & Stock', desc: 'Sizes, SKUs & Qty' },
     { title: 'Review & Submit', desc: 'Preview & Verification' }
@@ -528,176 +529,34 @@ export function ProductForm({
         </section>
       )}
 
-      {/* STEP 2: MEDIA & PHOTOGRAPHY */}
+      {/* STEP 2: MEDIA & COLOUR SPECIFIC IMAGERY */}
       {step === 2 && (
         <section className="admin-table-card" style={{ padding: '32px' }}>
-          <div style={{ marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
-            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Product Photography & Imagery</h2>
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
-              High-resolution imagery reflecting SENO studio aesthetic. First image will serve as primary catalog cover.
-            </p>
-          </div>
-
-          <div className="media-dropzone" style={{ marginBottom: '28px' }}>
-            <ImagePlus size={32} color="var(--muted)" style={{ margin: '0 auto 12px' }} strokeWidth={1.4} />
-            <h3 style={{ fontSize: '15px', fontWeight: 600, margin: '0 0 6px' }}>
-              Upload High-Resolution Product Imagery
-            </h3>
-            <p style={{ color: 'var(--muted)', fontSize: '12px', margin: '0 0 16px', maxWidth: '440px', marginLeft: 'auto', marginRight: 'auto' }}>
-              Recommended: 3:4 portrait aspect ratio (min. 1200×1600px). Supported formats: JPG, PNG, WebP up to 5MB each.
-            </p>
-            <label className="button button-primary" style={{ padding: '10px 22px', fontSize: '11px' }}>
-              {uploading ? (
-                <>
-                  <Loader2 size={14} className="spin" /> Uploading Photography...
-                </>
-              ) : (
-                <>
-                  <Plus size={14} /> Select & Upload Images
-                </>
-              )}
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={uploadImages}
-                hidden
-                disabled={uploading}
-              />
-            </label>
-
-            <div style={{ display: 'flex', gap: '8px', maxWidth: '460px', margin: '16px auto 0' }}>
-              <input
-                id="seller-image-url-input"
-                type="url"
-                className="input-field"
-                placeholder="Or paste direct image URL (https://...)"
-                value={imageUrlInput}
-                onChange={e => setImageUrlInput(e.target.value)}
-                style={{ fontSize: '12px', padding: '8px 12px' }}
-              />
-              <button
-                id="seller-image-add-url-btn"
-                type="button"
-                className="button button-outline"
-                style={{ fontSize: '11px', whiteSpace: 'nowrap', padding: '8px 14px' }}
-                onClick={() => {
-                  if (imageUrlInput.trim()) {
-                    setImages(curr => [...curr, { url: imageUrlInput.trim(), display_order: curr.length, is_primary: curr.length === 0 }])
-                    setImageUrlInput('')
-                  }
-                }}
-              >
-                Add URL
-              </button>
-            </div>
-          </div>
-
-          {images.length > 0 ? (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, color: 'var(--muted)' }}>
-                  Uploaded Media Gallery ({images.length})
-                </span>
-                <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                  ★ Indicates primary catalog thumbnail
-                </span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px' }}>
-                {images.map((image, index) => (
-                  <div key={`${image.url}-${index}`} className={`product-image-card ${image.is_primary ? 'is-primary' : ''}`}>
-                    <div style={{ aspectRatio: '3/4', position: 'relative', background: '#f0f0ee' }}>
-                      <img
-                        src={image.url}
-                        alt={`${name} preview ${index + 1}`}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                      {image.is_primary && (
-                        <span
-                          style={{
-                            position: 'absolute',
-                            left: '8px',
-                            top: '8px',
-                            background: 'var(--ink)',
-                            color: '#fff',
-                            padding: '3px 8px',
-                            fontSize: '9px',
-                            letterSpacing: '0.8px',
-                            fontWeight: 700,
-                            borderRadius: '2px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          <Star size={10} fill="#fff" /> PRIMARY COVER
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="product-image-actions">
-                      <button
-                        type="button"
-                        title={image.is_primary ? 'Primary cover image' : 'Set as primary cover image'}
-                        className="image-icon-btn"
-                        onClick={() =>
-                          setImages(curr =>
-                            curr.map((item, itemIdx) => ({
-                              ...item,
-                              is_primary: itemIdx === index
-                            }))
-                          )
-                        }
-                        style={{ color: image.is_primary ? '#eab308' : 'var(--muted)' }}
-                      >
-                        <Star size={14} fill={image.is_primary ? 'currentColor' : 'none'} />
-                      </button>
-
-                      <div style={{ display: 'flex', gap: '2px' }}>
-                        <button
-                          type="button"
-                          title="Move left"
-                          className="image-icon-btn"
-                          disabled={index === 0}
-                          onClick={() => moveImage(index, -1)}
-                          style={{ opacity: index === 0 ? 0.3 : 1 }}
-                        >
-                          <ChevronLeft size={14} />
-                        </button>
-
-                        <button
-                          type="button"
-                          title="Move right"
-                          className="image-icon-btn"
-                          disabled={index === images.length - 1}
-                          onClick={() => moveImage(index, 1)}
-                          style={{ opacity: index === images.length - 1 ? 0.3 : 1 }}
-                        >
-                          <ChevronRight size={14} />
-                        </button>
-                      </div>
-
-                      <button
-                        type="button"
-                        title="Remove image"
-                        className="image-icon-btn danger"
-                        onClick={() => removeImage(index)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '24px', border: '1px solid var(--border)', background: '#fff', borderRadius: '2px' }}>
-              <p style={{ color: 'var(--muted)', fontSize: '13px', margin: 0 }}>
-                No images added yet. Upload at least one high quality portrait image to proceed.
-              </p>
-            </div>
-          )}
+          <ProductColoursManager
+            images={images as any}
+            setImages={setImages as any}
+            variants={variants as any}
+            setVariants={setVariants as any}
+            productSlug={slug}
+            productName={name}
+            basePrice={price}
+            onUploadFile={async (file: File) => {
+              try {
+                if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+                  return { url: '', error: 'Images must be valid image files (JPEG, PNG, WebP) under 5MB.' }
+                }
+                const supabase = createClient()
+                const extension = file.name.split('.').pop() || 'jpg'
+                const path = `seller/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
+                const result = await supabase.storage.from('product-images').upload(path, file)
+                if (result.error) return { url: '', error: result.error.message }
+                const publicUrl = supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl
+                return { url: publicUrl }
+              } catch (err: any) {
+                return { url: '', error: err.message || 'Image upload failed' }
+              }
+            }}
+          />
         </section>
       )}
 

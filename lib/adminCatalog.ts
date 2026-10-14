@@ -6,6 +6,7 @@ import { getAdminSupabase } from '@/lib/supabaseAdmin'
 import { revalidatePath } from 'next/cache'
 import { invalidateProductCache } from '@/lib/catalog-server'
 import { reconcileProductVariants } from '@/lib/variantReconciliation'
+import { buildProductColourImageMap, prepareColourDetailsPayload, normalizeColourKey } from '@/lib/colours'
 import fs from 'fs'
 import path from 'path'
 
@@ -15,6 +16,8 @@ export interface AdminProductImage {
   alt_text?: string
   display_order: number
   is_primary: boolean
+  colour?: string | null
+  is_colour_primary?: boolean
 }
 
 export interface AdminProductVariant {
@@ -334,15 +337,32 @@ export async function getAdminProductById(id: string) {
       }
     })
 
+  const { colourImages, colourPrimaries } = buildProductColourImageMap(data.product_images || [], data.details || [])
+
   const images = (data.product_images || [])
     .sort((a: any, b: any) => a.display_order - b.display_order)
-    .map((img: any) => ({
-      id: img.id,
-      url: img.url,
-      alt_text: img.alt_text || '',
-      display_order: img.display_order,
-      is_primary: img.is_primary
-    }))
+    .map((img: any) => {
+      let assignedColour = img.colour || null
+      let isColPrimary = !!img.is_colour_primary
+      if (!assignedColour) {
+        for (const [col, urls] of Object.entries(colourImages)) {
+          if (urls.includes(img.url)) {
+            assignedColour = col
+            if (colourPrimaries[col] === img.url) isColPrimary = true
+            break
+          }
+        }
+      }
+      return {
+        id: img.id,
+        url: img.url,
+        alt_text: img.alt_text || '',
+        display_order: img.display_order,
+        is_primary: img.is_primary,
+        colour: assignedColour,
+        is_colour_primary: isColPrimary
+      }
+    })
 
   const collectionIds = (data.collection_products || []).map((cp: any) => cp.collection_id)
 
@@ -350,6 +370,8 @@ export async function getAdminProductById(id: string) {
     ...data,
     variants,
     images,
+    colour_images: colourImages,
+    colour_primaries: colourPrimaries,
     collection_ids: collectionIds
   }
 }
@@ -400,11 +422,26 @@ export async function createAdminProduct(input: CreateProductInput) {
     throw new Error(`The slug "${finalSlug}" is already taken. Please choose another.`)
   }
 
-  // 3. Format details with return policy if provided
+  // 3. Format details with colour images mapping and return policy if provided
   const rawCreateDetails: any[] = Array.isArray(input.details) ? input.details : []
-  let formattedCreateDetails: any[] = rawCreateDetails
+  const colourImagesMap: Record<string, string[]> = {}
+  const colourPrimariesMap: Record<string, string> = {}
+  for (const img of input.images || []) {
+    if (img.colour && img.colour.trim()) {
+      const key = normalizeColourKey(img.colour)
+      if (!colourImagesMap[key]) colourImagesMap[key] = []
+      if (!colourImagesMap[key].includes(img.url)) {
+        colourImagesMap[key].push(img.url)
+      }
+      if (img.is_colour_primary || !colourPrimariesMap[key]) {
+        colourPrimariesMap[key] = img.url
+      }
+    }
+  }
+
+  let formattedCreateDetails: any[] = prepareColourDetailsPayload(rawCreateDetails, colourImagesMap, colourPrimariesMap)
   if (input.return_policy) {
-    const clean = rawCreateDetails.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
+    const clean = formattedCreateDetails.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
     formattedCreateDetails = [
       { __return_policy: input.return_policy },
       input.return_policy.is_returnable
@@ -458,17 +495,26 @@ export async function createAdminProduct(input: CreateProductInput) {
     await supabase.from('collection_products').insert(cpRows)
   }
 
-  // 5. Insert Images
+  // 5. Insert Images with colour assignment & single-primary guarantee
   if (input.images && input.images.length > 0) {
-    const hasExplicitPrimary = input.images.some(img => img.is_primary)
-    const imgRows = input.images.map((img, idx) => ({
+    let primaryIndex = input.images.findIndex(img => img.is_primary)
+    if (primaryIndex < 0) primaryIndex = 0
+
+    const fullRows = input.images.map((img, idx) => ({
       product_id: productId,
       url: img.url,
       alt_text: img.alt_text || input.name,
       display_order: idx,
-      is_primary: hasExplicitPrimary ? !!img.is_primary : idx === 0
+      is_primary: idx === primaryIndex,
+      colour: img.colour?.trim() || null,
+      is_colour_primary: !!img.is_colour_primary
     }))
-    await supabase.from('product_images').insert(imgRows)
+
+    const { error: imgErr } = await supabase.from('product_images').insert(fullRows)
+    if (imgErr) {
+      const baseRows = fullRows.map(({ colour, is_colour_primary, ...base }) => base)
+      await supabase.from('product_images').insert(baseRows)
+    }
   }
 
   // 6. Insert Variants & Inventory via Authoritative Reconciler
@@ -510,11 +556,26 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
     finalSlug = await generateUniqueSlug(input.name, id)
   }
 
-  // 2. Format details with return policy if provided
+  // 2. Format details with colour images mapping and return policy if provided
   const rawUpdateDetails: any[] = Array.isArray(input.details) ? input.details : []
-  let formattedUpdateDetails: any[] = rawUpdateDetails
+  const colourImagesMap: Record<string, string[]> = {}
+  const colourPrimariesMap: Record<string, string> = {}
+  for (const img of input.images || []) {
+    if (img.colour && img.colour.trim()) {
+      const key = normalizeColourKey(img.colour)
+      if (!colourImagesMap[key]) colourImagesMap[key] = []
+      if (!colourImagesMap[key].includes(img.url)) {
+        colourImagesMap[key].push(img.url)
+      }
+      if (img.is_colour_primary || !colourPrimariesMap[key]) {
+        colourPrimariesMap[key] = img.url
+      }
+    }
+  }
+
+  let formattedUpdateDetails: any[] = prepareColourDetailsPayload(rawUpdateDetails, colourImagesMap, colourPrimariesMap)
   if (input.return_policy) {
-    const clean = rawUpdateDetails.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
+    const clean = formattedUpdateDetails.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
     formattedUpdateDetails = [
       { __return_policy: input.return_policy },
       input.return_policy.is_returnable
@@ -564,19 +625,27 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
     await supabase.from('collection_products').insert(cpRows)
   }
 
-  // 4. Sync Images
-  // Clean existing images and replace with edited set to guarantee order and primary flag
+  // 4. Sync Images with colour assignment & single-primary guarantee
   await supabase.from('product_images').delete().eq('product_id', id)
   if (input.images && input.images.length > 0) {
-    const hasExplicitPrimary = input.images.some(img => img.is_primary)
-    const imgRows = input.images.map((img, idx) => ({
+    let primaryIndex = input.images.findIndex(img => img.is_primary)
+    if (primaryIndex < 0) primaryIndex = 0
+
+    const fullRows = input.images.map((img, idx) => ({
       product_id: id,
       url: img.url,
       alt_text: img.alt_text || input.name,
       display_order: idx,
-      is_primary: hasExplicitPrimary ? !!img.is_primary : idx === 0
+      is_primary: idx === primaryIndex,
+      colour: img.colour?.trim() || null,
+      is_colour_primary: !!img.is_colour_primary
     }))
-    await supabase.from('product_images').insert(imgRows)
+
+    const { error: imgErr } = await supabase.from('product_images').insert(fullRows)
+    if (imgErr) {
+      const baseRows = fullRows.map(({ colour, is_colour_primary, ...base }) => base)
+      await supabase.from('product_images').insert(baseRows)
+    }
   }
 
   // 5. Sync Variants & Inventory via Authoritative Reconciler

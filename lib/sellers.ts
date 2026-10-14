@@ -8,6 +8,7 @@ import { checkIsAdmin } from '@/lib/admin'
 import { reconcileProductVariants, ReconcileVariantInput } from '@/lib/variantReconciliation'
 import { revalidateCatalogPaths } from '@/lib/adminCatalog'
 import { getAdminSupabase } from '@/lib/supabaseAdmin'
+import { prepareColourDetailsPayload, normalizeColourKey } from '@/lib/colours'
 
 export type SellerStatus = 'pending' | 'commission_proposed' | 'commission_negotiation' | 'approved' | 'suspended' | 'rejected'
 
@@ -529,7 +530,22 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
 
   const cleanDetails = baseDetails.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
 
-  const detailsPayload = [
+  const colourImagesMap: Record<string, string[]> = {}
+  const colourPrimariesMap: Record<string, string> = {}
+  for (const img of images || []) {
+    if (img.colour && String(img.colour).trim()) {
+      const key = normalizeColourKey(img.colour)
+      if (!colourImagesMap[key]) colourImagesMap[key] = []
+      if (!colourImagesMap[key].includes(img.url)) {
+        colourImagesMap[key].push(img.url)
+      }
+      if (img.is_colour_primary || !colourPrimariesMap[key]) {
+        colourPrimariesMap[key] = img.url
+      }
+    }
+  }
+
+  const detailsPayload = prepareColourDetailsPayload([
     {
       __return_policy: {
         is_returnable,
@@ -541,7 +557,7 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
       ? `Return Policy: ${return_window_days} Days Return & Exchange`
       : 'Return Policy: Final Sale (Non-Returnable)',
     ...cleanDetails
-  ]
+  ], colourImagesMap, colourPrimariesMap)
 
   const rawApprovalStatus = formData.get('approval_status') as string
   const approval_status: 'draft' | 'submitted' = rawApprovalStatus === 'submitted' ? 'submitted' : 'draft'
@@ -593,17 +609,26 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
       throw new Error(productError.message)
     }
 
-    // Handle images (delete old, insert new)
+    // Handle images (delete old, insert new with colour assignment)
     await supabase.from('product_images').delete().eq('product_id', productId)
     if (images && images.length > 0) {
-      await supabase.from('product_images').insert(
-        images.map((img, i) => ({
-          product_id: productId,
-          url: img.url,
-          display_order: i,
-          is_primary: i === 0
-        }))
-      )
+      let primaryIndex = images.findIndex(img => img.is_primary)
+      if (primaryIndex < 0) primaryIndex = 0
+
+      const fullRows = images.map((img, i) => ({
+        product_id: productId,
+        url: img.url,
+        display_order: i,
+        is_primary: i === primaryIndex,
+        colour: img.colour?.trim() || null,
+        is_colour_primary: !!img.is_colour_primary
+      }))
+
+      const { error: imgErr } = await supabase.from('product_images').insert(fullRows)
+      if (imgErr) {
+        const baseRows = fullRows.map(({ colour, is_colour_primary, ...base }) => base)
+        await supabase.from('product_images').insert(baseRows)
+      }
     }
 
     await supabase.from('collection_products').delete().eq('product_id', productId)
@@ -647,16 +672,25 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
     }
     finalProductId = product.id
 
-    // Insert Images
+    // Insert Images with colour assignment
     if (images && images.length > 0) {
-      await supabase.from('product_images').insert(
-        images.map((img, i) => ({
-          product_id: product.id,
-          url: img.url,
-          display_order: i,
-          is_primary: i === 0
-        }))
-      )
+      let primaryIndex = images.findIndex(img => img.is_primary)
+      if (primaryIndex < 0) primaryIndex = 0
+
+      const fullRows = images.map((img, i) => ({
+        product_id: product.id,
+        url: img.url,
+        display_order: i,
+        is_primary: i === primaryIndex,
+        colour: img.colour?.trim() || null,
+        is_colour_primary: !!img.is_colour_primary
+      }))
+
+      const { error: imgErr } = await supabase.from('product_images').insert(fullRows)
+      if (imgErr) {
+        const baseRows = fullRows.map(({ colour, is_colour_primary, ...base }) => base)
+        await supabase.from('product_images').insert(baseRows)
+      }
     }
 
     if (collection_ids.length) await supabase.from('collection_products').insert(collection_ids.map((collection_id, display_order) => ({ collection_id, product_id: product.id, display_order })))

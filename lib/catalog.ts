@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { cache } from 'react'
+import { buildProductColourImageMap, getColourSwatchHex, normalizeColourKey } from './colours'
 
 export type Category = 'Ethnic & Traditional Wear' | 'Western' | 'Topwear' | 'Bottomwear' | 'Cosmetics' | 'Accessories' | string
 
@@ -79,6 +80,14 @@ export interface Product {
   colors: string[]
   color: string
   variants: Variant[]
+  colourImages?: Record<string, string[]>
+  colourPrimaries?: Record<string, string>
+  colourGroups?: {
+    colour: string
+    swatch: string
+    images: string[]
+    primaryImage: string
+  }[]
   soldOut?: boolean
   isNew?: boolean
   isBestseller?: boolean
@@ -163,6 +172,25 @@ function mapProductRow(row: any): Product {
     ? row.details.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
     : []
 
+  const { colourImages, colourPrimaries, allImages } = buildProductColourImageMap(pImages, row.details)
+  const finalImages = allImages.length > 0 ? allImages : (imageUrls.length > 0 ? imageUrls : [fallbackImg])
+
+  const colourGroups = colors.map(c => {
+    const key = normalizeColourKey(c)
+    const imgs = colourImages[key] && colourImages[key].length > 0 ? colourImages[key] : finalImages
+    const primary = colourPrimaries[key] || imgs[0] || image
+    return {
+      colour: c,
+      swatch: getColourSwatchHex(c),
+      images: imgs,
+      primaryImage: primary
+    }
+  })
+
+  // If the first colour has a primary image and row has no specific primary, use colour primary
+  const firstColourKey = colors[0] ? normalizeColourKey(colors[0]) : null
+  const resolvedMainImage = (firstColourKey && colourPrimaries[firstColourKey]) || image
+
   return {
     id: row.id,
     seller_id: row.seller_id,
@@ -179,12 +207,15 @@ function mapProductRow(row: any): Product {
     defaultWeightGrams: Number(row.default_weight_grams),
     shippingMethod: row.shipping_method === 'custom' ? 'custom' : 'weight_based',
     customDeliveryCharge: row.custom_delivery_charge == null ? undefined : Number(row.custom_delivery_charge),
-    image,
+    image: resolvedMainImage,
     hoverImage,
-    images: imageUrls.length > 0 ? imageUrls : [fallbackImg],
+    images: finalImages,
     sizes: sizes.length > 0 ? sizes : ['One size'],
     colors,
     color,
+    colourImages,
+    colourPrimaries,
+    colourGroups,
     variants,
     soldOut,
     isNew: row.is_new,

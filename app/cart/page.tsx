@@ -245,8 +245,8 @@ export default function CartPage() {
                 <div key={item.variant_id} className="cart-item-row">
                   <div className="cart-item-thumb">
                     <SenoImage
-                      src={item.product.image}
-                      alt={item.product.name}
+                      src={item.image_url || item.product.image}
+                      alt={`${item.product.name} ${item.colour ? `- ${item.colour}` : ''}`}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                   </div>

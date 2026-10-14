@@ -33,6 +33,7 @@ import {
   AdminProductVariant 
 } from '@/lib/adminCatalog'
 import { parseReturnPolicy } from '@/lib/catalog'
+import { ProductColoursManager } from '@/components/ProductColoursManager'
 
 function toClientSlug(text: string): string {
   return text
@@ -582,7 +583,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
         {[
           { id: 'details', label: '1. Basic Details', icon: Package },
           { id: 'pricing', label: '2. Pricing & Logistics', icon: DollarSign },
-          { id: 'media', label: `3. Gallery (${images.length})`, icon: ImageIcon },
+          { id: 'media', label: `3. Colours & Images (${images.length})`, icon: ImageIcon },
           { id: 'variants', label: `4. Variants & Stock (${variants.length})`, icon: Layers }
         ].map(tab => {
           const Icon = tab.icon
@@ -1038,164 +1039,32 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
           </div>
         )}
 
-        {/* TAB 3: MEDIA & GALLERY */}
+        {/* TAB 3: PRODUCT COLOURS & IMAGES */}
         {activeTab === 'media' && (
           <div className="admin-form-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Luxury Media Gallery</h3>
-                <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
-                  Upload high-resolution photography. The first image marked Primary will represent the piece across catalog cards and search results.
-                </p>
-              </div>
-            </div>
-
-            {/* Upload Box */}
-            <div style={{
-              border: '2px dashed var(--border)',
-              padding: '24px 16px',
-              textAlign: 'center',
-              borderRadius: '4px',
-              background: 'var(--surface-subtle)',
-              marginBottom: '24px'
-            }}>
-              <Upload size={28} color="var(--muted)" style={{ margin: '0 auto 10px' }} />
-              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}>
-                {uploadingImage ? 'Uploading image to Supabase Storage...' : 'Upload Piece Photography'}
-              </div>
-              <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '0 0 14px' }}>
-                PNG, JPG, WEBP, or AVIF up to 5MB. Stored directly in Supabase Storage.
-              </p>
-              <label className="dark-btn" style={{ padding: '8px 18px', fontSize: '11px', cursor: 'pointer', display: 'inline-block' }}>
-                Browse Files
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  disabled={uploadingImage}
-                  style={{ display: 'none' }}
-                />
-              </label>
-
-              <div style={{ margin: '16px auto', fontSize: '11px', color: 'var(--muted)' }}>— OR PASTE IMAGE URL —</div>
-
-              <div className="admin-gallery-url-row">
-                <input
-                  type="url"
-                  placeholder="https://images.unsplash.com/..."
-                  value={imageUrlInput}
-                  onChange={e => setImageUrlInput(e.target.value)}
-                  className="admin-form-input"
-                  style={{ flex: 1, minHeight: '40px' }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddImageUrl}
-                  className="outline-btn"
-                  style={{ padding: '8px 14px', fontSize: '11px', flexShrink: 0, minHeight: '40px' }}
-                >
-                  Add URL
-                </button>
-              </div>
-            </div>
-
-            {/* Gallery Preview List */}
-            {images.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '30px', color: 'var(--muted)', fontSize: '13px' }}>
-                No imagery added yet. Upload photography above to activate gallery.
-              </div>
-            ) : (
-              <div className="admin-gallery-preview-grid">
-                {images.map((img, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      border: img.is_primary ? '2px solid var(--ink)' : '1px solid var(--border)',
-                      borderRadius: '4px',
-                      overflow: 'hidden',
-                      background: 'var(--surface-subtle)',
-                      position: 'relative'
-                    }}
-                  >
-                    <div style={{ height: '220px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1c1c1c' }}>
-                      <img
-                        src={img.url}
-                        alt={`Photo ${idx + 1}`}
-                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                      />
-                      {img.is_primary && (
-                        <span style={{
-                          position: 'absolute',
-                          top: '8px',
-                          left: '8px',
-                          background: 'var(--ink)',
-                          color: '#ffffff',
-                          fontSize: '9px',
-                          fontWeight: 700,
-                          letterSpacing: '1px',
-                          padding: '3px 8px',
-                          borderRadius: '2px'
-                        }}>
-                          PRIMARY
-                        </span>
-                      )}
-                    </div>
-
-                    <div style={{ padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', borderTop: '1px solid var(--border)' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleSetPrimaryImage(idx)}
-                        disabled={img.is_primary}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: img.is_primary ? 'default' : 'pointer',
-                          fontSize: '11px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          color: img.is_primary ? 'var(--ink)' : 'var(--muted)',
-                          fontWeight: img.is_primary ? 600 : 400
-                        }}
-                      >
-                        <Star size={13} fill={img.is_primary ? 'currentColor' : 'none'} />
-                        <span>{img.is_primary ? 'Primary' : 'Make Primary'}</span>
-                      </button>
-
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleMoveImage(idx, 'up')}
-                          disabled={idx === 0}
-                          title="Move left"
-                          style={{ background: 'none', border: 'none', color: idx === 0 ? 'var(--border)' : 'var(--ink)', cursor: 'pointer' }}
-                        >
-                          <ChevronUp size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleMoveImage(idx, 'down')}
-                          disabled={idx === images.length - 1}
-                          title="Move right"
-                          style={{ background: 'none', border: 'none', color: idx === images.length - 1 ? 'var(--border)' : 'var(--ink)', cursor: 'pointer' }}
-                        >
-                          <ChevronDown size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImage(idx)}
-                          title="Remove image"
-                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', marginLeft: '4px' }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <ProductColoursManager
+              images={images}
+              setImages={setImages}
+              variants={variants}
+              setVariants={setVariants}
+              productSlug={slug}
+              productName={name}
+              basePrice={price}
+              setIsDirty={setIsDirty}
+              onUploadFile={async (file: File) => {
+                const fd = new FormData()
+                fd.append('file', file)
+                const res = await fetch('/api/admin/upload-image', {
+                  method: 'POST',
+                  body: fd
+                })
+                const data = await res.json()
+                if (!res.ok || data.error) {
+                  return { url: '', error: data.error || 'Upload failed' }
+                }
+                return { url: data.url }
+              }}
+            />
           </div>
         )}
 

@@ -649,7 +649,7 @@ export default function CheckoutPage() {
                 {cart.map(item => (
                   <div key={item.variant_id} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <div style={{ width: '48px', height: '64px', position: 'relative', flexShrink: 0, overflow: 'hidden', borderRadius: '2px', background: 'var(--surface-subtle)' }}>
-                      <img src={item.product.image} alt={item.product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={item.image_url || item.product?.image} alt={item.product?.name || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                     <div style={{ flex: 1, fontSize: '12px' }}>
                       <div style={{ fontWeight: 600 }}>{item.product.name}</div>
@@ -882,8 +882,8 @@ export default function CheckoutPage() {
                 {cart.map(item => (
                   <div key={item.variant_id} style={{ display: 'flex', gap: '14px', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
                     <img
-                      src={item.product.image}
-                      alt={item.product.name}
+                      src={item.image_url || item.product?.image}
+                      alt={item.product?.name || ''}
                       style={{ width: '56px', aspectRatio: '3/4', objectFit: 'cover' }}
                     />
                     <div style={{ flex: 1, fontSize: '12px', lineHeight: 1.4 }}>

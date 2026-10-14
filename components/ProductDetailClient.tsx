@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Heart, Minus, Plus, ShoppingBag, Check, RotateCcw } from 'lucide-react'
 import { money, Product } from '@/lib/catalog'
+import { getColourSwatchHex, normalizeColourKey } from '@/lib/colours'
 import { useStore } from '@/context/StoreContext'
 import { ProductCard } from '@/components/ProductCard'
 import { SizeGuideModal } from '@/components/SizeGuideModal'
@@ -28,10 +29,50 @@ export function ProductDetailClient({
   const router = useRouter()
   const { addToCart, toggleWishlist, isWishlisted } = useStore()
 
+  // Initialize selectedColour, respecting URL param ?colour= if present
+  const [selectedColour, setSelectedColour] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const urlParams = new URLSearchParams(window.location.search)
+        const colParam = urlParams.get('colour')
+        if (colParam && product.colors.some(c => c.trim().toLowerCase() === colParam.trim().toLowerCase())) {
+          return product.colors.find(c => c.trim().toLowerCase() === colParam.trim().toLowerCase()) || colParam
+        }
+      } catch {
+        // Ignore URL read error
+      }
+    }
+    return product.colors.length > 0 && product.colors[0] !== 'Default' ? product.colors[0] : (product.colors[0] || '')
+  })
+
+  // Sizes available for the currently selected colour
+  const availableSizesForSelectedColour = useMemo(() => {
+    if (!selectedColour || selectedColour === 'Default') return product.sizes
+    const variantsForColour = product.variants.filter(v =>
+      (v.colour || '').trim().toLowerCase() === selectedColour.trim().toLowerCase()
+    )
+    if (variantsForColour.length === 0) return product.sizes
+    const sizesSet = new Set<string>()
+    const res: string[] = []
+    for (const v of variantsForColour) {
+      const s = v.size?.trim()
+      if (s && !sizesSet.has(s.toLowerCase())) {
+        sizesSet.add(s.toLowerCase())
+        res.push(s)
+      }
+    }
+    return res.length > 0 ? res : product.sizes
+  }, [product.sizes, product.variants, selectedColour])
+
+  const [selectedSize, setSelectedSize] = useState<string>(() => {
+    if (availableSizesForSelectedColour.length === 1 && availableSizesForSelectedColour[0] !== 'One size') {
+      return availableSizesForSelectedColour[0]
+    }
+    return product.sizes.length === 1 ? product.sizes[0] : ''
+  })
+
   const [activeImgIndex, setActiveImgIndex] = useState(0)
   const [galleryRatio, setGalleryRatio] = useState<number | null>(null)
-  const [selectedSize, setSelectedSize] = useState<string>(product.sizes.length === 1 ? product.sizes[0] : '')
-  const [selectedColour, setSelectedColour] = useState<string>(product.colors.length === 1 ? product.colors[0] : '')
   const [quantity, setQuantity] = useState(1)
   const [openAccordion, setOpenAccordion] = useState<string>('Details')
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false)
@@ -39,6 +80,40 @@ export function ProductDetailClient({
   const [addedNotice, setAddedNotice] = useState(false)
   const [wishlistNotice, setWishlistNotice] = useState(false)
   const [backUrl, setBackUrl] = useState('/collections/all')
+
+  // Resolve active gallery images based on selectedColour
+  const activeColourKey = selectedColour ? normalizeColourKey(selectedColour) : ''
+  const colourSpecificImages = activeColourKey && product.colourImages?.[activeColourKey] && product.colourImages[activeColourKey].length > 0
+    ? product.colourImages[activeColourKey]
+    : null
+
+  const galleryImages = colourSpecificImages || (product.images.length > 0 ? product.images : [product.image])
+
+  // Handle switching colour
+  const handleSelectColour = (col: string) => {
+    if (col === selectedColour) return
+    setSelectedColour(col)
+    setActiveImgIndex(0) // Immediately display that colour's primary image
+
+    // If currently selected size is unavailable in the newly selected colour, clear or safely switch
+    if (selectedSize) {
+      const matchInNewColour = product.variants.find(v =>
+        (v.colour || '').trim().toLowerCase() === col.trim().toLowerCase() &&
+        (v.size || '').trim().toLowerCase() === selectedSize.trim().toLowerCase() &&
+        v.inventoryQuantity > 0
+      )
+      if (!matchInNewColour) {
+        const inStockSizesForNewColour = product.variants
+          .filter(v => (v.colour || '').trim().toLowerCase() === col.trim().toLowerCase() && v.inventoryQuantity > 0)
+          .map(v => v.size)
+        if (inStockSizesForNewColour.length === 1) {
+          setSelectedSize(inStockSizesForNewColour[0])
+        } else {
+          setSelectedSize('')
+        }
+      }
+    }
+  }
 
   // Read return context saved by ProductCard when navigating to this product
   useEffect(() => {
@@ -54,7 +129,6 @@ export function ProductDetailClient({
 
   const handleBackToShop = () => {
     try {
-      // Consume/clear return context so subsequent navigations don't use stale context
       sessionStorage.removeItem('seno_return_context')
     } catch {
       // Ignore storage errors
@@ -70,13 +144,12 @@ export function ProductDetailClient({
 
   // Reset selectedSize if no longer available in active sizes
   useEffect(() => {
-    if (selectedSize && !product.sizes.some(s => s.trim().toLowerCase() === selectedSize.trim().toLowerCase())) {
-      setSelectedSize(product.sizes.length === 1 ? product.sizes[0] : '')
+    if (selectedSize && !availableSizesForSelectedColour.some(s => s.trim().toLowerCase() === selectedSize.trim().toLowerCase())) {
+      setSelectedSize(availableSizesForSelectedColour.length === 1 ? availableSizesForSelectedColour[0] : '')
     }
-  }, [product.sizes, selectedSize])
+  }, [availableSizesForSelectedColour, selectedSize])
 
   const wishlisted = isWishlisted(product.slug)
-  const galleryImages = product.images.length > 0 ? product.images : [product.image]
 
   // Find currently selected variant (case-insensitive to avoid matching issues between Black vs BLACK)
   const selectedVariant = product.variants.find(v =>
@@ -270,16 +343,37 @@ export function ProductDetailClient({
                 <span>COLOUR:</span>
                 <strong>{selectedColour || 'SELECT COLOUR'}</strong>
               </div>
-              <div className="product-color-options">
+              <div className="product-color-options" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {product.colors.map(col => {
                   const avail = isColourAvailable(col)
+                  const swatchHex = getColourSwatchHex(col)
+                  const isSelected = selectedColour?.trim().toLowerCase() === col.trim().toLowerCase()
                   return (
                     <button
                       key={col}
-                      className={`color-selector-chip ${selectedColour === col ? 'selected' : ''} ${!avail ? 'out-of-stock' : ''}`}
-                      onClick={() => setSelectedColour(col)}
+                      type="button"
+                      className={`color-selector-chip ${isSelected ? 'selected' : ''} ${!avail ? 'out-of-stock' : ''}`}
+                      onClick={() => handleSelectColour(col)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        cursor: 'pointer'
+                      }}
                     >
-                      {col}
+                      <span
+                        className="color-swatch-circle"
+                        style={{
+                          display: 'inline-block',
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '50%',
+                          backgroundColor: swatchHex,
+                          border: swatchHex.toLowerCase() === '#ffffff' || swatchHex.toLowerCase() === '#fff' ? '1px solid #ccc' : '1px solid rgba(0,0,0,0.15)',
+                          flexShrink: 0
+                        }}
+                      />
+                      <span>{col}</span>
                     </button>
                   )
                 })}
@@ -288,7 +382,7 @@ export function ProductDetailClient({
           )}
 
           {/* Size Option Selector */}
-          {product.sizes && product.sizes.length > 0 && product.sizes[0] !== 'One size' && (
+          {availableSizesForSelectedColour && availableSizesForSelectedColour.length > 0 && availableSizesForSelectedColour[0] !== 'One size' && (
             <div className="product-option-section">
               <div className="product-option-label">
                 <span>SIZE:</span>
@@ -302,11 +396,12 @@ export function ProductDetailClient({
                 </button>
               </div>
               <div className="product-size-options">
-                {product.sizes.map(sz => {
+                {availableSizesForSelectedColour.map(sz => {
                   const avail = isSizeAvailable(sz)
                   return (
                     <button
                       key={sz}
+                      type="button"
                       className={`size-selector-chip ${selectedSize === sz ? 'selected' : ''} ${!avail ? 'out-of-stock' : ''}`}
                       onClick={() => setSelectedSize(sz)}
                     >

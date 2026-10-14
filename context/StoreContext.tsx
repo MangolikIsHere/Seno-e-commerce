@@ -17,6 +17,7 @@ export interface CartItem {
   size: string
   colour: string
   qty: number
+  image_url?: string
 }
 
 interface StoreContextType {
@@ -68,13 +69,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (savedCart) {
         const parsed = JSON.parse(savedCart)
         if (Array.isArray(parsed)) {
-          const normalized = parsed.map(item => ({
-            ...item,
-            shipping_method: (item.shipping_method || item.product?.shippingMethod || (item.product as any)?.shipping_method || 'weight_based') as 'weight_based' | 'custom',
-            custom_delivery_charge: item.custom_delivery_charge !== undefined
-              ? item.custom_delivery_charge
-              : (item.product?.customDeliveryCharge !== undefined ? item.product.customDeliveryCharge : (item.product as any)?.custom_delivery_charge)
-          }))
+          const normalized = parsed.map(item => {
+            const colKey = (item.colour || '').trim().toLowerCase()
+            const imgUrl = item.image_url
+              || (colKey && item.product?.colourPrimaries?.[colKey])
+              || (colKey && item.product?.colourImages?.[colKey]?.[0])
+              || item.product?.image
+            return {
+              ...item,
+              image_url: imgUrl,
+              shipping_method: (item.shipping_method || item.product?.shippingMethod || (item.product as any)?.shipping_method || 'weight_based') as 'weight_based' | 'custom',
+              custom_delivery_charge: item.custom_delivery_charge !== undefined
+                ? item.custom_delivery_charge
+                : (item.product?.customDeliveryCharge !== undefined ? item.product.customDeliveryCharge : (item.product as any)?.custom_delivery_charge)
+            }
+          })
           setCart(normalized)
         }
       }
@@ -160,7 +169,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       
       const price = variant.priceOverride ?? product.price
       const weight = variant.weightGramsOverride ?? product.defaultWeightGrams
-      
+      const colKey = (variant.colour || '').trim().toLowerCase()
+      const variantImage = (colKey && product.colourPrimaries?.[colKey])
+        || (colKey && product.colourImages?.[colKey]?.[0])
+        || product.image
+
       return [...prev, {
         product,
         variant_id: variant.id,
@@ -172,7 +185,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         custom_delivery_charge: product.customDeliveryCharge !== undefined ? product.customDeliveryCharge : (product as any).custom_delivery_charge,
         size: variant.size,
         colour: variant.colour,
-        qty
+        qty,
+        image_url: variantImage
       }]
     })
     setCartOpen(true)
