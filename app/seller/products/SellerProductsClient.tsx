@@ -21,6 +21,7 @@ import { money } from '@/lib/catalog'
 import { SenoImage } from '@/components/SenoImage'
 import { ProductActions } from '@/components/admin/ProductActions'
 import { QuickInventoryModal } from '@/components/seller/QuickInventoryModal'
+import { parseRevisionFeedback } from '@/lib/revisionFeedback'
 
 export function SellerProductsClient({ products, categories }: { products: any[]; categories: any[] }) {
   const [query, setQuery] = useState('')
@@ -185,15 +186,29 @@ export function SellerProductsClient({ products, categories }: { products: any[]
                   </div>
 
                   {/* Rejection / Action Note Callout */}
-                  {isRejected && product.rejection_reason && (
-                    <div className="seller-card-rejection-callout">
-                      <div className="callout-header">
-                        <AlertCircle size={14} color="#e11d48" />
-                        <strong>Admin Feedback</strong>
+                  {isRejected && product.rejection_reason && (() => {
+                    const feedback = parseRevisionFeedback(product.rejection_reason, product.details)
+                    const instructions = feedback?.instructions || product.rejection_reason
+                    return (
+                      <div className="seller-card-rejection-callout">
+                        <div className="callout-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <AlertCircle size={14} color="#e11d48" />
+                            <strong>Admin Requested Changes</strong>
+                          </div>
+                          <Link 
+                            href={`/seller/products/${product.id}/revisions`}
+                            style={{ fontSize: '11px', color: '#e11d48', fontWeight: 600, textDecoration: 'underline' }}
+                          >
+                            View Full Instructions
+                          </Link>
+                        </div>
+                        <p className="callout-text" style={{ margin: '6px 0 0', fontSize: '12px', lineHeight: 1.45 }}>
+                          {instructions}
+                        </p>
                       </div>
-                      <p className="callout-text">{product.rejection_reason}</p>
-                    </div>
-                  )}
+                    )
+                  })()}
 
                   {/* Mobile Quick Action Buttons */}
                   <div className="seller-card-actions-row">
@@ -264,12 +279,24 @@ export function SellerProductsClient({ products, categories }: { products: any[]
                             <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'monospace', marginTop: '2px' }}>
                               /{product.slug}
                             </div>
-                            {isRejected && product.rejection_reason && (
-                              <div style={{ marginTop: '4px', fontSize: '11px', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <AlertCircle size={12} />
-                                <span>{product.rejection_reason}</span>
-                              </div>
-                            )}
+                            {isRejected && product.rejection_reason && (() => {
+                              const feedback = parseRevisionFeedback(product.rejection_reason, product.details)
+                              const instructions = feedback?.instructions || product.rejection_reason
+                              return (
+                                <div style={{ marginTop: '5px', fontSize: '11px', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                  <AlertCircle size={12} style={{ flexShrink: 0 }} />
+                                  <span style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={instructions}>
+                                    {instructions}
+                                  </span>
+                                  <Link 
+                                    href={`/seller/products/${product.id}/revisions`}
+                                    style={{ color: '#b91c1c', fontWeight: 600, textDecoration: 'underline', flexShrink: 0 }}
+                                  >
+                                    View Full Instructions
+                                  </Link>
+                                </div>
+                              )
+                            })()}
                           </div>
                         </div>
                       </td>
@@ -329,6 +356,17 @@ export function SellerProductsClient({ products, categories }: { products: any[]
                             <span>Stock</span>
                           </button>
 
+                          {isRejected && (
+                            <Link
+                              href={`/seller/products/${product.id}/revisions`}
+                              className="button button-outline"
+                              style={{ padding: '6px 10px', fontSize: '11px', minHeight: '32px', borderColor: '#fca5a5', color: '#991b1b', gap: '4px' }}
+                              title="View Revision Feedback"
+                            >
+                              <AlertCircle size={12} />
+                              <span>Feedback</span>
+                            </Link>
+                          )}
                           <Link
                             href={`/seller/products/${product.id}/edit`}
                             className="button button-outline"

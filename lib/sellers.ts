@@ -9,6 +9,12 @@ import { reconcileProductVariants, ReconcileVariantInput } from '@/lib/variantRe
 import { revalidateCatalogPaths } from '@/lib/adminCatalog'
 import { getAdminSupabase } from '@/lib/supabaseAdmin'
 import { prepareColourDetailsPayload, normalizeColourKey } from '@/lib/colours'
+import { 
+  parseRevisionFeedback, 
+  formatRevisionSummary, 
+  markLatestRevisionResubmitted,
+  extractRevisionHistory 
+} from '@/lib/revisionFeedback'
 
 export type SellerStatus = 'pending' | 'commission_proposed' | 'commission_negotiation' | 'approved' | 'suspended' | 'rejected'
 
@@ -400,9 +406,11 @@ export async function getSellerDashboardData() {
     })
   }
   rejectedProducts.forEach((p: any) => {
+    const feedback = parseRevisionFeedback(p.rejection_reason, p.details)
+    const summary = feedback ? formatRevisionSummary(feedback) : (p.rejection_reason || 'Check requirements')
     actions.push({
-      label: `"${p.name}" requires revisions: ${p.rejection_reason || 'Check requirements'}`,
-      href: `/seller/products/${p.id}/edit`,
+      label: `"${p.name}" requires revisions: ${summary}`,
+      href: `/seller/products/${p.id}/revisions`,
       severity: 'urgent'
     })
   })
@@ -578,6 +586,29 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
   if (duplicateSlug) throw new Error('This URL slug is already in use.')
 
   if (productId) {
+    const { data: existingProd } = await supabase
+      .from('products')
+      .select('approval_status, details')
+      .eq('id', productId)
+      .eq('seller_id', seller.id)
+      .maybeSingle()
+
+    let nextApprovalStatus: string | undefined = undefined
+    let finalDetails = detailsPayload
+
+    if (rawApprovalStatus === 'submitted') {
+      nextApprovalStatus = 'submitted'
+      finalDetails = markLatestRevisionResubmitted(detailsPayload)
+    } else if (rawApprovalStatus === 'draft') {
+      // If product was rejected and seller is saving draft edits without resubmitting,
+      // retain the requested-revision status until explicitly resubmitted
+      if (existingProd?.approval_status === 'rejected') {
+        nextApprovalStatus = 'rejected'
+      } else {
+        nextApprovalStatus = 'draft'
+      }
+    }
+
     // Update Product
     const { error: productError } = await supabase
       .from('products')
@@ -585,15 +616,14 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
         name,
         slug,
         description,
-        details: detailsPayload,
+        details: finalDetails,
         price,
         compare_at_price,
         default_weight_grams,
         category_id: category_id || null,
         shipping_method,
         custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null,
-        // Set status to submitted if requested (for review), or draft (to unpublish)
-        ...(rawApprovalStatus === 'submitted' ? { approval_status: 'submitted' } : rawApprovalStatus === 'draft' ? { approval_status: 'draft' } : {})
+        ...(nextApprovalStatus ? { approval_status: nextApprovalStatus } : {})
       })
       .eq('id', productId)
       .eq('seller_id', seller.id)
@@ -1292,3 +1322,47 @@ export async function deleteProductAction(productId: string): Promise<{ deleted:
   }
   return { deleted: true, archived: false }
 }
+
+export async function getSellerProductRevisionDetails(productId: string) {
+  const seller = await getMySellerRecord()
+  if (!seller) return null
+  const supabase = await createClient()
+
+  const cleanId = (productId || '').trim()
+  if (!cleanId) return null
+
+  const { data: product, error } = await supabase
+    .from('products')
+    .select(`
+      id,
+      name,
+      slug,
+      seller_id,
+      approval_status,
+      rejection_reason,
+      price,
+      compare_at_price,
+      created_at,
+      updated_at,
+      details,
+      categories(id, name, slug),
+      product_images(id, url, is_primary, display_order)
+    `)
+    .eq('id', cleanId)
+    .eq('seller_id', seller.id)
+    .maybeSingle()
+
+  if (error || !product) {
+    return null
+  }
+
+  const feedback = parseRevisionFeedback(product.rejection_reason, product.details)
+  const history = extractRevisionHistory(product.details)
+
+  return {
+    product,
+    feedback,
+    history
+  }
+}
+

@@ -707,7 +707,7 @@ export async function notifySellerProductDecision(
         product_name: product.name,
         action,
         reason,
-        deep_link: action === 'rejected' ? `/seller/products/${product.id}/edit` : '/seller/products'
+        deep_link: action === 'rejected' ? `/seller/products/${product.id}/revisions` : '/seller/products'
       },
       idempotencyKey: `seller_prod_${productId}_${action}_${Date.now()}`
     })

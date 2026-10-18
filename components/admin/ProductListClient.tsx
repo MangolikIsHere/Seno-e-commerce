@@ -410,6 +410,7 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                         <td>
                           <ProductApprovalForm
                             productId={product.id}
+                            productName={product.name}
                             currentStatus={product.approval_status}
                             currentReason={product.rejection_reason}
                           />

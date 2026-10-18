@@ -5,8 +5,18 @@ import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
-export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
+interface EditProductPageProps {
+  params: Promise<{ id: string }>
+  searchParams?: Promise<{ step?: string; focus?: string }>
+}
+
+export default async function EditProductPage({ params, searchParams }: EditProductPageProps) {
   const { id } = await params
+  const resolvedSearchParams = searchParams ? await searchParams : {}
+  const parsedStep = resolvedSearchParams.step ? parseInt(resolvedSearchParams.step, 10) : undefined
+  const initialStep = (parsedStep && parsedStep >= 1 && parsedStep <= 5) ? parsedStep : undefined
+  const initialFocus = resolvedSearchParams.focus
+
   const seller = await getMySellerRecord()
   
   if (!seller || seller.seller_status !== 'approved') {
@@ -52,7 +62,13 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
 
   return (
     <div className="static-page-container" style={{ maxWidth: '860px', paddingBottom: '96px', paddingTop: '16px' }}>
-      <ProductForm categories={categories || []} collections={collections || []} initialData={initialData} />
+      <ProductForm 
+        categories={categories || []} 
+        collections={collections || []} 
+        initialData={initialData} 
+        initialStep={initialStep}
+        initialFocus={initialFocus}
+      />
     </div>
   )
 }

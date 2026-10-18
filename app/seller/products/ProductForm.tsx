@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useTransition } from 'react'
+import React, { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { 
@@ -17,6 +17,7 @@ import {
   X, 
   Sparkles, 
   AlertCircle, 
+  AlertTriangle,
   Package, 
   Tag, 
   Truck,
@@ -28,6 +29,7 @@ import { submitSellerProduct } from '@/lib/sellers'
 import { createClient } from '@/utils/supabase/client'
 import { money, parseReturnPolicy } from '@/lib/catalog'
 import { ProductColoursManager } from '@/components/ProductColoursManager'
+import { parseRevisionFeedback, AFFECTED_FIELDS, AffectedFieldKey } from '@/lib/revisionFeedback'
 
 type Step = 1 | 2 | 3 | 4 | 5
 type ImageItem = { url: string; display_order?: number; is_primary?: boolean; colour?: string | null; is_colour_primary?: boolean }
@@ -44,16 +46,36 @@ const slugify = (value: string) =>
 export function ProductForm({ 
   categories, 
   collections = [], 
-  initialData = null 
+  initialData = null,
+  initialStep,
+  initialFocus
 }: { 
   categories: any[]
   collections?: any[]
-  initialData?: any 
+  initialData?: any
+  initialStep?: number
+  initialFocus?: string
 }) {
   const router = useRouter()
-  const [step, setStep] = useState<Step>(1)
+  const isRejected = initialData?.approval_status === 'rejected'
+  const revisionFeedback = isRejected ? parseRevisionFeedback(initialData?.rejection_reason, initialData?.details) : null
+
+  const [step, setStep] = useState<Step>(
+    (initialStep && [1, 2, 3, 4, 5].includes(initialStep)) ? (initialStep as Step) : 1
+  )
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (initialFocus) {
+      setTimeout(() => {
+        const el = document.getElementById(initialFocus)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 250)
+    }
+  }, [initialFocus])
   
   // Basic Info
   const [name, setName] = useState(initialData?.name || '')
@@ -340,6 +362,110 @@ export function ProductForm({
         </header>
       </div>
 
+      {/* Admin Revision Feedback Banner */}
+      {isRejected && revisionFeedback && (
+        <div
+          role="region"
+          aria-label="Admin Revision Feedback"
+          style={{
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderLeft: '4px solid #d97706',
+            borderRadius: '2px',
+            padding: '20px 24px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b45309', flexShrink: 0 }}>
+                <AlertTriangle size={18} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#92400e' }}>
+                  Admin Requested Revisions Before Approval
+                </h2>
+                <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#78350f' }}>
+                  Please review the requested corrections below, make the necessary edits across the relevant sections, and resubmit for review.
+                </p>
+              </div>
+            </div>
+
+            {initialData?.id && (
+              <Link
+                href={`/seller/products/${initialData.id}/revisions`}
+                className="button button-outline"
+                style={{ fontSize: '11px', padding: '6px 12px', background: '#fff', borderColor: '#fcd34d', color: '#92400e' }}
+              >
+                View Full Revision Details
+              </Link>
+            )}
+          </div>
+
+          <div style={{ background: '#fff', border: '1px solid #fde68a', borderRadius: '2px', padding: '14px 18px', marginBottom: '14px' }}>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#b45309', fontWeight: 600, marginBottom: '6px' }}>
+              Admin Instructions
+            </div>
+            <div style={{ fontSize: '13px', color: '#1c1917', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+              {revisionFeedback.instructions}
+            </div>
+          </div>
+
+          {revisionFeedback.additional_notes && (
+            <div style={{ background: 'rgba(254, 243, 199, 0.5)', border: '1px dashed #fde68a', borderRadius: '2px', padding: '10px 14px', marginBottom: '14px', fontSize: '12px', color: '#78350f' }}>
+              <strong>Additional Notes:</strong> {revisionFeedback.additional_notes}
+            </div>
+          )}
+
+          {revisionFeedback.affected_fields && revisionFeedback.affected_fields.length > 0 && (
+            <div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#78350f', fontWeight: 600, marginBottom: '8px' }}>
+                Affected Sections — Jump to Edit:
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {(revisionFeedback.affected_fields as AffectedFieldKey[]).map(key => {
+                  const cfg = AFFECTED_FIELDS[key]
+                  if (!cfg) return null
+                  const isCurrent = step === cfg.step
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setStep(cfg.step as Step)
+                        setTimeout(() => {
+                          const el = document.getElementById(cfg.anchor)
+                          if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                            if ('focus' in el && typeof el.focus === 'function') el.focus()
+                          }
+                        }, 100)
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        fontSize: '11.5px',
+                        fontWeight: 500,
+                        background: isCurrent ? '#92400e' : '#fff',
+                        color: isCurrent ? '#fff' : '#92400e',
+                        border: '1px solid #d97706',
+                        borderRadius: '2px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span>Step {cfg.step}: {cfg.label}</span>
+                      <ArrowRight size={12} />
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 5-Step Stepper */}
       <div className="seller-stepper-container" style={{ borderRadius: '2px', border: '1px solid var(--border)' }}>
         <div className="seller-stepper">
@@ -395,7 +521,15 @@ export function ProductForm({
 
       {/* STEP 1: BASIC INFORMATION */}
       {step === 1 && (
-        <section className="admin-table-card" style={{ padding: '32px' }}>
+        <section id="basic-info" className="admin-table-card" style={{ padding: '32px' }}>
+          {isRejected && revisionFeedback && (revisionFeedback.affected_fields?.includes('title_description') || revisionFeedback.affected_fields?.includes('category')) && (
+            <div style={{ marginBottom: '20px', padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '2px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              <AlertTriangle size={16} color="#d97706" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '12px', color: '#92400e' }}>
+                <strong>Revision requested on Piece Identification / Category:</strong> {revisionFeedback.instructions}
+              </div>
+            </div>
+          )}
           <div style={{ marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
             <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Piece Identification & Narrative</h2>
             <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
@@ -531,7 +665,15 @@ export function ProductForm({
 
       {/* STEP 2: MEDIA & COLOUR SPECIFIC IMAGERY */}
       {step === 2 && (
-        <section className="admin-table-card" style={{ padding: '32px' }}>
+        <section id="media-gallery" className="admin-table-card" style={{ padding: '32px' }}>
+          {isRejected && revisionFeedback && revisionFeedback.affected_fields?.includes('images') && (
+            <div style={{ marginBottom: '20px', padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '2px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              <AlertTriangle size={16} color="#d97706" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '12px', color: '#92400e' }}>
+                <strong>Revision requested on Images & Media:</strong> {revisionFeedback.instructions}
+              </div>
+            </div>
+          )}
           <ProductColoursManager
             images={images as any}
             setImages={setImages as any}
@@ -563,6 +705,14 @@ export function ProductForm({
       {/* STEP 3: PRICING & DELIVERY */}
       {step === 3 && (
         <section className="admin-table-card" style={{ padding: '32px' }}>
+          {isRejected && revisionFeedback && (revisionFeedback.affected_fields?.includes('pricing') || revisionFeedback.affected_fields?.includes('shipping_logistics')) && (
+            <div style={{ marginBottom: '20px', padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '2px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              <AlertTriangle size={16} color="#d97706" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '12px', color: '#92400e' }}>
+                <strong>Revision requested on Pricing & Logistics:</strong> {revisionFeedback.instructions}
+              </div>
+            </div>
+          )}
           <div style={{ marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
             <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Commercial Terms & Logistics</h2>
             <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
@@ -857,7 +1007,15 @@ export function ProductForm({
 
       {/* STEP 4: VARIANTS & INVENTORY */}
       {step === 4 && (
-        <section className="admin-table-card" style={{ padding: '32px' }}>
+        <section id="variants-table" className="admin-table-card" style={{ padding: '32px' }}>
+          {isRejected && revisionFeedback && (revisionFeedback.affected_fields?.includes('variants') || revisionFeedback.affected_fields?.includes('inventory')) && (
+            <div style={{ marginBottom: '20px', padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '2px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              <AlertTriangle size={16} color="#d97706" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '12px', color: '#92400e' }}>
+                <strong>Revision requested on Variants & Inventory:</strong> {revisionFeedback.instructions}
+              </div>
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
             <div>
               <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Variants & Inventory Matrix</h2>
@@ -1206,6 +1364,44 @@ export function ProductForm({
                 Submissions are reviewed by SENO quality team within 24–48 hours. Once approved, the piece goes live immediately.
               </div>
             </section>
+
+            {/* Revision Items Checklist (if rejected) */}
+            {isRejected && revisionFeedback && (
+              <section className="admin-table-card" style={{ padding: '20px', border: '1px solid #fde68a', background: '#fffdf5' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <AlertTriangle size={16} color="#d97706" />
+                  <h3 style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#92400e' }}>
+                    Revision Checklist
+                  </h3>
+                </div>
+                <div style={{ fontSize: '12px', color: '#78350f', marginBottom: '12px', lineHeight: 1.5 }}>
+                  Ensure you addressed the admin feedback before resubmitting:
+                  <div style={{ marginTop: '6px', padding: '8px 10px', background: '#fff', border: '1px solid #fde68a', borderRadius: '2px', fontStyle: 'italic' }}>
+                    &ldquo;{revisionFeedback.instructions}&rdquo;
+                  </div>
+                </div>
+                {revisionFeedback.affected_fields && revisionFeedback.affected_fields.length > 0 && (
+                  <div style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
+                    {(revisionFeedback.affected_fields as AffectedFieldKey[]).map(key => {
+                      const cfg = AFFECTED_FIELDS[key]
+                      if (!cfg) return null
+                      return (
+                        <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', background: '#fff', border: '1px solid #fef3c7', borderRadius: '2px' }}>
+                          <span style={{ color: '#92400e', fontWeight: 500 }}>{cfg.label}</span>
+                          <button
+                            type="button"
+                            onClick={() => setStep(cfg.step as Step)}
+                            style={{ background: 'none', border: 'none', color: '#b45309', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer' }}
+                          >
+                            Review (Step {cfg.step})
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         </div>
       )}
@@ -1261,7 +1457,7 @@ export function ProductForm({
                 onClick={() => submit(false)}
                 style={{ padding: '10px 20px', fontSize: '11px' }}
               >
-                {pending ? <Loader2 size={13} className="spin" /> : 'Save as Draft'}
+                {pending ? <Loader2 size={13} className="spin" /> : isRejected ? 'Save Draft Edits' : 'Save as Draft'}
               </button>
               
               <button 
@@ -1273,11 +1469,11 @@ export function ProductForm({
               >
                 {pending ? (
                   <>
-                    <Loader2 size={13} className="spin" /> {initialData?.approval_status === 'approved' ? 'Saving...' : 'Submitting...'}
+                    <Loader2 size={13} className="spin" /> {isRejected ? 'Resubmitting...' : initialData?.approval_status === 'approved' ? 'Saving...' : 'Submitting...'}
                   </>
                 ) : (
                   <>
-                    <Check size={13} /> {initialData?.approval_status === 'approved' ? 'Save Changes' : 'Submit for Review'}
+                    <Check size={13} /> {isRejected ? 'Resubmit for Review' : initialData?.approval_status === 'approved' ? 'Save Changes' : 'Submit for Review'}
                   </>
                 )}
               </button>

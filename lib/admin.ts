@@ -12,6 +12,12 @@ import {
   notifySellerAccountStatusChanged,
   notifySellerRefund
 } from '@/lib/notifications/service'
+import { 
+  serializeRevisionFeedback, 
+  parseRevisionFeedback, 
+  appendRevisionHistory, 
+  AffectedFieldKey 
+} from '@/lib/revisionFeedback'
 
 export async function checkIsAdmin() {
   const supabase = await createClient()
@@ -273,44 +279,79 @@ export async function updateSellerStatus(sellerId: string, status: string, commi
 // -------------------------------------------------------------
 
 export async function getSellerWithProposals(sellerId: string) {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
+
+  if (!sellerId || typeof sellerId !== 'string') {
+    return { seller: null, proposals: [] }
+  }
+
+  const cleanId = sellerId.trim()
+  if (!cleanId) {
+    return { seller: null, proposals: [] }
+  }
 
   const { data: seller, error: sellerError } = await supabase
     .from('sellers')
     .select('*')
-    .eq('id', sellerId)
-    .single()
+    .eq('id', cleanId)
+    .maybeSingle()
 
-  if (sellerError) throw new Error(sellerError.message)
+  if (sellerError) {
+    console.error('Error fetching seller in getSellerWithProposals:', sellerError)
+    throw new Error(sellerError.message)
+  }
+
+  if (!seller) {
+    return { seller: null, proposals: [] }
+  }
+
+  // Retrieve applicant profile data if user_id exists
+  if (seller.user_id) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, phone, role, created_at')
+      .eq('id', seller.user_id)
+      .maybeSingle()
+
+    if (profile) {
+      seller.profile = profile
+    }
+  }
 
   const { data: proposals, error: proposalsError } = await supabase
     .from('commission_proposals')
     .select('*')
-    .eq('seller_id', sellerId)
+    .eq('seller_id', cleanId)
     .order('created_at', { ascending: true })
 
-  if (proposalsError) throw new Error(proposalsError.message)
+  if (proposalsError) {
+    console.error('Error fetching proposals in getSellerWithProposals:', proposalsError)
+    return { seller, proposals: [] }
+  }
 
-  return { seller, proposals }
+  return { seller, proposals: proposals || [] }
 }
 
 export async function proposeCommission(sellerId: string, rate: number, message?: string) {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const userClient = await createClient()
+  const { data: { user } } = await userClient.auth.getUser()
+
+  const cleanId = (sellerId || '').trim()
 
   const { error: proposalError } = await supabase
     .from('commission_proposals')
     .insert({
-      seller_id: sellerId,
+      seller_id: cleanId,
       proposed_rate: rate,
       status: 'pending',
-      admin_message: message,
-      created_by: user?.id
+      admin_message: message || null,
+      created_by: user?.id || null
     })
 
   if (proposalError) throw new Error(proposalError.message)
@@ -319,21 +360,23 @@ export async function proposeCommission(sellerId: string, rate: number, message?
   const { error: sellerError } = await supabase
     .from('sellers')
     .update({ seller_status: 'commission_proposed' })
-    .eq('id', sellerId)
+    .eq('id', cleanId)
 
   if (sellerError) throw new Error(sellerError.message)
 
-  notifySellerAccountStatusChanged(sellerId, 'commission_proposed', message).catch(() => {})
+  notifySellerAccountStatusChanged(cleanId, 'commission_proposed', message).catch(() => {})
 
   revalidatePath('/admin/sellers')
-  revalidatePath(`/admin/sellers/${sellerId}`)
+  revalidatePath(`/admin/sellers/${cleanId}`)
   revalidatePath('/seller/dashboard')
 }
 
 export async function approveCommissionRequest(sellerId: string, proposalId: string, approvedRate: number) {
-  const supabase = await createClient()
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
+  const supabase = getAdminSupabase()
+
+  const cleanSellerId = (sellerId || '').trim()
 
   // Update proposal
   const { error: proposalError } = await supabase
@@ -344,10 +387,10 @@ export async function approveCommissionRequest(sellerId: string, proposalId: str
   if (proposalError) throw new Error(proposalError.message)
 
   // Update seller
-  await updateSellerStatus(sellerId, 'approved', approvedRate)
+  await updateSellerStatus(cleanSellerId, 'approved', approvedRate)
 
   revalidatePath('/admin/sellers')
-  revalidatePath(`/admin/sellers/${sellerId}`)
+  revalidatePath(`/admin/sellers/${cleanSellerId}`)
 }
 
 // -------------------------------------------------------------
@@ -369,7 +412,13 @@ export async function getPendingProducts() {
   return data
 }
 
-export async function updateProductApproval(productId: string, status: string, reason?: string) {
+export async function updateProductApproval(
+  productId: string, 
+  status: string, 
+  reason?: string,
+  affectedFields?: AffectedFieldKey[],
+  additionalNotes?: string
+) {
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized: Admin access required.')
   const supabase = getAdminSupabase()
@@ -384,7 +433,7 @@ export async function updateProductApproval(productId: string, status: string, r
 
   let findQuery = supabase
     .from('products')
-    .select('id, name, slug, seller_id, approval_status, is_active, published_at')
+    .select('id, name, slug, seller_id, approval_status, is_active, published_at, details, rejection_reason')
 
   if (isUuid) {
     findQuery = findQuery.eq('id', cleanId)
@@ -402,10 +451,43 @@ export async function updateProductApproval(productId: string, status: string, r
     throw new Error(`Product "${cleanId}" not found in database.`)
   }
 
+  // Prepare revision feedback if status is rejected
+  let serializedReason: string | null = null
+  let notificationReason: string | undefined = undefined
+  let updatedDetails = existing.details
+
+  if (status === 'rejected') {
+    const rawReason = (reason || '').trim()
+    let parsedFeedback = parseRevisionFeedback(rawReason)
+
+    if (affectedFields && affectedFields.length > 0) {
+      parsedFeedback = {
+        instructions: (parsedFeedback?.instructions || rawReason || 'Changes requested by SENO admin.').trim(),
+        affected_fields: affectedFields,
+        additional_notes: additionalNotes || parsedFeedback?.additional_notes || '',
+        requested_at: new Date().toISOString(),
+        status: 'pending_revision'
+      }
+    } else if (!parsedFeedback) {
+      parsedFeedback = {
+        instructions: rawReason || 'Changes requested by SENO admin.',
+        affected_fields: [],
+        additional_notes: additionalNotes || '',
+        requested_at: new Date().toISOString(),
+        status: 'pending_revision'
+      }
+    }
+
+    serializedReason = serializeRevisionFeedback(parsedFeedback)
+    notificationReason = parsedFeedback.instructions
+    updatedDetails = appendRevisionHistory(existing.details, parsedFeedback)
+  }
+
   // Perform authoritative status update
   const updatePayload: any = {
     approval_status: status,
-    rejection_reason: reason || null,
+    rejection_reason: status === 'rejected' ? serializedReason : null,
+    details: updatedDetails,
     updated_at: new Date().toISOString()
   }
 
@@ -435,13 +517,14 @@ export async function updateProductApproval(productId: string, status: string, r
 
   // Dispatch seller notification if product belongs to a seller
   try {
-    await notifySellerProductDecision(existing.id, status as any, reason)
+    await notifySellerProductDecision(existing.id, status as any, notificationReason || reason)
   } catch (notifErr) {
     console.warn('Failed to send seller notification:', notifErr)
   }
 
   revalidatePath('/admin/products')
   revalidatePath('/seller/products')
+  revalidatePath(`/seller/products/${existing.id}/revisions`)
   revalidatePath('/seller/dashboard')
   if (existing.slug) {
     revalidatePath(`/products/${existing.slug}`)
