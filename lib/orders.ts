@@ -296,7 +296,7 @@ export async function placeOrderAction(
       try {
         const { data: orderItemRows, error: itemsQueryError } = await supabase
           .from('order_items')
-          .select('variant_id, quantity, unit_price, product_id, products(id, name, slug, category_id, categories(name, slug))')
+          .select('variant_id, quantity, unit_price, unit_weight_grams, product_id, products(id, name, slug, category_id, categories(name, slug), default_weight_grams, shipping_method, custom_delivery_charge)')
           .eq('order_id', result.order_id)
 
         if (itemsQueryError) {
@@ -308,6 +308,10 @@ export async function placeOrderAction(
             const prod = row.products || {}
             const catName = prod.categories?.name || ''
             const catSlug = prod.categories?.slug || ''
+            const unitWeight = Number(row.unit_weight_grams || prod.default_weight_grams || 500)
+            const shipMethod = (prod.shipping_method as any) || 'weight_based'
+            const customCharge = prod.custom_delivery_charge != null ? Number(prod.custom_delivery_charge) : undefined
+
             return {
               product: {
                 id: prod.id || row.product_id,
@@ -317,8 +321,9 @@ export async function placeOrderAction(
                 category_id: prod.category_id,
                 description: prod.description || '',
                 price: Number(row.unit_price),
-                defaultWeightGrams: 500,
-                shippingMethod: 'weight_based',
+                defaultWeightGrams: unitWeight,
+                shippingMethod: shipMethod,
+                customDeliveryCharge: customCharge,
                 image: '',
                 hoverImage: '',
                 images: [],
@@ -333,8 +338,9 @@ export async function placeOrderAction(
               seller_id: '',
               sku: '',
               unit_price: Number(row.unit_price),
-              unit_weight_grams: 500,
-              shipping_method: 'weight_based',
+              unit_weight_grams: unitWeight,
+              shipping_method: shipMethod,
+              custom_delivery_charge: customCharge,
               size: '',
               colour: '',
               qty: row.quantity

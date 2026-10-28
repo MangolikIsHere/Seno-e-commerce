@@ -27,15 +27,27 @@ export interface ShippingLine {
   customDeliveryCharge?: number | null
 }
 
+/**
+ * SENO Standard Dynamic Delivery Rates:
+ * - Combined chargeable weight <= 600 grams: ₹60.00
+ * - Combined chargeable weight > 600 grams: ₹120.00
+ * - Exactly 600 g remains in the ₹60 tier.
+ * - Complimentary delivery threshold: ₹1,999.00
+ */
 export const DEFAULT_SHIPPING_SETTINGS: ShippingSettings = {
-  calculation_mode: 'base_incremental',
+  calculation_mode: 'weight_slab',
   free_shipping_threshold: 1999.00,
-  base_weight_grams: 500.00,
-  base_rate: 70.00,
-  incremental_weight_grams: 500.00,
-  incremental_rate: 20.00,
+  base_weight_grams: 600.00,
+  base_rate: 60.00,
+  incremental_weight_grams: 600.00,
+  incremental_rate: 60.00,
   is_active: true
 }
+
+export const SENO_DEFAULT_WEIGHT_SLABS: ShippingWeightRule[] = [
+  { min_weight_grams: 0, max_weight_grams: 600, rate: 60.0, display_order: 1, is_active: true },
+  { min_weight_grams: 600, max_weight_grams: 9999999, rate: 120.0, display_order: 2, is_active: true }
+]
 
 /**
  * Retrieves the single active shipping configuration and active weight slabs from Supabase.
@@ -64,13 +76,15 @@ export async function fetchActiveShippingConfig(): Promise<{
         : DEFAULT_SHIPPING_SETTINGS
 
     const rules: ShippingWeightRule[] =
-      !rulesError && rulesData ? rulesData : []
+      !rulesError && rulesData && rulesData.length > 0
+        ? rulesData
+        : SENO_DEFAULT_WEIGHT_SLABS
 
     return { settings, rules }
   } catch {
     return {
       settings: DEFAULT_SHIPPING_SETTINGS,
-      rules: []
+      rules: SENO_DEFAULT_WEIGHT_SLABS
     }
   }
 }
@@ -88,6 +102,10 @@ export function calculateShippingFee(
   settings: ShippingSettings = DEFAULT_SHIPPING_SETTINGS,
   rules: ShippingWeightRule[] = []
 ): number {
+  if (totalWeightGrams < 0) {
+    throw new Error('Total shipping weight cannot be negative.')
+  }
+
   // 1. Free shipping threshold
   if (
     settings.free_shipping_threshold !== null &&
@@ -101,48 +119,56 @@ export function calculateShippingFee(
     return 0.00
   }
 
-  // 2. Base + incremental mode
-  if (settings.calculation_mode === 'base_incremental') {
-    if (totalWeightGrams <= settings.base_weight_grams) {
-      return Number(settings.base_rate)
-    }
-
-    const extraWeight = totalWeightGrams - settings.base_weight_grams
-    const units = Math.ceil(extraWeight / settings.incremental_weight_grams)
-    return Number(settings.base_rate) + units * Number(settings.incremental_rate)
-  }
-
-  // 3. Weight slab mode
-  if (settings.calculation_mode === 'weight_slab' && rules.length > 0) {
-    const matchingRule = rules.find(
-      rule =>
-        totalWeightGrams >= rule.min_weight_grams &&
-        totalWeightGrams < rule.max_weight_grams
-    )
+  // 2. Weight slab mode
+  const effectiveRules = rules.length > 0 ? rules : SENO_DEFAULT_WEIGHT_SLABS
+  if (settings.calculation_mode === 'weight_slab' && effectiveRules.length > 0) {
+    const sortedRules = [...effectiveRules].sort((a, b) => a.max_weight_grams - b.max_weight_grams)
+    // Inclusive upper bound ensures exactly 600g matches the <= 600g tier
+    const matchingRule = sortedRules.find(rule => totalWeightGrams <= rule.max_weight_grams)
 
     if (matchingRule) {
       return Number(matchingRule.rate)
     }
 
-    // If total weight exceeds the highest defined slab, apply the highest slab rate
-    const highestRule = [...rules].sort(
-      (a, b) => b.max_weight_grams - a.max_weight_grams
-    )[0]
-
+    const highestRule = sortedRules[sortedRules.length - 1]
     if (highestRule) {
       return Number(highestRule.rate)
     }
   }
 
-  return Number(settings.base_rate)
+  // 3. SENO Standard Combined-Weight Delivery Rules (Fallback / Standard mode):
+  // - Combined chargeable weight <= 600 grams: ₹60.00
+  // - Combined chargeable weight > 600 grams: ₹120.00
+  // - Exactly 600 g remains in the ₹60 tier.
+  if (totalWeightGrams <= 600) {
+    return 60.00
+  }
+  return 120.00
 }
 
+/**
+ * Authoritative combined-weight line-level shipping calculator for SENO.
+ * Used identically across Cart, Checkout, and Server validations.
+ *
+ * Rules:
+ * - Evaluates weight-based products by combined quantity-adjusted weight: sum(unitWeightGrams * quantity).
+ * - Applies custom delivery charges for custom delivery products according to configured charges.
+ * - For mixed carts, combines all weight-based products together into a single weight tier charge,
+ *   then adds custom delivery charges.
+ * - Does not silently discard custom charges or count charges twice.
+ * - Enforces free shipping threshold on overall order subtotal.
+ * - Rejects negative weights or negative custom delivery charges.
+ */
 export function calculateShippingForLines(
   subtotal: number,
   lines: ShippingLine[],
   settings: ShippingSettings = DEFAULT_SHIPPING_SETTINGS,
   rules: ShippingWeightRule[] = []
 ): number {
+  if (!lines || lines.length === 0) {
+    return 0.00
+  }
+
   if (settings.free_shipping_threshold !== null && subtotal >= settings.free_shipping_threshold) {
     return 0.00
   }
@@ -150,18 +176,31 @@ export function calculateShippingForLines(
   const weightBasedLines = lines.filter(line => (line.shippingMethod || 'weight_based') !== 'custom')
   const customLines = lines.filter(line => (line.shippingMethod || 'weight_based') === 'custom')
 
-  const customCharge = customLines.reduce(
-    (sum, line) => sum + Math.max(0, Number(line.customDeliveryCharge || 0)),
-    0
-  )
+  const customCharge = customLines.reduce((sum, line) => {
+    const charge = Number(line.customDeliveryCharge || 0)
+    if (charge < 0) {
+      throw new Error('Custom delivery charge cannot be negative.')
+    }
+    return sum + charge
+  }, 0)
 
-  const weight = weightBasedLines.reduce(
-    (sum, line) => sum + (Number(line.unitWeightGrams) || 0) * (Number(line.quantity) || 1),
-    0
-  )
+  let combinedWeight = 0
+  for (const line of weightBasedLines) {
+    const unitWeight = line.unitWeightGrams !== undefined && line.unitWeightGrams !== null
+      ? Number(line.unitWeightGrams)
+      : 500
+    if (isNaN(unitWeight) || unitWeight < 0) {
+      throw new Error(`Invalid product weight: weight must be a positive number, received ${line.unitWeightGrams}.`)
+    }
+    const qty = line.quantity !== undefined && line.quantity !== null ? Number(line.quantity) : 1
+    if (isNaN(qty) || qty <= 0) {
+      throw new Error(`Invalid line quantity: quantity must be greater than zero, received ${line.quantity}.`)
+    }
+    combinedWeight += unitWeight * qty
+  }
 
   const weightBasedShipping = weightBasedLines.length > 0
-    ? calculateShippingFee(subtotal, weight, settings, rules)
+    ? calculateShippingFee(subtotal, combinedWeight, settings, rules)
     : 0.00
 
   return Number((weightBasedShipping + customCharge).toFixed(2))
