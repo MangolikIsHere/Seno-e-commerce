@@ -10,21 +10,24 @@ import {
   CreditCard, 
   CheckCircle2, 
   Clock, 
-  AlertCircle,
-  AlertTriangle,
-  X,
-  ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  Package,
-  Layers,
-  Store,
-  ShieldCheck,
-  Truck
+  AlertCircle, 
+  AlertTriangle, 
+  X, 
+  ChevronRight, 
+  ChevronDown, 
+  ChevronUp, 
+  Package, 
+  Layers, 
+  Store, 
+  ShieldCheck, 
+  Truck,
+  Archive,
+  ArchiveRestore
 } from 'lucide-react'
 import { money } from '@/lib/catalog'
 import { PrintReceiptTrigger } from '@/components/receipt/PrintReceiptTrigger'
 import { formatStateLabel } from '@/lib/utils'
+import { toggleOrderArchivedAction } from '@/lib/admin'
 import { 
   groupOrderItemsBySeller, 
   SellerOrderGroup, 

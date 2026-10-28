@@ -536,6 +536,32 @@ export async function updateProductApproval(
   return { success: true, product: updatedProduct }
 }
 
+export async function toggleOrderArchivedAction(formData: FormData) {
+  const isAdmin = await checkIsAdmin()
+  if (!isAdmin) throw new Error('Unauthorized: Admin access required.')
+  const supabase = getAdminSupabase()
+
+  const orderId = String(formData.get('orderId') || '')
+  const archived = formData.get('archived') === 'true'
+
+  if (!orderId) throw new Error('Order ID is required.')
+
+  const { error } = await supabase
+    .from('orders')
+    .update({ is_archived: archived })
+    .eq('id', orderId)
+
+  if (error) {
+    console.error('Error toggling order archive state:', error)
+    throw new Error(`Failed to update archive status: ${error.message}`)
+  }
+
+  revalidatePath('/admin/orders')
+  revalidatePath(`/admin/orders/${orderId}`)
+  revalidatePath('/admin/dashboard')
+  return { success: true, is_archived: archived }
+}
+
 export async function getPlatformOrders() {
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) throw new Error('Unauthorized')
@@ -557,7 +583,10 @@ export async function getPlatformOrders() {
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return data
+  return (data || []).map(order => ({
+    ...order,
+    is_archived: Boolean(order.is_archived)
+  }))
 }
 
 export async function getAdminOrderById(orderId: string) {
@@ -729,12 +758,22 @@ export async function getAdminOverviewStats(): Promise<AdminOverviewStats> {
   const supabase = getAdminSupabase()
 
   // 1. Orders
-  const { data: orders } = await supabase
+  let { data: orders, error: ordersError } = await supabase
     .from('orders')
-    .select('id, order_number, status, payment_status, total_amount, created_at, profiles(full_name, email)')
+    .select('id, order_number, status, payment_status, total_amount, created_at, is_archived, profiles(full_name, email)')
     .order('created_at', { ascending: false })
 
-  const allOrders = orders || []
+  if (ordersError && ordersError.message?.includes('is_archived')) {
+    const fallback = await supabase
+      .from('orders')
+      .select('id, order_number, status, payment_status, total_amount, created_at, profiles(full_name, email)')
+      .order('created_at', { ascending: false })
+    orders = fallback.data
+  }
+
+  const rawOrders = orders || []
+  // Only count operational (active / non-archived) orders in active dashboard metrics
+  const allOrders = rawOrders.filter(o => !o.is_archived)
   const paidOrders = allOrders.filter(o => o.payment_status === 'paid')
   const totalRevenue = paidOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
   const pendingOrders = allOrders.filter(o => o.status === 'pending' || o.payment_status === 'unpaid')
