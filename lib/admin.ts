@@ -16,6 +16,7 @@ import {
   serializeRevisionFeedback, 
   parseRevisionFeedback, 
   appendRevisionHistory, 
+  inferAffectedFields,
   AffectedFieldKey 
 } from '@/lib/revisionFeedback'
 
@@ -458,24 +459,24 @@ export async function updateProductApproval(
 
   if (status === 'rejected') {
     const rawReason = (reason || '').trim()
-    let parsedFeedback = parseRevisionFeedback(rawReason)
+    const baseParsed = parseRevisionFeedback(rawReason)
 
-    if (affectedFields && affectedFields.length > 0) {
-      parsedFeedback = {
-        instructions: (parsedFeedback?.instructions || rawReason || 'Changes requested by SENO admin.').trim(),
-        affected_fields: affectedFields,
-        additional_notes: additionalNotes || parsedFeedback?.additional_notes || '',
-        requested_at: new Date().toISOString(),
-        status: 'pending_revision'
-      }
-    } else if (!parsedFeedback) {
-      parsedFeedback = {
-        instructions: rawReason || 'Changes requested by SENO admin.',
-        affected_fields: [],
-        additional_notes: additionalNotes || '',
-        requested_at: new Date().toISOString(),
-        status: 'pending_revision'
-      }
+    const finalInstructions = (baseParsed?.instructions || rawReason || 'Changes requested by SENO admin.').trim()
+    const finalFields = (affectedFields && affectedFields.length > 0)
+      ? affectedFields
+      : (baseParsed?.affected_fields && baseParsed.affected_fields.length > 0)
+        ? baseParsed.affected_fields
+        : inferAffectedFields(finalInstructions)
+    const finalNotes = (additionalNotes !== undefined && additionalNotes !== null && additionalNotes.trim() !== '')
+      ? additionalNotes.trim()
+      : (baseParsed?.additional_notes || '')
+
+    const parsedFeedback = {
+      instructions: finalInstructions,
+      affected_fields: finalFields,
+      additional_notes: finalNotes,
+      requested_at: new Date().toISOString(),
+      status: 'pending_revision' as const
     }
 
     serializedReason = serializeRevisionFeedback(parsedFeedback)

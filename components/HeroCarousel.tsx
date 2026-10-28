@@ -51,7 +51,7 @@ export function HeroCarousel({ featuredPromotions = [] }: HeroCarouselProps) {
     imageUrl:
       promo.hero_image_url ||
       'https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1800&q=85',
-    imageAlt: promo.name
+    imageAlt: (promo as any).hero_image_alt || (promo.name ? `SENO Promotion — ${promo.name}` : 'SENO Featured Campaign')
   }))
 
   const allSlides: HeroSlide[] = [DEFAULT_BRAND_SLIDE, ...promoSlides].slice(0, 5)
@@ -207,9 +207,15 @@ export function HeroCarousel({ featuredPromotions = [] }: HeroCarouselProps) {
                   </span>
                 )}
 
-                <h1 className="hero-headline">
-                  {slide.headline}
-                </h1>
+                {idx === 0 ? (
+                  <h1 className="hero-headline">
+                    {slide.headline}
+                  </h1>
+                ) : (
+                  <h2 className="hero-headline">
+                    {slide.headline}
+                  </h2>
+                )}
 
                 {slide.subheading && (
                   <p className="hero-subheading-editorial">

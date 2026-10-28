@@ -82,6 +82,7 @@ export interface Product {
   variants: Variant[]
   colourImages?: Record<string, string[]>
   colourPrimaries?: Record<string, string>
+  colourHexes?: Record<string, string>
   colourGroups?: {
     colour: string
     swatch: string
@@ -97,15 +98,12 @@ export interface Product {
 
 export const money = (n: number) => `₹${n.toLocaleString('en-IN')}`
 
-const img = (path: string) => `https://images.unsplash.com/${path}?auto=format&fit=crop&w=1000&q=85`
-const fallbackImg = img('photo-1551028719-00167b16eac5')
-
 export function getPrimaryProductImage(row: any): string {
   const images = Array.isArray(row?.product_images)
     ? [...row.product_images].sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
     : []
   const imageUrl = images.map((image: any) => image.url || image.image_url).find(Boolean)
-  return imageUrl || row?.image || row?.images?.[0] || fallbackImg
+  return imageUrl || row?.image || row?.images?.[0] || ''
 }
 
 function mapProductRow(row: any): Product {
@@ -172,16 +170,16 @@ function mapProductRow(row: any): Product {
     ? row.details.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
     : []
 
-  const { colourImages, colourPrimaries, allImages } = buildProductColourImageMap(pImages, row.details)
-  const finalImages = allImages.length > 0 ? allImages : (imageUrls.length > 0 ? imageUrls : [fallbackImg])
+  const { colourImages, colourPrimaries, colourHexes, allImages } = buildProductColourImageMap(pImages, row.details)
+  const finalImages = allImages.length > 0 ? allImages : (imageUrls.length > 0 ? imageUrls : [])
 
   const colourGroups = colors.map(c => {
     const key = normalizeColourKey(c)
     const imgs = colourImages[key] && colourImages[key].length > 0 ? colourImages[key] : finalImages
-    const primary = colourPrimaries[key] || imgs[0] || image
+    const primary = colourPrimaries[key] || imgs[0] || image || ''
     return {
       colour: c,
-      swatch: getColourSwatchHex(c),
+      swatch: colourHexes[key] || getColourSwatchHex(c),
       images: imgs,
       primaryImage: primary
     }
@@ -189,7 +187,7 @@ function mapProductRow(row: any): Product {
 
   // If the first colour has a primary image and row has no specific primary, use colour primary
   const firstColourKey = colors[0] ? normalizeColourKey(colors[0]) : null
-  const resolvedMainImage = (firstColourKey && colourPrimaries[firstColourKey]) || image
+  const resolvedMainImage = (firstColourKey && colourPrimaries[firstColourKey]) || image || ''
 
   return {
     id: row.id,
@@ -215,6 +213,7 @@ function mapProductRow(row: any): Product {
     color,
     colourImages,
     colourPrimaries,
+    colourHexes,
     colourGroups,
     variants,
     soldOut,

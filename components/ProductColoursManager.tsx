@@ -19,7 +19,7 @@ import {
   ChevronUp,
   Info
 } from 'lucide-react'
-import { getColourSwatchHex, normalizeColourKey } from '@/lib/colours'
+import { getColourSwatchHex, getStandardHexForColour, normalizeColourKey } from '@/lib/colours'
 
 export interface ColourImageItem {
   id?: string
@@ -47,6 +47,9 @@ interface ProductColoursManagerProps {
   setImages: React.Dispatch<React.SetStateAction<ColourImageItem[]>> | ((images: ColourImageItem[]) => void)
   variants: ColourVariantItem[]
   setVariants: React.Dispatch<React.SetStateAction<ColourVariantItem[]>> | ((variants: ColourVariantItem[]) => void)
+  colourHexes?: Record<string, string>
+  setColourHexes?: React.Dispatch<React.SetStateAction<Record<string, string>>> | ((hexes: Record<string, string>) => void)
+  initialColourHexes?: Record<string, string>
   onUploadFile?: (file: File) => Promise<{ url: string; error?: string }>
   productSlug?: string
   productName?: string
@@ -65,20 +68,57 @@ function clientSlugify(text: string): string {
 }
 
 const STANDARD_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
-const POPULAR_COLOUR_PRESETS = ['Black', 'Washed Navy', 'White', 'Charcoal', 'Off White', 'Olive', 'Beige', 'Burgundy', 'Sand', 'Grey']
+const POPULAR_COLOUR_PRESETS = [
+  'Black',
+  'Washed Navy',
+  'Charcoal',
+  'White',
+  'Off White',
+  'Olive',
+  'Beige',
+  'Wine',
+  'Mustard',
+  'Burgundy',
+  'Sand',
+  'Grey'
+]
 
 export function ProductColoursManager({
   images,
   setImages,
   variants,
   setVariants,
+  colourHexes,
+  setColourHexes,
+  initialColourHexes,
   onUploadFile,
   productSlug = '',
   productName = '',
   basePrice = '',
   setIsDirty
 }: ProductColoursManagerProps) {
-  // 1. Identify distinct colours configured in either variants or images
+  const [internalColourHexes, setInternalColourHexes] = useState<Record<string, string>>(
+    colourHexes || initialColourHexes || {}
+  )
+
+  const effectiveColourHexes = colourHexes || internalColourHexes
+
+  const markDirty = () => {
+    if (setIsDirty) setIsDirty(true)
+  }
+
+  const updateColourHex = (colour: string, hex: string) => {
+    const key = normalizeColourKey(colour)
+    const cleanHex = hex.trim().toUpperCase()
+    const next = { ...effectiveColourHexes, [key]: cleanHex }
+    if (setColourHexes) {
+      setColourHexes(next)
+    }
+    setInternalColourHexes(next)
+    markDirty()
+  }
+
+  // 1. Identify distinct colours configured in variants, images, or saved hexes
   const configuredColours = useMemo(() => {
     const coloursSet = new Set<string>()
     const list: string[] = []
@@ -101,15 +141,20 @@ export function ProductColoursManager({
       addColour(img.colour)
     }
 
+    for (const c of Object.keys(effectiveColourHexes)) {
+      addColour(c)
+    }
+
     if (list.length === 0) {
       list.push('Black')
     }
 
     return list
-  }, [variants, images])
+  }, [variants, images, effectiveColourHexes])
 
   const [activeColour, setActiveColour] = useState<string>(configuredColours[0] || 'Black')
   const [newColourInput, setNewColourInput] = useState('')
+  const [newColourHex, setNewColourHex] = useState('#121212')
   const [showAddColourModal, setShowAddColourModal] = useState(false)
   const [showAssignExistingModal, setShowAssignExistingModal] = useState(false)
   const [showUrlInput, setShowUrlInput] = useState(false)
@@ -125,6 +170,14 @@ export function ProductColoursManager({
     : configuredColours[0] || 'Black'
 
   const activeColourKey = normalizeColourKey(currentColour)
+  const currentToneHex = getStandardHexForColour(currentColour, effectiveColourHexes[activeColourKey])
+  const isCustomToneSaved = !!effectiveColourHexes[activeColourKey]
+  const [activeHexInput, setActiveHexInput] = useState(currentToneHex)
+
+  // Sync activeHexInput when colour changes
+  React.useEffect(() => {
+    setActiveHexInput(getStandardHexForColour(currentColour, effectiveColourHexes[activeColourKey]))
+  }, [activeColourKey, effectiveColourHexes, currentColour])
 
   // Filter images for the current active colour
   const activeImages = useMemo(() => {
@@ -152,10 +205,6 @@ export function ProductColoursManager({
     return !images.some(img => normalizeColourKey(img.colour) === k)
   })
 
-  const markDirty = () => {
-    if (setIsDirty) setIsDirty(true)
-  }
-
   const updateImages = (updater: (prev: ColourImageItem[]) => ColourImageItem[]) => {
     const next = updater(images)
     setImages(next as any)
@@ -167,10 +216,20 @@ export function ProductColoursManager({
   }
 
   // --- Step 1: Colour Group Actions ---
-  const handleAddColourGroup = (colourName: string) => {
+  const handleOpenAddColourModal = () => {
+    setNewColourInput('')
+    setNewColourHex('#121212')
+    setShowAddColourModal(true)
+  }
+
+  const handleAddColourGroup = (colourName: string, chosenHex?: string) => {
     const trimmed = colourName.trim()
     if (!trimmed) return
     const key = normalizeColourKey(trimmed)
+
+    if (chosenHex) {
+      updateColourHex(trimmed, chosenHex)
+    }
 
     if (configuredColours.some(c => normalizeColourKey(c) === key)) {
       setActiveColour(trimmed)
@@ -213,6 +272,11 @@ export function ProductColoursManager({
 
     updateVariants((prev: ColourVariantItem[]) => prev.filter((v: ColourVariantItem) => normalizeColourKey(v.colour) !== key))
     updateImages((prev: ColourImageItem[]) => prev.filter((img: ColourImageItem) => normalizeColourKey(img.colour) !== key))
+
+    const nextHexes = { ...effectiveColourHexes }
+    delete nextHexes[key]
+    if (setColourHexes) setColourHexes(nextHexes)
+    setInternalColourHexes(nextHexes)
 
     const remaining = configuredColours.filter(c => normalizeColourKey(c) !== key)
     setActiveColour(remaining[0] || 'Black')
@@ -350,6 +414,14 @@ export function ProductColoursManager({
       if (remaining.length > 0 && !remaining.some((img: ColourImageItem) => img.is_primary)) {
         remaining[0].is_primary = true
       }
+      return remaining.map((img: ColourImageItem, idx: number) => ({ ...img, display_order: idx }))
+    })
+    markDirty()
+  }
+
+  const handleRemoveUnassignedImage = (targetUrl: string) => {
+    updateImages((prev: ColourImageItem[]) => {
+      const remaining = prev.filter((img: ColourImageItem) => !(img.url === targetUrl && (!img.colour || normalizeColourKey(img.colour) === '')))
       return remaining.map((img: ColourImageItem, idx: number) => ({ ...img, display_order: idx }))
     })
     markDirty()
@@ -506,7 +578,7 @@ export function ProductColoursManager({
 
           <button
             type="button"
-            onClick={() => setShowAddColourModal(true)}
+            onClick={handleOpenAddColourModal}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -529,7 +601,7 @@ export function ProductColoursManager({
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
           {configuredColours.map((col) => {
             const isSelected = normalizeColourKey(col) === activeColourKey
-            const hex = getColourSwatchHex(col)
+            const hex = getColourSwatchHex(col, effectiveColourHexes[normalizeColourKey(col)])
             const imgCount = images.filter(img => normalizeColourKey(img.colour) === normalizeColourKey(col)).length
             const varCount = variants.filter(v => normalizeColourKey(v.colour) === normalizeColourKey(col)).length
 
@@ -564,8 +636,11 @@ export function ProductColoursManager({
 
                 {/* Name & Counts */}
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: isSelected ? 700 : 500, color: 'var(--ink)' }}>
-                    {col}
+                  <div style={{ fontSize: '13px', fontWeight: isSelected ? 700 : 500, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>{col}</span>
+                    <span style={{ fontSize: '10px', fontFamily: 'monospace', color: 'var(--muted)', fontWeight: 400 }}>
+                      {getStandardHexForColour(col, effectiveColourHexes[normalizeColourKey(col)])}
+                    </span>
                   </div>
                   <div style={{ fontSize: '10.5px', color: imgCount === 0 ? '#b45309' : 'var(--muted)' }}>
                     {imgCount > 0 ? `${imgCount} photo${imgCount === 1 ? '' : 's'}` : 'Photos needed'} &middot; {varCount} size{varCount === 1 ? '' : 's'}
@@ -599,6 +674,133 @@ export function ProductColoursManager({
             )
           })}
         </div>
+
+        {/* Live Colour Tone & Swatch Editor for Active Colour */}
+        <div
+          style={{
+            marginTop: '16px',
+            padding: '12px 16px',
+            background: '#f8fafc',
+            border: '1px solid var(--border)',
+            borderRadius: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Live Interactive Swatch with embedded native color input */}
+            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+              <input
+                type="color"
+                id={`colour-picker-${activeColourKey}`}
+                value={currentToneHex}
+                onChange={(e) => {
+                  const val = e.target.value.toUpperCase()
+                  setActiveHexInput(val)
+                  updateColourHex(currentColour, val)
+                }}
+                style={{
+                  position: 'absolute',
+                  opacity: 0,
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer'
+                }}
+                title={`Click to pick actual colour tone for ${currentColour}`}
+              />
+              <label
+                htmlFor={`colour-picker-${activeColourKey}`}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  backgroundColor: currentToneHex,
+                  border: '2px solid #ffffff',
+                  boxShadow: '0 0 0 1px rgba(0,0,0,0.25)',
+                  cursor: 'pointer',
+                  display: 'inline-block',
+                  transition: 'transform 0.15s ease'
+                }}
+                title="Click to select exact color tone"
+              />
+            </div>
+
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>Actual Swatch for <strong>{currentColour}</strong>:</span>
+                <code style={{ fontSize: '12px', background: '#ffffff', padding: '2px 8px', borderRadius: '3px', border: '1px solid var(--border)', fontWeight: 600, color: 'var(--ink)' }}>
+                  {currentToneHex}
+                </code>
+              </div>
+              <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--muted)' }}>
+                {isCustomToneSaved ? 'Custom hexadecimal colour value stored.' : 'Default tone displayed. Use the picker or hex field to customize tone.'}
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label htmlFor={`hex-input-${activeColourKey}`} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>
+              Hex:
+            </label>
+            <input
+              id={`hex-input-${activeColourKey}`}
+              type="text"
+              value={activeHexInput}
+              onChange={(e) => {
+                const val = e.target.value
+                setActiveHexInput(val)
+                if (/^#[0-9a-f]{6}$/i.test(val.trim())) {
+                  updateColourHex(currentColour, val.trim().toUpperCase())
+                }
+              }}
+              onBlur={() => {
+                if (/^#[0-9a-f]{6}$/i.test(activeHexInput.trim())) {
+                  updateColourHex(currentColour, activeHexInput.trim().toUpperCase())
+                } else if (/^[0-9a-f]{6}$/i.test(activeHexInput.trim())) {
+                  const formatted = `#${activeHexInput.trim().toUpperCase()}`
+                  setActiveHexInput(formatted)
+                  updateColourHex(currentColour, formatted)
+                } else {
+                  setActiveHexInput(currentToneHex)
+                }
+              }}
+              placeholder="#FF8C00"
+              maxLength={7}
+              style={{
+                width: '88px',
+                padding: '6px 8px',
+                fontSize: '12px',
+                fontFamily: 'monospace',
+                border: '1px solid var(--border)',
+                borderRadius: '3px',
+                background: '#ffffff'
+              }}
+            />
+            <input
+              type="color"
+              aria-label={`Color picker for ${currentColour}`}
+              value={currentToneHex}
+              onChange={(e) => {
+                const val = e.target.value.toUpperCase()
+                setActiveHexInput(val)
+                updateColourHex(currentColour, val)
+              }}
+              style={{
+                width: '36px',
+                height: '32px',
+                padding: '2px',
+                border: '1px solid var(--border)',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                background: '#ffffff'
+              }}
+              title="Open native color picker"
+            />
+          </div>
+        </div>
       </div>
 
       {/* ============================================================ */}
@@ -631,8 +833,19 @@ export function ProductColoursManager({
               >
                 2
               </span>
-              <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Photos for {currentColour}
+              <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>Photos for {currentColour}</span>
+                <span
+                  style={{
+                    width: '12px',
+                    height: '12px',
+                    borderRadius: '50%',
+                    backgroundColor: currentToneHex,
+                    border: '1px solid rgba(0,0,0,0.2)',
+                    display: 'inline-block'
+                  }}
+                  title={`Swatch: ${currentToneHex}`}
+                />
               </h4>
             </div>
             <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '4px 0 0' }}>
@@ -766,6 +979,46 @@ export function ProductColoursManager({
           </div>
         )}
 
+        {/* Unassigned Photos Banner (if any) */}
+        {unassignedImages.length > 0 && (
+          <div
+            style={{
+              background: '#f8fafc',
+              border: '1px dashed #cbd5e1',
+              borderRadius: '4px',
+              padding: '12px 16px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '10px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Info size={16} color="var(--ink)" />
+              <span style={{ fontSize: '12px', color: 'var(--ink)' }}>
+                <strong>{unassignedImages.length} unassigned photo{unassignedImages.length === 1 ? '' : 's'}</strong> available in this piece.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAssignExistingModal(true)}
+              style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                padding: '5px 12px',
+                background: '#ffffff',
+                border: '1px solid var(--border)',
+                borderRadius: '3px',
+                cursor: 'pointer'
+              }}
+            >
+              Assign to {currentColour} or Remove
+            </button>
+          </div>
+        )}
+
         {/* Photos Grid or Empty State */}
         {activeImages.length === 0 ? (
           <div
@@ -779,7 +1032,7 @@ export function ProductColoursManager({
           >
             <ImageIcon size={32} color="var(--muted)" style={{ margin: '0 auto 8px', opacity: 0.6 }} />
             <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}>
-              No photos assigned to {currentColour}
+              No photos added yet.
             </div>
             <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0 0 16px', maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto' }}>
               Upload imagery for this colour so customers see the accurate variation when selecting {currentColour}.
@@ -822,7 +1075,8 @@ export function ProductColoursManager({
                     overflow: 'hidden',
                     background: '#ffffff',
                     display: 'flex',
-                    flexDirection: 'column'
+                    flexDirection: 'column',
+                    position: 'relative'
                   }}
                 >
                   <div style={{ position: 'relative', aspectRatio: '3/4', background: '#f1f5f9' }}>
@@ -845,12 +1099,51 @@ export function ProductColoursManager({
                           fontWeight: 700,
                           letterSpacing: '0.5px',
                           padding: '2px 6px',
-                          borderRadius: '2px'
+                          borderRadius: '2px',
+                          zIndex: 2
                         }}
                       >
                         COVER
                       </span>
                     )}
+
+                    {/* Direct Quick-Delete Overlay Button on Thumbnail */}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImageFromColour(img.url)}
+                      title={`Remove photo from ${currentColour}`}
+                      aria-label={`Remove photo from ${currentColour}`}
+                      style={{
+                        position: 'absolute',
+                        top: '6px',
+                        right: '6px',
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        color: '#dc2626',
+                        border: '1px solid rgba(220, 38, 38, 0.3)',
+                        borderRadius: '3px',
+                        padding: '3px 6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                        zIndex: 3,
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#dc2626'
+                        e.currentTarget.style.color = '#ffffff'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.95)'
+                        e.currentTarget.style.color = '#dc2626'
+                      }}
+                    >
+                      <Trash2 size={11} />
+                      <span>Remove</span>
+                    </button>
                   </div>
 
                   {/* Image Controls */}
@@ -882,7 +1175,7 @@ export function ProductColoursManager({
                       <Star size={13} fill={isColPrimary ? 'currentColor' : 'none'} />
                     </button>
 
-                    <div style={{ display: 'flex', gap: '2px' }}>
+                    <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
                       <button
                         type="button"
                         onClick={() => handleMoveImage(idx, 'left')}
@@ -923,7 +1216,8 @@ export function ProductColoursManager({
                           color: '#dc2626',
                           cursor: 'pointer',
                           padding: '2px',
-                          marginLeft: '2px'
+                          display: 'flex',
+                          alignItems: 'center'
                         }}
                       >
                         <Trash2 size={13} />
@@ -1234,7 +1528,7 @@ export function ProductColoursManager({
               background: '#ffffff',
               borderRadius: '4px',
               padding: '24px',
-              maxWidth: '460px',
+              maxWidth: '480px',
               width: '100%',
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
             }}
@@ -1244,20 +1538,31 @@ export function ProductColoursManager({
               Add Product Colour
             </h4>
             <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0 0 16px' }}>
-              Select a popular shade or enter a custom fashion colour name.
+              Select a luxury preset shade or create a custom colour with an exact tone picker.
             </p>
 
-            <div style={{ marginBottom: '16px' }}>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                Colour Name:
+              </label>
               <input
                 type="text"
                 autoFocus
-                placeholder="e.g. Washed Navy, Charcoal, Raw Silk..."
+                placeholder="e.g. Washed Navy, Mustard, Wine, Raw Silk..."
                 value={newColourInput}
-                onChange={(e) => setNewColourInput(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setNewColourInput(val)
+                  // Auto-suggest tone if known
+                  const std = getStandardHexForColour(val)
+                  if (std && std !== '#121212') {
+                    setNewColourHex(std)
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
-                    handleAddColourGroup(newColourInput)
+                    handleAddColourGroup(newColourInput, newColourHex)
                   }
                 }}
                 style={{
@@ -1271,6 +1576,76 @@ export function ProductColoursManager({
               />
             </div>
 
+            {/* Live Swatch Preview & Tone Picker in Modal */}
+            <div
+              style={{
+                marginBottom: '16px',
+                padding: '12px',
+                background: '#f8fafc',
+                border: '1px solid var(--border)',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    backgroundColor: getStandardHexForColour(newColourInput, newColourHex),
+                    border: '1px solid rgba(0,0,0,0.2)',
+                    flexShrink: 0
+                  }}
+                />
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink)' }}>
+                    {newColourInput.trim() || 'Custom Colour'}
+                  </div>
+                  <div style={{ fontSize: '11px', fontFamily: 'monospace', color: 'var(--muted)' }}>
+                    {getStandardHexForColour(newColourInput, newColourHex)}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={newColourHex}
+                  onChange={(e) => setNewColourHex(e.target.value)}
+                  placeholder="#FF8C00"
+                  maxLength={7}
+                  style={{
+                    width: '84px',
+                    padding: '5px 8px',
+                    fontSize: '12px',
+                    fontFamily: 'monospace',
+                    border: '1px solid var(--border)',
+                    borderRadius: '2px',
+                    background: '#ffffff'
+                  }}
+                />
+                <input
+                  type="color"
+                  value={getStandardHexForColour(newColourInput, newColourHex)}
+                  onChange={(e) => setNewColourHex(e.target.value.toUpperCase())}
+                  style={{
+                    width: '34px',
+                    height: '30px',
+                    padding: '1px',
+                    border: '1px solid var(--border)',
+                    borderRadius: '2px',
+                    cursor: 'pointer',
+                    background: '#ffffff'
+                  }}
+                  title="Pick tone on color wheel"
+                />
+              </div>
+            </div>
+
             {/* Quick Preset Shades */}
             <div style={{ marginBottom: '20px' }}>
               <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '8px', fontWeight: 600, textTransform: 'uppercase' }}>
@@ -1278,12 +1653,15 @@ export function ProductColoursManager({
               </span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {POPULAR_COLOUR_PRESETS.map((preset) => {
-                  const hex = getColourSwatchHex(preset)
+                  const hex = getStandardHexForColour(preset)
                   return (
                     <button
                       key={preset}
                       type="button"
-                      onClick={() => handleAddColourGroup(preset)}
+                      onClick={() => {
+                        setNewColourInput(preset)
+                        setNewColourHex(hex)
+                      }}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -1330,7 +1708,7 @@ export function ProductColoursManager({
               <button
                 type="button"
                 disabled={!newColourInput.trim()}
-                onClick={() => handleAddColourGroup(newColourInput)}
+                onClick={() => handleAddColourGroup(newColourInput, newColourHex)}
                 style={{
                   padding: '8px 16px',
                   background: 'var(--ink)',
@@ -1379,37 +1757,86 @@ export function ProductColoursManager({
             onClick={(e) => e.stopPropagation()}
           >
             <h4 style={{ fontSize: '15px', fontWeight: 600, margin: '0 0 6px', color: 'var(--ink)' }}>
-              Assign Existing Photos to {currentColour}
+              Unassigned &amp; Existing Photos
             </h4>
             <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0 0 16px' }}>
-              Select photos already uploaded to assign them directly to {currentColour} without re-uploading.
+              Assign unassigned photos to <strong>{currentColour}</strong> or delete unwanted photos from the product.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '10px', maxHeight: '300px', overflowY: 'auto', marginBottom: '18px' }}>
-              {unassignedImages.map((img, i) => {
-                const isAssigned = activeImages.some(ai => ai.url === img.url)
-                return (
-                  <div
-                    key={img.url + i}
-                    onClick={() => handleAssignExistingImage(img.url)}
-                    style={{
-                      border: isAssigned ? '2px solid #16a34a' : '1px solid var(--border)',
-                      borderRadius: '3px',
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      position: 'relative'
-                    }}
-                  >
-                    <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }} />
-                    {isAssigned && (
-                      <div style={{ position: 'absolute', top: '4px', right: '4px', background: '#16a34a', color: '#fff', borderRadius: '50%', padding: '2px' }}>
-                        <Check size={10} />
+            {unassignedImages.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px', color: 'var(--muted)', fontSize: '13px' }}>
+                No unassigned photos remaining.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '10px', maxHeight: '300px', overflowY: 'auto', marginBottom: '18px' }}>
+                {unassignedImages.map((img, i) => {
+                  const isAssigned = activeImages.some(ai => ai.url === img.url)
+                  return (
+                    <div
+                      key={img.url + i}
+                      style={{
+                        border: isAssigned ? '2px solid #16a34a' : '1px solid var(--border)',
+                        borderRadius: '3px',
+                        overflow: 'hidden',
+                        position: 'relative',
+                        background: '#f8fafc'
+                      }}
+                    >
+                      <div
+                        onClick={() => handleAssignExistingImage(img.url)}
+                        style={{ cursor: 'pointer', aspectRatio: '1/1', position: 'relative' }}
+                        title={`Click to assign to ${currentColour}`}
+                      >
+                        <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        {isAssigned && (
+                          <div style={{ position: 'absolute', top: '4px', right: '4px', background: '#16a34a', color: '#fff', borderRadius: '50%', padding: '2px' }}>
+                            <Check size={10} />
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+
+                      {/* Remove Button for Unassigned Image */}
+                      <div style={{ padding: '4px', background: '#ffffff', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleAssignExistingImage(img.url)}
+                          disabled={isAssigned}
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 600,
+                            padding: '2px 4px',
+                            background: isAssigned ? '#ecfdf5' : '#f1f5f9',
+                            color: isAssigned ? '#065f46' : 'var(--ink)',
+                            border: 'none',
+                            borderRadius: '2px',
+                            cursor: isAssigned ? 'default' : 'pointer'
+                          }}
+                        >
+                          {isAssigned ? 'Assigned' : 'Assign'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveUnassignedImage(img.url)}
+                          title="Permanently remove from product"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#dc2626',
+                            cursor: 'pointer',
+                            padding: '2px',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button

@@ -87,7 +87,7 @@ export function ProductDetailClient({
     ? product.colourImages[activeColourKey]
     : null
 
-  const galleryImages = colourSpecificImages || (product.images.length > 0 ? product.images : [product.image])
+  const galleryImages = (colourSpecificImages || (product.images.length > 0 ? product.images : (product.image ? [product.image] : []))).filter(Boolean)
 
   // Handle switching colour
   const handleSelectColour = (col: string) => {
@@ -233,23 +233,25 @@ export function ProductDetailClient({
       <div className="product-detail-grid">
         {/* Gallery */}
         <div className="product-gallery-view">
-          <div className="gallery-thumbnails-row">
-            {galleryImages.map((imgUrl, idx) => (
-              <button
-                key={idx}
-                className={`thumb-btn ${idx === activeImgIndex ? 'active' : ''}`}
-                onClick={() => setActiveImgIndex(idx)}
-              >
-                <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-                  <SenoImage
-                    src={imgUrl}
-                    alt={`${product.name} view ${idx + 1}`}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                </div>
-              </button>
-            ))}
-          </div>
+          {galleryImages.length > 1 && (
+            <div className="gallery-thumbnails-row">
+              {galleryImages.map((imgUrl, idx) => (
+                <button
+                  key={idx}
+                  className={`thumb-btn ${idx === activeImgIndex ? 'active' : ''}`}
+                  onClick={() => setActiveImgIndex(idx)}
+                >
+                  <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+                    <SenoImage
+                      src={imgUrl}
+                      alt={`${product.name} view ${idx + 1}`}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
 
           <div
             className="main-gallery-image"
@@ -259,23 +261,56 @@ export function ProductDetailClient({
               background: 'var(--card-bg)',
               aspectRatio: galleryRatio ? `${galleryRatio}` : undefined,
               maxHeight: '82vh',
+              minHeight: galleryImages.length === 0 ? '360px' : undefined,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'aspect-ratio 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           >
-            <SenoImage
-              src={galleryImages[activeImgIndex] || product.image}
-              alt={product.name}
-              onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                const img = e.currentTarget
-                if (img.naturalWidth && img.naturalHeight) {
-                  setGalleryRatio(img.naturalWidth / img.naturalHeight)
-                }
-              }}
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-            />
+            {galleryImages.length === 0 ? (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '48px 24px',
+                  textAlign: 'center',
+                  color: 'var(--muted)',
+                  width: '100%'
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: 'Georgia, serif',
+                    fontSize: '18px',
+                    letterSpacing: '2px',
+                    fontWeight: 600,
+                    color: 'var(--ink)',
+                    opacity: 0.6,
+                    marginBottom: '6px'
+                  }}
+                >
+                  SENO
+                </span>
+                <span style={{ fontSize: '11px', letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.7 }}>
+                  No photos added yet
+                </span>
+              </div>
+            ) : (
+              <SenoImage
+                src={galleryImages[activeImgIndex] || product.image}
+                alt={product.name}
+                onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                  const img = e.currentTarget
+                  if (img.naturalWidth && img.naturalHeight) {
+                    setGalleryRatio(img.naturalWidth / img.naturalHeight)
+                  }
+                }}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            )}
           </div>
         </div>
 
@@ -346,7 +381,9 @@ export function ProductDetailClient({
               <div className="product-color-options" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {product.colors.map(col => {
                   const avail = isColourAvailable(col)
-                  const swatchHex = getColourSwatchHex(col)
+                  const swatchHex = product.colourGroups?.find(g => normalizeColourKey(g.colour) === normalizeColourKey(col))?.swatch ||
+                    product.colourHexes?.[normalizeColourKey(col)] ||
+                    getColourSwatchHex(col)
                   const isSelected = selectedColour?.trim().toLowerCase() === col.trim().toLowerCase()
                   return (
                     <button

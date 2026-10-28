@@ -52,6 +52,7 @@ export interface CreateProductInput {
   is_new?: boolean
   is_bestseller?: boolean
   is_active?: boolean
+  colour_hexes?: Record<string, string>
   images: AdminProductImage[]
   variants: AdminProductVariant[]
 }
@@ -337,7 +338,7 @@ export async function getAdminProductById(id: string) {
       }
     })
 
-  const { colourImages, colourPrimaries } = buildProductColourImageMap(data.product_images || [], data.details || [])
+  const { colourImages, colourPrimaries, colourHexes } = buildProductColourImageMap(data.product_images || [], data.details || [])
 
   const images = (data.product_images || [])
     .sort((a: any, b: any) => a.display_order - b.display_order)
@@ -372,6 +373,7 @@ export async function getAdminProductById(id: string) {
     images,
     colour_images: colourImages,
     colour_primaries: colourPrimaries,
+    colour_hexes: colourHexes,
     collection_ids: collectionIds
   }
 }
@@ -439,7 +441,7 @@ export async function createAdminProduct(input: CreateProductInput) {
     }
   }
 
-  let formattedCreateDetails: any[] = prepareColourDetailsPayload(rawCreateDetails, colourImagesMap, colourPrimariesMap)
+  let formattedCreateDetails: any[] = prepareColourDetailsPayload(rawCreateDetails, colourImagesMap, colourPrimariesMap, input.colour_hexes || {})
   if (input.return_policy) {
     const clean = formattedCreateDetails.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
     formattedCreateDetails = [
@@ -573,9 +575,17 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
     }
   }
 
-  let formattedUpdateDetails: any[] = prepareColourDetailsPayload(rawUpdateDetails, colourImagesMap, colourPrimariesMap)
+  let formattedUpdateDetails: any[] = prepareColourDetailsPayload(rawUpdateDetails, colourImagesMap, colourPrimariesMap, input.colour_hexes || {})
   if (input.return_policy) {
-    const clean = formattedUpdateDetails.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
+    const clean = formattedUpdateDetails.filter((d: any) => {
+      if (typeof d === 'string') {
+        return !d.toLowerCase().startsWith('return policy:')
+      }
+      if (d && typeof d === 'object') {
+        return d.__return_policy === undefined
+      }
+      return true
+    })
     formattedUpdateDetails = [
       { __return_policy: input.return_policy },
       input.return_policy.is_returnable

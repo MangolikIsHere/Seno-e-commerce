@@ -536,7 +536,17 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
     baseDetails = []
   }
 
-  const cleanDetails = baseDetails.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
+  const cleanDetails = baseDetails.filter((d: any) => {
+    if (typeof d === 'string') {
+      return !d.toLowerCase().startsWith('return policy:')
+    }
+    if (d && typeof d === 'object') {
+      if (d.__return_policy !== undefined) return false
+      if (d.__colour_images !== undefined || d.__colour_primaries !== undefined) return false
+      return true
+    }
+    return false
+  })
 
   const colourImagesMap: Record<string, string[]> = {}
   const colourPrimariesMap: Record<string, string> = {}
@@ -553,6 +563,16 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
     }
   }
 
+  let colourHexesMap: Record<string, string> = {}
+  try {
+    const rawHexes = formData.get('colour_hexes')
+    if (rawHexes && typeof rawHexes === 'string') {
+      colourHexesMap = JSON.parse(rawHexes)
+    }
+  } catch {
+    // Ignore invalid JSON
+  }
+
   const detailsPayload = prepareColourDetailsPayload([
     {
       __return_policy: {
@@ -565,7 +585,7 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
       ? `Return Policy: ${return_window_days} Days Return & Exchange`
       : 'Return Policy: Final Sale (Non-Returnable)',
     ...cleanDetails
-  ], colourImagesMap, colourPrimariesMap)
+  ], colourImagesMap, colourPrimariesMap, colourHexesMap)
 
   const rawApprovalStatus = formData.get('approval_status') as string
   const approval_status: 'draft' | 'submitted' = rawApprovalStatus === 'submitted' ? 'submitted' : 'draft'
@@ -596,9 +616,20 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
     let nextApprovalStatus: string | undefined = undefined
     let finalDetails = detailsPayload
 
+    // Guarantee that authoritative revision history from existingProd is never dropped
+    const existingRevisionMeta = (existingProd?.details || []).find(
+      (d: any) => d && typeof d === 'object' && d.__revision_history
+    )
+    if (existingRevisionMeta) {
+      const alreadyHas = finalDetails.some((d: any) => d && typeof d === 'object' && d.__revision_history)
+      if (!alreadyHas) {
+        finalDetails = [existingRevisionMeta, ...finalDetails]
+      }
+    }
+
     if (rawApprovalStatus === 'submitted') {
       nextApprovalStatus = 'submitted'
-      finalDetails = markLatestRevisionResubmitted(detailsPayload)
+      finalDetails = markLatestRevisionResubmitted(finalDetails)
     } else if (rawApprovalStatus === 'draft') {
       // If product was rejected and seller is saving draft edits without resubmitting,
       // retain the requested-revision status until explicitly resubmitted
@@ -623,7 +654,8 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
         category_id: category_id || null,
         shipping_method,
         custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null,
-        ...(nextApprovalStatus ? { approval_status: nextApprovalStatus } : {})
+        ...(nextApprovalStatus ? { approval_status: nextApprovalStatus } : {}),
+        ...(nextApprovalStatus === 'submitted' ? { rejection_reason: null } : {})
       })
       .eq('id', productId)
       .eq('seller_id', seller.id)

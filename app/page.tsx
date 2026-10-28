@@ -172,7 +172,7 @@ export default async function HomePage() {
           <div className="category-tiles-grid">
             {categoryTiles.map((cat) => (
               <Link href={cat.href} key={cat.title} className={`category-tile-card ${cat.className || ''}`}>
-                <SenoImage src={cat.image} alt={cat.title} className="category-tile-img" />
+                <SenoImage src={cat.image} alt={cat.title ? `SENO ${cat.title} collection` : 'SENO collection'} className="category-tile-img" />
                 <div className="category-tile-overlay">
                   <h3 className="category-tile-title">{cat.title}</h3>
                   <span className="category-tile-subtitle">{cat.subtitle}</span>
@@ -239,7 +239,7 @@ export default async function HomePage() {
         <div className="bg-image">
           <img
             src="/images/cosmetics_banner.png"
-            alt="The Beauty Edit"
+            alt="SENO The Beauty Edit — Curated cosmetic and skincare collection"
           />
         </div>
         

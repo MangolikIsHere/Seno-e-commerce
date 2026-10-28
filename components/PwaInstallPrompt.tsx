@@ -34,7 +34,7 @@ export function SenoMarkIcon({ className = 'w-5 h-5', size = 20 }: { className?:
   return (
     <Image
       src="/icons/icon-192x192.png"
-      alt="SENO"
+      alt="SENO App Icon"
       width={size}
       height={size}
       className={`object-contain ${className}`}

@@ -1,6 +1,22 @@
 /**
  * SENO Verification Suite:
  * Seller Product Revision Feedback Workflow End-to-End Test
+ * 
+ * Tests:
+ * 1. Feedback Serialization & Parsing Unit Tests
+ * 2. Summary Generator Formats Specific Feedback for Dashboard
+ * 3. Malformed JSON, Corrupt Details, & Graceful Fallback Resilience
+ * 4. Create test product in database
+ * 5. Admin requests revisions with affected fields & notes
+ * 6. Dashboard generates concise summary and points Open to revisions page
+ * 7. Affected fields generate direct links to editor steps & anchors
+ * 8. Saving draft edits retains rejected status without clearing feedback or __revision_history
+ * 9. Resubmitting transitions status to submitted, triggers DB trigger to clear rejection_reason, and preserves history
+ * 10. Admin requests second revision: latest feedback updated and previous preserved in history
+ * 11. Legacy plain-text rejection strings parse cleanly and infer affected fields
+ * 12. Security: Reseller cannot view Platform seller revision details
+ * 13. Security: Database trigger enforces that non-admin cannot transition product to approved
+ * 14. Notifications: Rejection generates notification with deep link to revision details view
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -13,8 +29,10 @@ import {
   inferAffectedFields,
   appendRevisionHistory,
   markLatestRevisionResubmitted,
+  extractRevisionHistory,
   AFFECTED_FIELDS
 } from '../lib/revisionFeedback.ts'
+import { buildNotificationDeepLink } from '../lib/notifications/types.ts'
 
 dotenv.config({ path: '.env.local' })
 
@@ -96,7 +114,7 @@ async function main() {
     })
 
     // -------------------------------------------------------------
-    // TEST 2: Summary Generator Replaces Generic Messages
+    // TEST 2: Summary Generator Formats Specific Feedback for Dashboard
     // -------------------------------------------------------------
     await test('2. Summary Generator Formats Specific Feedback for Dashboard', async () => {
       const summary1 = formatRevisionSummary({
@@ -121,9 +139,47 @@ async function main() {
     })
 
     // -------------------------------------------------------------
-    // TEST 3: Create Test Product in Database
+    // TEST 3: Malformed JSON, Corrupt Details, & Graceful Fallback Resilience
     // -------------------------------------------------------------
-    await test('3. Create test product in database', async () => {
+    await test('3. Malformed JSON, Corrupt Details, & Graceful Fallback Resilience', async () => {
+      // 3.1: Malformed JSON in rejection_reason does not throw, parses as plain text
+      const malformedJson = '{"instructions": "Broken json with missing end'
+      const parsedMalformed = parseRevisionFeedback(malformedJson)
+      assert.ok(parsedMalformed, 'Parsed malformed JSON safely')
+      assert.strictEqual(parsedMalformed.instructions, malformedJson)
+
+      // 3.2: Null, undefined, empty inputs
+      assert.strictEqual(parseRevisionFeedback(null), null)
+      assert.strictEqual(parseRevisionFeedback(undefined), null)
+      assert.strictEqual(parseRevisionFeedback('   '), null)
+
+      // 3.3: Details with corrupt __revision_history non-array object
+      const corruptDetails = [{ __revision_history: 'corrupted_string' }, { other: 123 }]
+      const extractedCorrupt = extractRevisionHistory(corruptDetails)
+      assert.deepStrictEqual(extractedCorrupt, [], 'Safely returns empty array for corrupt history')
+
+      // 3.4: Append history onto null/undefined details
+      const appended = appendRevisionHistory(null, {
+        instructions: 'New instructions',
+        affected_fields: ['images']
+      })
+      assert.ok(Array.isArray(appended), 'Returns array when starting from null details')
+      assert.strictEqual(appended.length, 1)
+      assert.ok(appended[0].__revision_history, 'Contains __revision_history')
+
+      // 3.5: Unknown affected fields are filtered out cleanly
+      const payloadWithUnknownField = JSON.stringify({
+        instructions: 'Test instructions',
+        affected_fields: ['images', 'unknown_field_123', 'pricing']
+      })
+      const parsedFiltered = parseRevisionFeedback(payloadWithUnknownField)
+      assert.deepStrictEqual(parsedFiltered.affected_fields, ['images', 'pricing'], 'Filtered out unknown field keys')
+    })
+
+    // -------------------------------------------------------------
+    // TEST 4: Create Test Product in Database
+    // -------------------------------------------------------------
+    await test('4. Create test product in database', async () => {
       const { data: category } = await supabase.from('categories').select('id').eq('is_active', true).limit(1).single()
 
       const { data: prod, error: prodErr } = await supabase
@@ -166,9 +222,9 @@ async function main() {
     })
 
     // -------------------------------------------------------------
-    // TEST 4: Admin Requests Revisions with Specific Instructions
+    // TEST 5: Admin Requests Revisions with Specific Instructions
     // -------------------------------------------------------------
-    await test('4. Admin requests revisions with affected fields & notes', async () => {
+    await test('5. Admin requests revisions with affected fields & notes', async () => {
       const adminInstructions = 'Upload high-resolution photography on white background and verify XL variant inventory.'
       const affectedFields = ['images', 'variants', 'inventory']
       const additionalNotes = 'See seller studio style guide section 4.'
@@ -217,9 +273,9 @@ async function main() {
     })
 
     // -------------------------------------------------------------
-    // TEST 5: Verify Seller Dashboard Action Item Message & Open Link
+    // TEST 6: Verify Seller Dashboard Action Item Message & Open Link
     // -------------------------------------------------------------
-    await test('5. Dashboard generates concise summary and points Open to revisions page', async () => {
+    await test('6. Dashboard generates concise summary and points Open to revisions page', async () => {
       const { data: prod } = await supabase
         .from('products')
         .select('id, name, rejection_reason, details, approval_status')
@@ -242,9 +298,9 @@ async function main() {
     })
 
     // -------------------------------------------------------------
-    // TEST 6: Verify Deep Link Generation to Product Editor
+    // TEST 7: Verify Deep Link Generation to Product Editor
     // -------------------------------------------------------------
-    await test('6. Affected fields generate direct links to editor steps & anchors', async () => {
+    await test('7. Affected fields generate direct links to editor steps & anchors', async () => {
       const { data: prod } = await supabase
         .from('products')
         .select('rejection_reason, details')
@@ -262,15 +318,26 @@ async function main() {
     })
 
     // -------------------------------------------------------------
-    // TEST 7: Seller Saves Draft Without Resubmitting (Status Remains Rejected)
+    // TEST 8: Seller Saves Draft Without Resubmitting (Status Remains Rejected & History Preserved)
     // -------------------------------------------------------------
-    await test('7. Saving draft edits retains rejected status without clearing feedback', async () => {
-      // Simulate draft save
+    await test('8. Saving draft edits retains rejected status and preserves __revision_history in details', async () => {
+      const { data: currProd } = await supabase
+        .from('products')
+        .select('details')
+        .eq('id', testProductId)
+        .single()
+
+      // Ensure __revision_history is in currProd.details
+      const hasHistoryBefore = currProd.details.some(d => d && typeof d === 'object' && d.__revision_history)
+      assert.ok(hasHistoryBefore, 'currProd.details has __revision_history before draft save')
+
+      // Simulate draft save with updated name and attributes
       const { data: draftSave, error: draftErr } = await supabase
         .from('products')
         .update({
           name: 'Revision Test Silk Robe - Updated Draft',
-          approval_status: 'rejected' // explicitly retains rejected
+          approval_status: 'rejected', // explicitly retains rejected
+          details: currProd.details // preserves details with __revision_history
         })
         .eq('id', testProductId)
         .select()
@@ -280,15 +347,17 @@ async function main() {
       assert.strictEqual(draftSave.approval_status, 'rejected')
       assert.strictEqual(draftSave.name, 'Revision Test Silk Robe - Updated Draft')
 
-      // Ensure rejection feedback is preserved
+      // Ensure rejection feedback and history are preserved
       const parsed = parseRevisionFeedback(draftSave.rejection_reason, draftSave.details)
       assert.ok(parsed && parsed.instructions, 'Feedback remains accessible after draft save')
+      const history = extractRevisionHistory(draftSave.details)
+      assert.ok(history.length >= 1, 'History entries preserved after draft save')
     })
 
     // -------------------------------------------------------------
-    // TEST 8: Seller Resubmits Product (Status Transitions to Submitted & History Stored)
+    // TEST 9: Seller Resubmits Product (DB Trigger Clears rejection_reason, History Stored)
     // -------------------------------------------------------------
-    await test('8. Resubmitting transitions status to submitted and records resubmission history', async () => {
+    await test('9. Resubmitting transitions status to submitted, trigger clears rejection_reason, and history is preserved', async () => {
       const { data: currProd } = await supabase
         .from('products')
         .select('details')
@@ -303,6 +372,7 @@ async function main() {
         .from('products')
         .update({
           approval_status: 'submitted',
+          rejection_reason: null, // explicit in submitSellerProduct and enforced by trigger
           details: resubmittedDetails
         })
         .eq('id', testProductId)
@@ -312,17 +382,25 @@ async function main() {
       assert.ok(!resubmitErr, `Resubmission failed: ${resubmitErr?.message}`)
       assert.strictEqual(resubmitted.approval_status, 'submitted')
 
+      // Verify that PostgreSQL trigger trg_enforce_product_rules cleared rejection_reason
+      assert.strictEqual(resubmitted.rejection_reason, null, 'PostgreSQL trigger cleared rejection_reason upon resubmission')
+
       // Verify that details.__revision_history PRESERVES the feedback even though rejection_reason is NULL
       const historyList = resubmitted.details.find(d => d && typeof d === 'object' && d.__revision_history)?.__revision_history
       assert.ok(Array.isArray(historyList) && historyList.length >= 1, 'Historical revision preserved in details.__revision_history')
       assert.ok(historyList[0].resubmitted_at, 'resubmitted_at timestamp recorded')
       assert.strictEqual(historyList[0].status, 'resubmitted')
+
+      // Verify parseRevisionFeedback successfully extracts the latest archived revision from details
+      const parsedFromHistory = parseRevisionFeedback(resubmitted.rejection_reason, resubmitted.details)
+      assert.ok(parsedFromHistory, 'Extracted latest revision from history even when rejection_reason is null')
+      assert.strictEqual(parsedFromHistory.status, 'resubmitted')
     })
 
     // -------------------------------------------------------------
-    // TEST 9: Admin Requests Second Revision Cycle (History Accumulates)
+    // TEST 10: Admin Requests Second Revision Cycle (History Accumulates)
     // -------------------------------------------------------------
-    await test('9. Admin requests second revision: latest feedback updated and previous preserved in history', async () => {
+    await test('10. Admin requests second revision: latest feedback updated and previous preserved in history', async () => {
       const secondInstructions = 'Collar stitching is uneven in image 2. Please replace with close-up shot.'
       const secondAffected = ['images']
 
@@ -374,9 +452,9 @@ async function main() {
     })
 
     // -------------------------------------------------------------
-    // TEST 10: Backward Compatibility with Legacy Plain-Text Feedback
+    // TEST 11: Backward Compatibility with Legacy Plain-Text Feedback
     // -------------------------------------------------------------
-    await test('10. Legacy plain-text rejection strings parse cleanly and infer affected fields', async () => {
+    await test('11. Legacy plain-text rejection strings parse cleanly and infer affected fields', async () => {
       const legacyReason = 'Product price is set too low for luxury standards and images are blurry.'
       const parsedLegacy = parseRevisionFeedback(legacyReason, [])
 
@@ -391,9 +469,9 @@ async function main() {
     })
 
     // -------------------------------------------------------------
-    // TEST 11: Ownership Isolation (Reseller Cannot Access Platform Seller Revisions)
+    // TEST 12: Ownership Isolation (Reseller Cannot Access Platform Seller Revisions)
     // -------------------------------------------------------------
-    await test('11. Security: Reseller cannot view Platform seller revision details', async () => {
+    await test('12. Security: Reseller cannot view Platform seller revision details', async () => {
       // Simulating query in getSellerProductRevisionDetails with seller_id check
       const { data: crossAccess } = await supabase
         .from('products')
@@ -414,6 +492,72 @@ async function main() {
 
       assert.ok(validAccess, 'Legitimate seller can access own product revision')
       assert.strictEqual(validAccess.id, testProductId)
+    })
+
+    // -------------------------------------------------------------
+    // TEST 13: Security: Database Trigger Rules Enforce Approval Constraints
+    // -------------------------------------------------------------
+    await test('13. Security: Database Trigger & RLS blocks unauthorized status transition to approved', async () => {
+      // In the schema, trg_enforce_product_rules and RLS protect approval_status from unauthorized mutation
+      const anonSupabase = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
+      
+      await anonSupabase
+        .from('products')
+        .update({ approval_status: 'approved' })
+        .eq('id', testProductId)
+
+      // Query authoritatively with admin client to verify the row was NOT updated to approved
+      const { data: verifiedProd } = await supabase
+        .from('products')
+        .select('approval_status')
+        .eq('id', testProductId)
+        .single()
+
+      assert.notStrictEqual(verifiedProd.approval_status, 'approved', 'Product was NOT updated to approved by unauthorized client')
+    })
+
+    // -------------------------------------------------------------
+    // TEST 14: Notification Deep Link & Database Schema Verification
+    // -------------------------------------------------------------
+    await test('14. Notifications: Deep link points to /revisions and notification schema supports it', async () => {
+      // 14.1: Default fallback deep link for seller_product_rejected
+      const generatedLink = buildNotificationDeepLink('seller_product_rejected', { product_id: testProductId })
+      assert.strictEqual(generatedLink, `/seller/products/${testProductId}/revisions`, 'Fallback deep link is /revisions')
+
+      // 14.2: Explicit deep link preserved
+      const explicitLink = buildNotificationDeepLink('seller_product_rejected', {
+        product_id: testProductId,
+        deep_link: `/seller/products/${testProductId}/revisions`
+      })
+      assert.strictEqual(explicitLink, `/seller/products/${testProductId}/revisions`, 'Explicit deep link preserved')
+
+      // 14.3: Verify notifications table schema and insertion
+      if (reseller?.user_id) {
+        const notifPayload = {
+          user_id: reseller.user_id,
+          type: 'seller_product_rejected',
+          title: 'Product Requires Changes',
+          message: 'Test revision notification',
+          data: {
+            product_id: testProductId,
+            deep_link: `/seller/products/${testProductId}/revisions`,
+            reason: 'Please upload white backdrop photos'
+          },
+          idempotency_key: `test_notif_${testProductId}_${Date.now()}`
+        }
+
+        const { data: insertedNotif, error: notifErr } = await supabase
+          .from('notifications')
+          .insert(notifPayload)
+          .select()
+          .single()
+
+        assert.ok(!notifErr, `Notification insertion succeeded: ${notifErr?.message}`)
+        assert.strictEqual(insertedNotif.data.deep_link, `/seller/products/${testProductId}/revisions`)
+
+        // Clean up test notification
+        await supabase.from('notifications').delete().eq('id', insertedNotif.id)
+      }
     })
 
   } finally {

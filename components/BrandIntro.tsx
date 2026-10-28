@@ -49,7 +49,7 @@ export function BrandIntro() {
       aria-hidden="true"
     >
       <div className="intro-stage">
-        <img className="intro-mark" src="/seno-splash-logo.png" alt="SENO" />
+        <img className="intro-mark" src="/seno-splash-logo.png" alt="SENO Brand Mark" />
         <div className="intro-wordmark-wrap">
           <span className="intro-wordmark">SENO</span>
           <div className="intro-divider" />

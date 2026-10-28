@@ -23,7 +23,8 @@ import {
   DollarSign,
   Package,
   RotateCcw,
-  ShieldCheck
+  ShieldCheck,
+  X
 } from 'lucide-react'
 import { 
   createAdminProduct, 
@@ -33,6 +34,7 @@ import {
   AdminProductVariant 
 } from '@/lib/adminCatalog'
 import { parseReturnPolicy } from '@/lib/catalog'
+import { extractColourImagesFromDetails } from '@/lib/colours'
 import { ProductColoursManager } from '@/components/ProductColoursManager'
 
 function toClientSlug(text: string): string {
@@ -60,8 +62,18 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   const isSubmittingRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string; details?: string } | null>(null)
   const [isDirty, setIsDirty] = useState(false)
   const [activeTab, setActiveTab] = useState<'details' | 'pricing' | 'media' | 'variants'>('details')
+
+  // Auto-dismiss toast after 5 seconds
+  React.useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => {
+      setToast(null)
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [toast])
   const categoryOptions = initialData?.categories?.id && !categories.some(category => category.id === initialData.categories.id)
     ? [...categories, { ...initialData.categories, isLegacy: true }]
     : categories
@@ -102,21 +114,18 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   const [isBestseller, setIsBestseller] = useState<boolean>(initialData?.is_bestseller || false)
   const [isFeatured, setIsFeatured] = useState<boolean>(initialData?.is_featured || false)
 
-  // Media
+  // Media - empty by default, never preloads black denim jacket or demo placeholder
   const [images, setImages] = useState<AdminProductImage[]>(
     initialData?.images && initialData.images.length > 0 
       ? initialData.images 
-      : [
-          {
-            url: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=1000&q=85',
-            alt_text: '',
-            display_order: 0,
-            is_primary: true
-          }
-        ]
+      : []
   )
   const [imageUrlInput, setImageUrlInput] = useState('')
   const [uploadingImage, setUploadingImage] = useState(false)
+
+  // Colour Hexes metadata
+  const initialColourHexes = initialData?.colour_hexes || extractColourImagesFromDetails(initialData?.details).colourHexes || {}
+  const [colourHexes, setColourHexes] = useState<Record<string, string>>(initialColourHexes)
 
   // Variants & Matrix
   const [variants, setVariants] = useState<AdminProductVariant[]>(
@@ -364,14 +373,8 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
       return
     }
 
-    // 3. Validate Media & Gallery
-    if (images.length === 0) {
-      setActiveTab('media')
-      setError('Please add at least one product image.')
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      isSubmittingRef.current = false
-      return
-    }
+    // 3. Media & Gallery: products may be saved without photos; neutral empty state will be displayed
+
 
     // 4. Validate Variants & Stock
     if (variants.length === 0) {
@@ -434,28 +437,47 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
           is_new: isNew,
           is_bestseller: isBestseller,
           is_active: isActive,
+          colour_hexes: colourHexes,
           images,
           variants
         }
 
         if (mode === 'create') {
-          await createAdminProduct(payload)
-          setSuccess(`Product "${name}" successfully published to live catalog!`)
+          const res = await createAdminProduct(payload)
           setIsDirty(false)
-          setTimeout(() => {
-            router.push('/admin/products')
-          }, 1500)
+          setSuccess(`Product "${name}" successfully created!`)
+          setToast({
+            type: 'success',
+            message: 'Product changes saved successfully.',
+            details: `"${name}" published with ${variants.length} variant${variants.length === 1 ? '' : 's'}.`
+          })
+          if (res?.product?.id) {
+            router.push(`/admin/products/${res.product.id}/edit`)
+          } else {
+            setTimeout(() => {
+              router.push('/admin/products')
+            }, 1200)
+          }
         } else {
           await updateAdminProduct(initialData.id, { ...payload, id: initialData.id })
           setIsDirty(false)
-          setSuccess(`Product "${name}" successfully updated! Storefront cache synchronized.`)
-          setTimeout(() => {
-            router.refresh()
-          }, 1000)
+          setSuccess('Product changes saved successfully.')
+          setToast({
+            type: 'success',
+            message: 'Product changes saved successfully.',
+            details: 'Colour variants, photos, and inventory synchronized with database.'
+          })
+          router.refresh()
         }
       } catch (err: any) {
         console.error('Submit error:', err)
-        setError(err.message || 'An error occurred while saving the product.')
+        const errMsg = err.message || 'An error occurred while saving the product.'
+        setError(errMsg)
+        setToast({
+          type: 'error',
+          message: 'Unable to save product changes.',
+          details: errMsg
+        })
       } finally {
         isSubmittingRef.current = false
       }
@@ -527,8 +549,8 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
           </p>
         </div>
 
-        {initialData?.slug && (
-          <div className="admin-editor-top-bar-actions">
+        <div className="admin-editor-top-bar-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {initialData?.slug && (
             <Link
               href={`/products/${initialData.slug}`}
               target="_blank"
@@ -538,8 +560,36 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
               <span>View on Storefront</span>
               <ExternalLink size={12} />
             </Link>
-          </div>
-        )}
+          )}
+
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={handleExplicitSave}
+            className="dark-btn"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '11px',
+              padding: '8px 14px',
+              minHeight: '34px',
+              opacity: isPending ? 0.7 : 1
+            }}
+          >
+            {isPending ? (
+              <>
+                <RefreshCw size={12} className="animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <Check size={12} />
+                <span>{mode === 'create' ? 'Publish Piece' : 'Save Changes'}</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -1047,6 +1097,8 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
               setImages={setImages}
               variants={variants}
               setVariants={setVariants}
+              colourHexes={colourHexes}
+              setColourHexes={setColourHexes}
               productSlug={slug}
               productName={name}
               basePrice={price}
@@ -1367,7 +1419,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
             </span>
           </div>
 
-          <div className="action-bar-buttons">
+          <div className="action-bar-buttons" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Link
               href="/admin/products"
               className="outline-btn action-bar-cancel-btn"
@@ -1380,54 +1432,106 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
               Cancel
             </Link>
 
-            {activeTab !== 'variants' ? (
+            {activeTab !== 'variants' && (
               <button
-                key="btn-continue"
                 type="button"
-                className="dark-btn action-bar-submit-btn"
+                className="outline-btn"
+                style={{ fontSize: '11px', padding: '8px 14px', minHeight: '38px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 onClick={() => {
-                  if (!validateCurrentTab()) {
-                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                    return
-                  }
                   if (activeTab === 'details') setActiveTab('pricing')
                   else if (activeTab === 'pricing') setActiveTab('media')
                   else if (activeTab === 'media') setActiveTab('variants')
                   window.scrollTo({ top: 0, behavior: 'smooth' })
                 }}
               >
-                <span>CONTINUE</span>
-                <ArrowRight size={14} />
-              </button>
-            ) : (
-              <button
-                key="btn-explicit-save"
-                type="button"
-                disabled={isPending}
-                onClick={handleExplicitSave}
-                className="dark-btn action-bar-submit-btn"
-                style={{
-                  opacity: isPending ? 0.7 : 1
-                }}
-              >
-                {isPending ? (
-                  <>
-                    <RefreshCw size={14} className="animate-spin" />
-                    <span className="desktop-btn-label">SYNCHRONIZING WITH SUPABASE...</span>
-                    <span className="mobile-btn-label">Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check size={14} />
-                    <span className="desktop-btn-label">{mode === 'create' ? 'CREATE & PUBLISH PIECE' : 'SAVE CHANGES TO DATABASE'}</span>
-                    <span className="mobile-btn-label">{mode === 'create' ? 'Publish Piece' : 'Save Changes'}</span>
-                  </>
-                )}
+                <span>NEXT STEP</span>
+                <ArrowRight size={13} />
               </button>
             )}
+
+            <button
+              key="btn-explicit-save"
+              type="button"
+              disabled={isPending}
+              onClick={handleExplicitSave}
+              className="dark-btn action-bar-submit-btn"
+              style={{
+                opacity: isPending ? 0.7 : 1,
+                minHeight: '38px'
+              }}
+            >
+              {isPending ? (
+                <>
+                  <RefreshCw size={14} className="animate-spin" />
+                  <span className="desktop-btn-label">SAVING CHANGES...</span>
+                  <span className="mobile-btn-label">Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Check size={14} />
+                  <span className="desktop-btn-label">{mode === 'create' ? 'CREATE & PUBLISH PIECE' : 'SAVE CHANGES'}</span>
+                  <span className="mobile-btn-label">{mode === 'create' ? 'Publish Piece' : 'Save Changes'}</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </form>
+
+      {/* Floating Save Confirmation / Error Toast Notification */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 10000,
+            maxWidth: '420px',
+            width: 'calc(100vw - 48px)',
+            background: toast.type === 'success' ? '#0f172a' : '#450a0a',
+            color: '#ffffff',
+            borderRadius: '6px',
+            padding: '14px 18px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
+            border: toast.type === 'success' ? '1px solid #10b981' : '1px solid #ef4444'
+          }}
+        >
+          <div style={{ marginTop: '2px', color: toast.type === 'success' ? '#34d399' : '#f87171' }}>
+            {toast.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '0.2px' }}>
+              {toast.message}
+            </div>
+            {toast.details && (
+              <div style={{ fontSize: '11.5px', color: '#cbd5e1', marginTop: '3px', lineHeight: 1.4 }}>
+                {toast.details}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            aria-label="Dismiss notification"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#94a3b8',
+              cursor: 'pointer',
+              padding: '2px',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

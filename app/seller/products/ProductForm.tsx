@@ -29,6 +29,7 @@ import { submitSellerProduct } from '@/lib/sellers'
 import { createClient } from '@/utils/supabase/client'
 import { money, parseReturnPolicy } from '@/lib/catalog'
 import { ProductColoursManager } from '@/components/ProductColoursManager'
+import { extractColourHexesFromDetails } from '@/lib/colours'
 import { parseRevisionFeedback, AFFECTED_FIELDS, AffectedFieldKey } from '@/lib/revisionFeedback'
 
 type Step = 1 | 2 | 3 | 4 | 5
@@ -106,6 +107,8 @@ export function ProductForm({
   const [previewRatio, setPreviewRatio] = useState<number | null>(null)
   
   // Media & Variants
+  const initialColourHexes = extractColourHexesFromDetails(initialData?.details)
+  const [colourHexes, setColourHexes] = useState<Record<string, string>>(initialColourHexes)
   const [images, setImages] = useState<ImageItem[]>(initialData?.product_images || [])
   const [imageUrlInput, setImageUrlInput] = useState('')
   const [variants, setVariants] = useState<VariantItem[]>(
@@ -290,6 +293,7 @@ export function ProductForm({
           ['return_window_days', isReturnable ? returnWindowDays : '0'],
           ['return_policy_notes', returnPolicyNotes],
           ['details', JSON.stringify(initialData?.details || [])],
+          ['colour_hexes', JSON.stringify(colourHexes)],
           ['approval_status', submitForReview ? (initialData?.approval_status === 'approved' ? 'unchanged' : 'submitted') : 'draft']
         ].forEach(([key, value]) => formData.set(key, value))
 
@@ -679,6 +683,9 @@ export function ProductForm({
             setImages={setImages as any}
             variants={variants as any}
             setVariants={setVariants as any}
+            colourHexes={colourHexes}
+            setColourHexes={setColourHexes}
+            initialColourHexes={initialColourHexes}
             productSlug={slug}
             productName={name}
             basePrice={price}

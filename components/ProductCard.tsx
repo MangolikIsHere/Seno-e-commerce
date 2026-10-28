@@ -74,7 +74,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
         <div className="product-visual" style={{ position: 'relative', overflow: 'hidden', aspectRatio: '3 / 4', background: 'var(--card-bg)' }}>
           <SenoImage
             src={primaryImg}
-            alt={product.name}
+            alt={product.name ? `${product.name}${activeColour ? ` in ${activeColour}` : ''}` : 'SENO garment'}
             className="product-primary-img"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
@@ -82,7 +82,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
           {secondaryImg && !activeColour && (
             <SenoImage
               src={secondaryImg}
-              alt=""
+              alt={product.name ? `${product.name} — alternate view` : 'SENO garment — alternate view'}
               className="product-secondary-img"
               style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }}
             />
@@ -167,7 +167,9 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
               }}
             >
               {product.colors.slice(0, 5).map(col => {
-                const hex = getColourSwatchHex(col)
+                const hex = product.colourGroups?.find(g => normalizeColourKey(g.colour) === normalizeColourKey(col))?.swatch ||
+                  product.colourHexes?.[normalizeColourKey(col)] ||
+                  getColourSwatchHex(col)
                 const isSelected = (activeColour || product.colors[0]).trim().toLowerCase() === col.trim().toLowerCase()
                 return (
                   <button

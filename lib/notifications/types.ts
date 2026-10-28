@@ -94,7 +94,7 @@ export function buildNotificationDeepLink(type: NotificationType, data: Record<s
   }
 
   if (type === 'seller_product_rejected') {
-    if (data?.product_id) return `/seller/products/${data.product_id}/edit`
+    if (data?.product_id) return `/seller/products/${data.product_id}/revisions`
     return '/seller/products'
   }
 

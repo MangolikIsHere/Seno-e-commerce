@@ -84,10 +84,23 @@ export function normalizeColourKey(name?: string | null): string {
 
 /**
  * Returns a hex color for a given fashion colour name.
+ * If customHex is provided, it is returned if valid.
  */
-export function getColourSwatchHex(colourName?: string | null): string {
+export function getColourSwatchHex(colourName?: string | null, customHex?: string | null): string {
+  if (customHex && typeof customHex === 'string') {
+    const trimmedHex = customHex.trim()
+    if (/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(trimmedHex)) {
+      return trimmedHex
+    }
+  }
+
   if (!colourName) return '#121212'
-  const key = normalizeColourKey(colourName)
+  const trimmed = colourName.trim()
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(trimmed)) {
+    return trimmed
+  }
+
+  const key = normalizeColourKey(trimmed)
   if (KNOWN_COLOUR_HEX_MAP[key]) return KNOWN_COLOUR_HEX_MAP[key]
 
   // Check if any substring matches a known key (e.g. "Vintage Washed Navy" -> "navy")
@@ -104,16 +117,71 @@ export function getColourSwatchHex(colourName?: string | null): string {
   return `hsl(${h}, 18%, 38%)`
 }
 
+function hslToHex(h: number, s: number, l: number): string {
+  l /= 100
+  const a = (s * Math.min(l, 1 - l)) / 100
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1)
+    return Math.round(255 * color).toString(16).padStart(2, '0')
+  }
+  return `#${f(0)}${f(8)}${f(4)}`.toUpperCase()
+}
+
 /**
- * Extract colour image mappings from a product's details JSONB array.
+ * Returns a guaranteed valid 6-digit uppercase hex code (#RRGGBB)
+ * suitable for native `<input type="color">`.
+ */
+export function getStandardHexForColour(colourName?: string | null, customHex?: string | null): string {
+  if (customHex && typeof customHex === 'string') {
+    const trimmed = customHex.trim()
+    if (/^#[0-9a-f]{6}$/i.test(trimmed)) {
+      return trimmed.toUpperCase()
+    }
+    if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
+      const r = trimmed[1]
+      const g = trimmed[2]
+      const b = trimmed[3]
+      return `#${r}${r}${g}${g}${b}${b}`.toUpperCase()
+    }
+  }
+
+  const hex = getColourSwatchHex(colourName)
+  if (/^#[0-9a-f]{6}$/i.test(hex)) {
+    return hex.toUpperCase()
+  }
+  if (/^#[0-9a-f]{3}$/i.test(hex)) {
+    const r = hex[1]
+    const g = hex[2]
+    const b = hex[3]
+    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase()
+  }
+  if (hex.startsWith('hsl(')) {
+    const match = hex.match(/hsl\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*\)/)
+    if (match) {
+      return hslToHex(Number(match[1]), Number(match[2]), Number(match[3]))
+    }
+  }
+
+  return '#121212'
+}
+
+/**
+ * Extract colour image and colour hex mappings from a product's details JSONB array.
  */
 export function extractColourImagesFromDetails(details: any): {
   colourImages: Record<string, string[]>
   colourPrimaries: Record<string, string>
+  colourHexes: Record<string, string>
 } {
-  const result: { colourImages: Record<string, string[]>; colourPrimaries: Record<string, string> } = {
+  const result: {
+    colourImages: Record<string, string[]>
+    colourPrimaries: Record<string, string>
+    colourHexes: Record<string, string>
+  } = {
     colourImages: {},
-    colourPrimaries: {}
+    colourPrimaries: {},
+    colourHexes: {}
   }
 
   if (!details) return result
@@ -138,6 +206,14 @@ export function extractColourImagesFromDetails(details: any): {
           }
         }
       }
+      if (d.__colour_hexes && typeof d.__colour_hexes === 'object') {
+        for (const [c, hex] of Object.entries(d.__colour_hexes)) {
+          if (hex && typeof hex === 'string') {
+            const key = normalizeColourKey(c)
+            result.colourHexes[key] = hex.trim()
+          }
+        }
+      }
     }
   }
 
@@ -153,6 +229,7 @@ export function buildProductColourImageMap(
 ): {
   colourImages: Record<string, string[]>
   colourPrimaries: Record<string, string>
+  colourHexes: Record<string, string>
   allImages: string[]
 } {
   const colourImages: Record<string, string[]> = {}
@@ -208,39 +285,54 @@ export function buildProductColourImageMap(
     }
   }
 
-  return { colourImages, colourPrimaries, allImages }
+  return { colourImages, colourPrimaries, colourHexes: fromDetails.colourHexes, allImages }
 }
 
 /**
- * Prepares the product `details` JSONB array with colour-specific image metadata.
+ * Prepares the product `details` JSONB array with colour-specific image and hex metadata.
  */
 export function prepareColourDetailsPayload(
   rawDetails: any[] = [],
   colourImagesOrImagesList: Record<string, string[]> | any[],
-  colourPrimaries: Record<string, string> = {}
+  colourPrimaries: Record<string, string> = {},
+  colourHexes: Record<string, string> = {}
 ): any[] {
   const clean = (Array.isArray(rawDetails) ? rawDetails : []).filter(
-    d => !(typeof d === 'object' && d !== null && (d.__colour_images !== undefined || d.__colour_primaries !== undefined))
+    d => !(typeof d === 'object' && d !== null && (
+      d.__colour_images !== undefined ||
+      d.__colour_primaries !== undefined ||
+      d.__colour_hexes !== undefined
+    ))
   )
 
   let finalImagesMap: Record<string, string[]> = {}
   let finalPrimariesMap: Record<string, string> = { ...colourPrimaries }
+  let finalHexesMap: Record<string, string> = { ...colourHexes }
 
   if (Array.isArray(colourImagesOrImagesList)) {
     const extracted = buildProductColourImageMap(colourImagesOrImagesList)
     finalImagesMap = extracted.colourImages
     finalPrimariesMap = { ...extracted.colourPrimaries, ...colourPrimaries }
+    finalHexesMap = { ...extracted.colourHexes, ...colourHexes }
   } else if (colourImagesOrImagesList && typeof colourImagesOrImagesList === 'object') {
     finalImagesMap = colourImagesOrImagesList
   }
 
-  // Only attach if there are actual colour images configured
-  if (Object.keys(finalImagesMap).length > 0) {
+  // Only attach if there are actual colour images or colour hexes configured
+  if (Object.keys(finalImagesMap).length > 0 || Object.keys(finalHexesMap).length > 0) {
     clean.unshift({
       __colour_images: finalImagesMap,
-      __colour_primaries: finalPrimariesMap
+      __colour_primaries: finalPrimariesMap,
+      __colour_hexes: finalHexesMap
     })
   }
 
   return clean
+}
+
+/**
+ * Extracts only custom colour hex overrides from details JSONB array.
+ */
+export function extractColourHexesFromDetails(details: any = []): Record<string, string> {
+  return extractColourImagesFromDetails(details).colourHexes
 }
