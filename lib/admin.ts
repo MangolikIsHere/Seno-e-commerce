@@ -758,7 +758,8 @@ export async function getAdminOverviewStats(): Promise<AdminOverviewStats> {
   const supabase = getAdminSupabase()
 
   // 1. Orders
-  let { data: orders, error: ordersError } = await supabase
+  let orders: any[] | null = null
+  const { data: initialOrders, error: ordersError } = await supabase
     .from('orders')
     .select('id, order_number, status, payment_status, total_amount, created_at, is_archived, profiles(full_name, email)')
     .order('created_at', { ascending: false })
@@ -769,6 +770,8 @@ export async function getAdminOverviewStats(): Promise<AdminOverviewStats> {
       .select('id, order_number, status, payment_status, total_amount, created_at, profiles(full_name, email)')
       .order('created_at', { ascending: false })
     orders = fallback.data
+  } else {
+    orders = initialOrders
   }
 
   const rawOrders = orders || []
