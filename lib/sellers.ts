@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { invalidateProductCache } from '@/lib/catalog-server'
-import { notifyOrderItemFulfillmentChanged, getUserNotifications } from '@/lib/notifications/service'
+import { notifyOrderItemFulfillmentChanged, getUserNotifications, notifyRefundEvent } from '@/lib/notifications/service'
 import { checkIsAdmin } from '@/lib/admin'
 import { reconcileProductVariants, ReconcileVariantInput } from '@/lib/variantReconciliation'
 import { revalidateCatalogPaths } from '@/lib/adminCatalog'
@@ -1216,6 +1216,16 @@ export async function cancelAndRefundOrderItemAction(orderItemId: string, reason
   if (refundStatus === 'failed') {
     throw new Error(`Refund initiation failed: ${errorMsg}`)
   }
+
+  // Authoritatively notify customer and platform administrators of the item refund
+  notifyRefundEvent(
+    item.order_id,
+    refundStatus === 'processed' ? 'refund_completed' : 'refund_initiated',
+    Number(refundable_amount),
+    orderItemId
+  ).catch(notifErr => {
+    console.warn('[cancelAndRefundOrderItemAction] Non-fatal notification error:', notifErr)
+  })
 
   revalidatePath('/seller/orders')
   revalidatePath('/seller/dashboard')

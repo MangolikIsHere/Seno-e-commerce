@@ -43,10 +43,17 @@ export async function createNotification(params: CreateNotificationParams): Prom
     })
 
     if (notifRes.error) {
-      // If Postgres enum mismatch (22P02), fallback to valid enum type while preserving original_type in payload
-      if (notifRes.error.code === '22P02' && params.type.startsWith('seller_')) {
-        const isNegative = ['seller_product_rejected', 'seller_product_suspended', 'seller_account_suspended', 'seller_account_rejected'].includes(params.type)
-        const fallbackType: NotificationType = isNegative ? 'seller_item_cancelled' : 'seller_new_order'
+      // If Postgres enum mismatch (22P02), fallback to valid base enum type while preserving original_type in payload
+      if (notifRes.error.code === '22P02') {
+        let fallbackType: NotificationType = 'order_placed'
+        if (params.type.startsWith('seller_')) {
+          fallbackType = 'seller_notice'
+        } else if (params.type.startsWith('admin_')) {
+          fallbackType = 'admin_new_order'
+        } else if (params.type === 'order_returned') {
+          fallbackType = 'order_cancelled'
+        }
+
         const fallbackData = {
           ...payloadData,
           original_type: params.type
@@ -337,7 +344,7 @@ export async function notifyPaymentConfirmed(orderId: string) {
  * 3. Payment Failure:
  * Notifies customer of failure and provides a way to retry.
  */
-export async function notifyPaymentFailed(orderId: string, errorMessage?: string) {
+export async function notifyPaymentFailed(orderId: string, errorMessage?: string, paymentId?: string) {
   try {
     const admin = getAdminClient()
     const { data: order } = await admin
@@ -347,6 +354,8 @@ export async function notifyPaymentFailed(orderId: string, errorMessage?: string
       .maybeSingle()
 
     if (!order) return
+
+    const safeAttemptKey = paymentId ? paymentId.replace(/[^a-zA-Z0-9_-]/g, '') : 'attempt'
 
     await createNotification({
       userId: order.customer_id,
@@ -360,7 +369,7 @@ export async function notifyPaymentFailed(orderId: string, errorMessage?: string
         order_number: order.order_number,
         deep_link: '/checkout'
       },
-      idempotencyKey: `payment_failed_${order.id}_${Date.now()}`
+      idempotencyKey: `payment_failed_${order.id}_${safeAttemptKey}`
     })
 
     // Notify Admins of payment failure
@@ -378,8 +387,10 @@ export async function notifyPaymentFailed(orderId: string, errorMessage?: string
           message: `Payment failed on order #${order.order_number}: ${errorMessage || 'Unknown error'}`,
           data: {
             order_id: order.id,
-            order_number: order.order_number
-          }
+            order_number: order.order_number,
+            deep_link: `/admin/orders/${order.id}`
+          },
+          idempotencyKey: `admin_payment_failed_${order.id}_${safeAttemptKey}_${adm.id}`
         })
       }
     }
@@ -451,6 +462,21 @@ export async function notifyOrderItemFulfillmentChanged(
         notifType = 'order_delivered'
         title = 'Item Delivered'
         message = `"${item.product_name}" from order #${order.order_number} has been delivered. Enjoy your piece.`
+        break
+      case 'cancelled':
+        notifType = 'order_cancelled'
+        title = 'Item Cancelled'
+        message = `"${item.product_name}" from order #${order.order_number} was cancelled.`
+        break
+      case 'returned':
+        notifType = 'order_returned'
+        title = 'Item Returned'
+        message = `"${item.product_name}" from order #${order.order_number} has been recorded as returned.`
+        break
+      case 'delivery_failed':
+        notifType = 'order_in_transit'
+        title = 'Delivery Reattempt Required'
+        message = `A delivery attempt for "${item.product_name}" (order #${order.order_number}) could not be completed. The courier will reattempt.`
         break
       default:
         break
@@ -709,7 +735,7 @@ export async function notifySellerProductDecision(
         reason,
         deep_link: action === 'rejected' ? `/seller/products/${product.id}/revisions` : '/seller/products'
       },
-      idempotencyKey: `seller_prod_${productId}_${action}_${Date.now()}`
+      idempotencyKey: `seller_prod_${productId}_${action}`
     })
   } catch (err) {
     console.error('[NotificationService] notifySellerProductDecision failed:', err)
@@ -752,7 +778,7 @@ export async function notifySellerCommissionChanged(
         effective_at: nowIso,
         deep_link: '/seller/earnings'
       },
-      idempotencyKey: `seller_comm_${sellerId}_${newRate}_${Date.now()}`
+      idempotencyKey: `seller_comm_${sellerId}_${newRate}`
     })
   } catch (err) {
     console.error('[NotificationService] notifySellerCommissionChanged failed:', err)
@@ -811,7 +837,7 @@ export async function notifySellerAccountStatusChanged(
         reason,
         deep_link: deepLink
       },
-      idempotencyKey: `seller_status_${sellerId}_${newStatus}_${Date.now()}`
+      idempotencyKey: `seller_status_${sellerId}_${newStatus}`
     })
   } catch (err) {
     console.error('[NotificationService] notifySellerAccountStatusChanged failed:', err)
@@ -870,5 +896,90 @@ export async function notifySellerRefund(orderId: string, amount: number, orderI
     }
   } catch (err) {
     console.error('[NotificationService] notifySellerRefund failed:', err)
+  }
+}
+
+/**
+ * 11. Low Stock & Inventory Shortage Alert:
+ * Authoritatively notifies seller and platform admins when stock drops to or below threshold.
+ */
+export async function notifyLowStockAlert(
+  variantId: string,
+  remainingQuantity: number
+) {
+  try {
+    const admin = getAdminClient()
+    const { data: variant } = await admin
+      .from('product_variants')
+      .select(`
+        id,
+        title,
+        sku,
+        product_id,
+        products (
+          id,
+          name,
+          seller_id,
+          sellers:seller_id (
+            id,
+            user_id,
+            store_name
+          )
+        )
+      `)
+      .eq('id', variantId)
+      .maybeSingle()
+
+    if (!variant || !variant.products) return
+
+    const product = variant.products as any
+    const seller = product.sellers
+    const titleText = remainingQuantity <= 0 ? 'Out of Stock Alert' : 'Low Stock Warning'
+    const message = remainingQuantity <= 0
+      ? `"${product.name}" (${variant.title || variant.sku || 'Variant'}) is now out of stock.`
+      : `"${product.name}" (${variant.title || variant.sku || 'Variant'}) is running low (${remainingQuantity} unit${remainingQuantity === 1 ? '' : 's'} remaining).`
+
+    // Notify Seller
+    if (seller?.user_id) {
+      await createNotification({
+        userId: seller.user_id,
+        type: 'seller_low_stock',
+        title: titleText,
+        message,
+        data: {
+          product_id: product.id,
+          variant_id: variant.id,
+          remaining_quantity: remainingQuantity,
+          deep_link: '/seller/products'
+        },
+        idempotencyKey: `seller_low_stock_${variantId}_${remainingQuantity}`
+      })
+    }
+
+    // Notify Admins
+    const { data: adminProfiles } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('role', 'admin')
+
+    if (adminProfiles) {
+      for (const adm of adminProfiles) {
+        await createNotification({
+          userId: adm.id,
+          type: 'admin_low_stock',
+          title: `Inventory: ${titleText}`,
+          message: `${seller?.store_name || 'Platform'}: ${message}`,
+          data: {
+            product_id: product.id,
+            variant_id: variant.id,
+            remaining_quantity: remainingQuantity,
+            deep_link: '/admin/products'
+          },
+          idempotencyKey: `admin_low_stock_${variantId}_${remainingQuantity}_${adm.id}`
+        })
+      }
+    }
+  } catch (err) {
+    console.error('[NotificationService] notifyLowStockAlert failed:', err)
   }
 }

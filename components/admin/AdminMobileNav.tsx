@@ -19,8 +19,10 @@ import {
   User,
   ShieldCheck,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Bell
 } from 'lucide-react'
+import { NotificationBell } from '@/components/NotificationBell'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -67,6 +69,7 @@ export function AdminMobileNav({ adminEmail }: AdminMobileNavProps) {
         { label: 'Categories', href: '/admin/categories', icon: Layers },
         { label: 'Sellers', href: '/admin/sellers', icon: Store },
         { label: 'Customers', href: '/admin/customers', icon: Users },
+        { label: 'Notifications', href: '/admin/notifications', icon: Bell },
       ]
     },
     {
@@ -91,6 +94,7 @@ export function AdminMobileNav({ adminEmail }: AdminMobileNavProps) {
     if (pathname.includes('/admin/categories')) return 'Categories'
     if (pathname.includes('/admin/sellers')) return 'Sellers'
     if (pathname.includes('/admin/customers')) return 'Customers'
+    if (pathname.includes('/admin/notifications')) return 'Notifications'
     if (pathname.includes('/admin/payments')) return 'Payments'
     if (pathname.includes('/admin/promotions')) return 'Offers'
     if (pathname.includes('/admin/settings')) return 'Settings'
@@ -109,16 +113,19 @@ export function AdminMobileNav({ adminEmail }: AdminMobileNavProps) {
           <span className="admin-mobile-header-title">{getActiveSectionLabel()}</span>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className="admin-mobile-menu-trigger"
-          aria-label={isOpen ? 'Close menu' : 'Open admin navigation'}
-          aria-expanded={isOpen}
-        >
-          {isOpen ? <X size={20} /> : <Menu size={20} />}
-          <span className="admin-mobile-menu-label">{isOpen ? 'CLOSE' : 'MENU'}</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <NotificationBell isMobile />
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            className="admin-mobile-menu-trigger"
+            aria-label={isOpen ? 'Close menu' : 'Open admin navigation'}
+            aria-expanded={isOpen}
+          >
+            {isOpen ? <X size={20} /> : <Menu size={20} />}
+            <span className="admin-mobile-menu-label">{isOpen ? 'CLOSE' : 'MENU'}</span>
+          </button>
+        </div>
       </header>
 
       {/* Slide-out Sheet Drawer */}

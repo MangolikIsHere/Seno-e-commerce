@@ -16,8 +16,10 @@ import {
   ArrowUpRight,
   ShieldCheck,
   User,
-  LogOut
+  LogOut,
+  Bell
 } from 'lucide-react'
+import { NotificationBell } from '@/components/NotificationBell'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -43,6 +45,7 @@ export function AdminSidebar({ adminEmail }: AdminSidebarProps) {
     { label: 'Categories', href: '/admin/categories', icon: Layers },
     { label: 'Sellers', href: '/admin/sellers', icon: Store },
     { label: 'Customers', href: '/admin/customers', icon: Users },
+    { label: 'Notifications', href: '/admin/notifications', icon: Bell },
   ]
 
   const marketingFinanceNav = [
@@ -59,9 +62,12 @@ export function AdminSidebar({ adminEmail }: AdminSidebarProps) {
       <div className="admin-sidebar-scroll-container">
         {/* Brand Header */}
         <div className="admin-sidebar-header">
-          <div className="admin-sidebar-brand-row">
-            <span className="admin-brand-logo">SENO</span>
-            <span className="admin-brand-badge">ADMIN</span>
+          <div className="admin-sidebar-brand-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="admin-brand-logo">SENO</span>
+              <span className="admin-brand-badge">ADMIN</span>
+            </div>
+            <NotificationBell />
           </div>
           <p className="admin-sidebar-sublabel">
             Brand Operations & Governance

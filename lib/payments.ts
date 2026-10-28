@@ -281,7 +281,7 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ve
         p_error_message: 'Cryptographic signature mismatch.'
       })
 
-      notifyPaymentFailed(order.id, 'Invalid payment signature. Verification failed.').catch(() => {})
+      notifyPaymentFailed(order.id, 'Invalid payment signature. Verification failed.', input.razorpayPaymentId).catch(() => {})
       return { success: false, error: 'Invalid payment signature. Verification failed.' }
     }
 

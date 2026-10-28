@@ -37,7 +37,7 @@ export function SellerNotificationsClient({ initialNotifications }: { initialNot
     if (filter === 'unread') return !n.read_at
     const notifType = (n.data?.original_type as string) || n.type
     if (filter === 'products') {
-      return notifType.includes('product')
+      return notifType.includes('product') || notifType.includes('stock')
     }
     if (filter === 'orders') {
       return notifType.includes('order') || notifType.includes('dispatched') || notifType.includes('delivered')
@@ -78,6 +78,8 @@ export function SellerNotificationsClient({ initialNotifications }: { initialNot
         return <RotateCcw size={18} color="#d97706" />
       case 'seller_commission_updated':
         return <CheckCircle2 size={18} color="#0284c7" />
+      case 'seller_low_stock':
+        return <AlertCircle size={18} color="#b45309" />
       default:
         return <Bell size={18} color="var(--muted)" />
     }
@@ -112,27 +114,31 @@ export function SellerNotificationsClient({ initialNotifications }: { initialNot
         </div>
       </div>
 
-      {/* Optional Web Push Banner */}
-      {isPushSupported && !pushEnabled && (
-        <div className="seller-push-optin-card" style={{ marginBottom: '20px' }}>
+      {/* Web Push Configuration Card */}
+      {isPushSupported && (
+        <div className="seller-push-optin-card" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <Bell size={20} color="#2563eb" style={{ flexShrink: 0 }} />
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: pushEnabled ? '#f0fdf4' : '#eff6ff', border: `1px solid ${pushEnabled ? '#bbf7d0' : '#bfdbfe'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Bell size={18} color={pushEnabled ? '#16a34a' : '#2563eb'} />
+            </div>
             <div>
               <strong style={{ fontSize: '13.5px', display: 'block', color: 'var(--ink)' }}>
-                Enable Browser Notifications (Optional)
+                Browser Push Notifications {pushEnabled ? '(Active)' : '(Disabled)'}
               </strong>
               <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                Receive immediate device alerts for new product approvals and new customer orders even when your dashboard tab is closed.
+                {pushEnabled
+                  ? 'Active: You are receiving device alerts for order items and curation decisions.'
+                  : 'Receive immediate device alerts for new product approvals and new customer orders even when your dashboard tab is closed.'}
               </span>
             </div>
           </div>
           <button
             type="button"
-            className="button button-primary"
+            className={pushEnabled ? 'button button-outline' : 'button button-primary'}
             onClick={togglePushNotifications}
             style={{ fontSize: '12px', padding: '8px 16px', whiteSpace: 'nowrap' }}
           >
-            Enable Push
+            {pushEnabled ? 'Disable Push' : 'Enable Push Alerts'}
           </button>
         </div>
       )}

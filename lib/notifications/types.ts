@@ -8,6 +8,7 @@ export type NotificationType =
   | 'order_out_for_delivery'
   | 'order_delivered'
   | 'order_cancelled'
+  | 'order_returned'
   | 'refund_initiated'
   | 'refund_completed'
   | 'seller_new_order'
@@ -19,10 +20,12 @@ export type NotificationType =
   | 'seller_account_approved'
   | 'seller_account_suspended'
   | 'seller_account_rejected'
+  | 'seller_low_stock'
   | 'seller_notice'
   | 'admin_new_order'
   | 'admin_payment_failed'
   | 'admin_refund_requested'
+  | 'admin_low_stock'
 
 export interface NotificationRecord {
   id: string
@@ -110,6 +113,15 @@ export function buildNotificationDeepLink(type: NotificationType, data: Record<s
     return '/seller/help'
   }
 
+  if (type === 'seller_low_stock') {
+    if (data?.product_id) return `/seller/products`
+    return '/seller/products'
+  }
+
+  if (type === 'admin_low_stock') {
+    return '/admin/products'
+  }
+
   if (type.startsWith('seller_')) {
     if (data?.order_id) return `/seller/orders/${data.order_id}`
     return '/seller/orders'
@@ -127,6 +139,11 @@ export function buildNotificationDeepLink(type: NotificationType, data: Record<s
 
   if (type === 'order_dispatched' || type === 'order_in_transit' || type === 'order_out_for_delivery') {
     if (data?.order_id) return `/account/orders/${data.order_id}/track`
+  }
+
+  if (type === 'order_returned' || type === 'refund_initiated' || type === 'refund_completed') {
+    if (data?.order_id) return `/account/orders/${data.order_id}`
+    return '/account/orders'
   }
 
   if (data?.order_id) {

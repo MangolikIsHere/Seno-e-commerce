@@ -202,14 +202,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         },
         (payload) => {
           const updatedNotif = payload.new as NotificationRecord
-          setNotifications(prev =>
-            prev.map(n => (n.id === updatedNotif.id ? updatedNotif : n))
-          )
-          // Recalculate unread count
-          setNotifications(current => {
-            const count = current.filter(n => !n.read_at).length
-            setUnreadCount(count)
-            return current
+          setNotifications(prev => {
+            const next = prev.map(n => (n.id === updatedNotif.id ? updatedNotif : n))
+            setUnreadCount(next.filter(n => !n.read_at).length)
+            return next
           })
         }
       )
@@ -217,7 +213,21 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     activeChannelRef.current = channel
 
+    // Fallback: Resynchronize on window focus or visibility change (e.g. mobile app wake-up)
+    let lastSyncTime = Date.now()
+    const handleFocusSync = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastSyncTime > 5000) {
+        lastSyncTime = Date.now()
+        fetchNotifications().catch(() => {})
+      }
+    }
+
+    window.addEventListener('focus', handleFocusSync)
+    document.addEventListener('visibilitychange', handleFocusSync)
+
     return () => {
+      window.removeEventListener('focus', handleFocusSync)
+      document.removeEventListener('visibilitychange', handleFocusSync)
       if (channel) {
         supabase.removeChannel(channel)
         activeChannelRef.current = null

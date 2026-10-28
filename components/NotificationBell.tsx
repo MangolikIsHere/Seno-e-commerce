@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
+import { createPortal } from 'react-dom'
 import {
   Bell,
   CheckCircle2,
@@ -19,7 +20,7 @@ import {
 } from 'lucide-react'
 import { useNotifications } from '@/context/NotificationContext'
 import { useAuth } from '@/context/AuthContext'
-import { NotificationRecord, NotificationType } from '@/lib/notifications/types'
+import { NotificationRecord, NotificationType, buildNotificationDeepLink } from '@/lib/notifications/types'
 
 function getNotificationIcon(type: NotificationType, data?: any) {
   const effectiveType = (data?.original_type as NotificationType) || type
@@ -40,6 +41,8 @@ function getNotificationIcon(type: NotificationType, data?: any) {
     case 'admin_payment_failed':
       return <XCircle size={16} className="notif-icon notif-icon-danger" />
     case 'seller_product_rejected':
+    case 'seller_low_stock':
+    case 'admin_low_stock':
       return <AlertCircle size={16} className="notif-icon notif-icon-warning" />
     case 'order_processing':
     case 'order_dispatched':
@@ -49,6 +52,7 @@ function getNotificationIcon(type: NotificationType, data?: any) {
     case 'refund_initiated':
     case 'refund_completed':
     case 'admin_refund_requested':
+    case 'order_returned':
       return <RotateCcw size={16} className="notif-icon notif-icon-warning" />
     case 'seller_new_order':
       return <Package size={16} className="notif-icon notif-icon-neutral" />
@@ -79,6 +83,7 @@ function formatRelativeTime(dateString: string): string {
 
 export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
   const router = useRouter()
+  const pathname = usePathname() || ''
   const { user, loading: authLoading } = useAuth()
   const {
     notifications,
@@ -94,10 +99,24 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
+  // Determine role-appropriate destination for "View all notifications"
+  const viewAllHref = pathname.startsWith('/admin')
+    ? '/admin/notifications'
+    : pathname.startsWith('/seller')
+    ? '/seller/notifications'
+    : '/account/notifications'
+
   // Close dropdown on click outside or escape key
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        // If mobile portal, check if target clicked was inside modal
+        if (isMobile) {
+          const mobileModal = document.querySelector('.notif-dropdown-mobile')
+          if (mobileModal && mobileModal.contains(e.target as Node)) {
+            return
+          }
+        }
         setIsOpen(false)
       }
     }
@@ -117,7 +136,18 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
       document.removeEventListener('mousedown', handleClickOutside)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen])
+  }, [isOpen, isMobile])
+
+  // Prevent background scrolling when mobile notifications bottom-sheet is open
+  useEffect(() => {
+    if (isOpen && isMobile && typeof document !== 'undefined') {
+      const originalOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = originalOverflow
+      }
+    }
+  }, [isOpen, isMobile])
 
   // If user is not logged in, clicking the bell directs them to sign in
   const handleTriggerClick = () => {
@@ -138,9 +168,117 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
     }
     setIsOpen(false)
 
-    const targetUrl = notif.data?.deep_link || (notif.data?.order_id ? `/account/orders/${notif.data.order_id}` : '/account')
-    router.push(targetUrl as string)
+    const targetUrl = notif.data?.deep_link || buildNotificationDeepLink(notif.type, notif.data || {})
+    router.push(targetUrl)
   }
+
+  const dropdownInnerContent = (
+    <>
+      <div className="notif-header">
+        <div className="notif-header-left">
+          <span className="notif-title">NOTIFICATIONS</span>
+          {unreadCount > 0 && <span className="notif-unread-pill">{unreadCount} new</span>}
+        </div>
+        <div className="notif-header-right">
+          {unreadCount > 0 && (
+            <button
+              className="notif-mark-all-btn"
+              onClick={markAllAsRead}
+              title="Mark all as read"
+            >
+              <Check size={13} />
+              <span>Mark all read</span>
+            </button>
+          )}
+          {isMobile && (
+            <button
+              className="notif-close-btn"
+              onClick={() => setIsOpen(false)}
+              aria-label="Close notifications"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Web Push Prompt Banner (if supported and not yet enabled) */}
+      {isPushSupported && !pushEnabled && (
+        <div className="notif-push-banner">
+          <div className="notif-push-info">
+            <strong>Enable Push Notifications</strong>
+            <span>Get real-time order, delivery, and refund alerts.</span>
+          </div>
+          <button
+            className="notif-push-toggle-btn"
+            onClick={togglePushNotifications}
+          >
+            Enable
+          </button>
+        </div>
+      )}
+
+      {/* NOTIFICATION FEED */}
+      <div className="notif-list">
+        {loading && notifications.length === 0 ? (
+          <div className="notif-loading">
+            <span className="notif-spinner" />
+            <span>Loading alerts...</span>
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="notif-empty">
+            <Bell size={32} className="notif-empty-icon" />
+            <p className="notif-empty-title">All caught up</p>
+            <p className="notif-empty-desc">
+              You have no notifications right now. Order updates, shipping tracking, and studio announcements will appear here.
+            </p>
+          </div>
+        ) : (
+          notifications.map((notif) => {
+            const isUnread = !notif.read_at
+            return (
+              <div
+                key={notif.id}
+                className={`notif-item ${isUnread ? 'notif-item-unread' : 'notif-item-read'}`}
+                onClick={() => handleNotificationClick(notif)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleNotificationClick(notif)
+                  }
+                }}
+              >
+                <div className="notif-item-icon-col">
+                  {getNotificationIcon(notif.type, notif.data)}
+                </div>
+                <div className="notif-item-content">
+                  <div className="notif-item-top">
+                    <span className="notif-item-title">{notif.title}</span>
+                    <span className="notif-item-time">{formatRelativeTime(notif.created_at)}</span>
+                  </div>
+                  <p className="notif-item-message">{notif.message}</p>
+                </div>
+                {isUnread && <span className="notif-unread-dot" title="Unread" />}
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* FOOTER */}
+      <div className="notif-footer">
+        <Link
+          href={viewAllHref}
+          className="notif-view-all-link"
+          onClick={() => setIsOpen(false)}
+        >
+          <span>View all notifications</span>
+          <ExternalLink size={12} />
+        </Link>
+      </div>
+    </>
+  )
 
   return (
     <div className="notif-wrapper" ref={dropdownRef}>
@@ -169,111 +307,30 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
 
       {/* NOTIFICATION FLYOUT / MODAL */}
       {isOpen && (
-        <div className={`notif-dropdown ${isMobile ? 'notif-dropdown-mobile' : 'notif-dropdown-desktop'}`}>
-          <div className="notif-header">
-            <div className="notif-header-left">
-              <span className="notif-title">NOTIFICATIONS</span>
-              {unreadCount > 0 && <span className="notif-unread-pill">{unreadCount} new</span>}
-            </div>
-            <div className="notif-header-right">
-              {unreadCount > 0 && (
-                <button
-                  className="notif-mark-all-btn"
-                  onClick={markAllAsRead}
-                  title="Mark all as read"
-                >
-                  <Check size={13} />
-                  <span>Mark all read</span>
-                </button>
-              )}
-              {isMobile && (
-                <button
-                  className="notif-close-btn"
-                  onClick={() => setIsOpen(false)}
-                  aria-label="Close notifications"
-                >
-                  <X size={18} />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Web Push Prompt Banner (if supported and not yet enabled) */}
-          {isPushSupported && !pushEnabled && (
-            <div className="notif-push-banner">
-              <div className="notif-push-info">
-                <strong>Enable Push Notifications</strong>
-                <span>Get real-time order, delivery, and refund alerts.</span>
-              </div>
-              <button
-                className="notif-push-toggle-btn"
-                onClick={togglePushNotifications}
+        isMobile && typeof document !== 'undefined' ? (
+          createPortal(
+            <div className="notif-mobile-portal-root">
+              <div
+                className="notif-backdrop"
+                onClick={() => setIsOpen(false)}
+                aria-hidden="true"
+              />
+              <div
+                className="notif-dropdown notif-dropdown-mobile"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Notifications"
               >
-                Enable
-              </button>
-            </div>
-          )}
-
-          {/* NOTIFICATION FEED */}
-          <div className="notif-list">
-            {loading && notifications.length === 0 ? (
-              <div className="notif-loading">
-                <span className="notif-spinner" />
-                <span>Loading alerts...</span>
+                {dropdownInnerContent}
               </div>
-            ) : notifications.length === 0 ? (
-              <div className="notif-empty">
-                <Bell size={32} className="notif-empty-icon" />
-                <p className="notif-empty-title">All caught up</p>
-                <p className="notif-empty-desc">
-                  You have no notifications right now. Order updates, shipping tracking, and studio announcements will appear here.
-                </p>
-              </div>
-            ) : (
-              notifications.map((notif) => {
-                const isUnread = !notif.read_at
-                return (
-                  <div
-                    key={notif.id}
-                    className={`notif-item ${isUnread ? 'notif-item-unread' : 'notif-item-read'}`}
-                    onClick={() => handleNotificationClick(notif)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        handleNotificationClick(notif)
-                      }
-                    }}
-                  >
-                    <div className="notif-item-icon-col">
-                      {getNotificationIcon(notif.type, notif.data)}
-                    </div>
-                    <div className="notif-item-content">
-                      <div className="notif-item-top">
-                        <span className="notif-item-title">{notif.title}</span>
-                        <span className="notif-item-time">{formatRelativeTime(notif.created_at)}</span>
-                      </div>
-                      <p className="notif-item-message">{notif.message}</p>
-                    </div>
-                    {isUnread && <span className="notif-unread-dot" title="Unread" />}
-                  </div>
-                )
-              })
-            )}
+            </div>,
+            document.body
+          )
+        ) : (
+          <div className="notif-dropdown notif-dropdown-desktop">
+            {dropdownInnerContent}
           </div>
-
-          {/* FOOTER */}
-          <div className="notif-footer">
-            <Link
-              href="/account/notifications"
-              className="notif-view-all-link"
-              onClick={() => setIsOpen(false)}
-            >
-              <span>View all notifications</span>
-              <ExternalLink size={12} />
-            </Link>
-          </div>
-        </div>
+        )
       )}
     </div>
   )

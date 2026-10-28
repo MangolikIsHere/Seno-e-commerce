@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { useNotifications } from '@/context/NotificationContext'
 import { useAuth } from '@/context/AuthContext'
-import { NotificationRecord, NotificationType } from '@/lib/notifications/types'
+import { NotificationRecord, NotificationType, buildNotificationDeepLink } from '@/lib/notifications/types'
 import { AccountShell } from '@/components/account/AccountShell'
 
 function getNotificationIcon(type: NotificationType) {
@@ -41,6 +41,7 @@ function getNotificationIcon(type: NotificationType) {
     case 'refund_initiated':
     case 'refund_completed':
     case 'admin_refund_requested':
+    case 'order_returned':
       return <RotateCcw size={18} className="notif-icon notif-icon-warning" />
     case 'seller_new_order':
       return <Package size={18} className="notif-icon notif-icon-neutral" />
@@ -190,8 +191,8 @@ export default function AccountNotificationsPage() {
                     if (isUnread) {
                       await markAsRead(notif.id)
                     }
-                    const link = notif.data?.deep_link || (notif.data?.order_id ? `/account/orders/${notif.data.order_id}` : '/account')
-                    router.push(link as string)
+                    const link = notif.data?.deep_link || buildNotificationDeepLink(notif.type, notif.data || {})
+                    router.push(link)
                   }}
                   style={{
                     background: isUnread ? 'var(--surface-subtle)' : '#fff',

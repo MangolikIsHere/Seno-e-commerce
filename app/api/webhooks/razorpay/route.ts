@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
           p_razorpay_payment_id: razorpayPaymentId,
           p_error_message: errDesc
         })
-        notifyPaymentFailed(senoOrderId, errDesc).catch(() => {})
+        notifyPaymentFailed(senoOrderId, errDesc, razorpayPaymentId || eventId).catch(() => {})
       }
     } else if (eventType === 'refund.created' || eventType === 'refund.processed') {
       const refundReceipt = refundEntity.receipt || ''
