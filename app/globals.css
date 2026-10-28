@@ -5465,7 +5465,7 @@ textarea.input-field {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 12mm 15mm;
+    margin: 10mm 12mm;
   }
 
   html, body {
@@ -5479,36 +5479,14 @@ textarea.input-field {
     print-color-adjust: exact !important;
   }
 
-  /* Universal print isolation: Hide everything by default */
-  body * {
-    visibility: hidden !important;
+  /* When printing from receipt modal, completely eradicate all other root elements from print layout */
+  body.receipt-modal-open > *:not(.receipt-modal-backdrop) {
+    display: none !important;
   }
 
-  /* Exclusively display the dedicated printable receipt document */
-  #seno-printable-receipt,
-  #seno-printable-receipt * {
-    visibility: visible !important;
-  }
-
-  #seno-printable-receipt {
-    display: block !important;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #ffffff !important;
-    color: #111111 !important;
-    box-shadow: none !important;
-    border: none !important;
-  }
-
-  /* Explicitly eradicate all screen chrome, overlays, backdrops, and navigation */
+  /* Explicitly eradicate all screen chrome, overlays, and navigation */
   .no-print,
   .no-print *,
-  .receipt-modal-backdrop,
   .admin-sidebar,
   .admin-mobile-header,
   .admin-mobile-drawer,
@@ -5528,13 +5506,71 @@ textarea.input-field {
     display: none !important;
   }
 
+  /* Make receipt modal backdrop transparent & unconstrained for clean print */
+  .receipt-modal-backdrop {
+    position: static !important;
+    inset: auto !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    z-index: auto !important;
+  }
+
+  .receipt-modal-card {
+    background: transparent !important;
+    border-radius: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .receipt-modal-card > div {
+    overflow: visible !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  /* Dedicated printable receipt document */
+  #seno-printable-receipt {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+    box-shadow: none !important;
+    border: none !important;
+    visibility: visible !important;
+  }
+
+  #seno-printable-receipt * {
+    visibility: visible !important;
+  }
+
   /* Receipt pagination & layout protection */
   .seno-receipt-document {
     width: 100% !important;
     max-width: 100% !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
+    box-shadow: none !important;
     page-break-inside: auto;
+  }
+
+  .seno-receipt-document.seno-receipt-compact {
+    width: 80mm !important;
+    max-width: 80mm !important;
   }
 
   .seno-receipt-document table {
