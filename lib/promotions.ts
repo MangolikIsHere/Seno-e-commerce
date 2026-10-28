@@ -818,7 +818,12 @@ export async function recordPromotionRedemption(params: {
       })
 
     if (insertErr) {
+      if ((insertErr as any).code === '23505') {
+        // Concurrent worker already recorded this redemption idempotently
+        return true
+      }
       console.warn('[recordPromotionRedemption] Redemption insert notice:', insertErr.message)
+      return false
     }
 
     // 3. Atomically increment promotion usage_count
