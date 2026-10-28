@@ -344,7 +344,8 @@ export async function placeOrderAction(
           const discountEval = await evaluateCartDiscount({
             cart: evalCartItems,
             promotionCode: input.coupon_code || null,
-            shippingFee: Number(result.shipping_amount)
+            shippingFee: Number(result.shipping_amount),
+            customerId: user.id
           })
 
           if (discountEval.discountAmount > 0 || discountEval.isFreeShipping) {

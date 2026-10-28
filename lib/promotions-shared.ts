@@ -167,7 +167,10 @@ export function isProductEligibleForPromotion(productOrPromo: any, promoOrProduc
     for (const token of productCategoryTokens) {
       if (expandedTargets.has(token)) return true
       for (const target of expandedTargets) {
-        if (token.includes(target) || target.includes(token)) return true
+        if (token === target) return true
+        // Boundary matching prevents accidental substring collisions (e.g. 'ear' matching 'outerwear')
+        const regex = new RegExp(`(^|[^a-z0-9])${target}([^a-z0-9]|$)`, 'i')
+        if (regex.test(token)) return true
       }
     }
     return false
@@ -179,8 +182,8 @@ export function isProductEligibleForPromotion(productOrPromo: any, promoOrProduc
     return (
       targetCols.includes(cat) ||
       targetCols.some((t: string) => cat.includes(t)) ||
-      (promo.target_ids.includes('new-arrivals') && !!product.isNew) ||
-      (promo.target_ids.includes('bestsellers') && !!product.isBestseller)
+      ((targetCols.includes('new-arrivals') || targetCols.includes('new arrivals')) && !!product.isNew) ||
+      ((targetCols.includes('bestsellers') || targetCols.includes('best-sellers') || targetCols.includes('best sellers')) && !!product.isBestseller)
     )
   }
 

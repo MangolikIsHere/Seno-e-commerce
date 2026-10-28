@@ -169,8 +169,9 @@ export async function evaluateCartDiscount(params: {
   cart: CartItem[]
   promotionCode?: string | null
   shippingFee?: number
+  customerId?: string | null
 }): Promise<PromotionEvaluationResult> {
-  const { cart, promotionCode, shippingFee = 0 } = params
+  const { cart, promotionCode, shippingFee = 0, customerId } = params
 
   if (!cart || cart.length === 0) {
     return {
@@ -262,6 +263,33 @@ export async function evaluateCartDiscount(params: {
   const evaluated: EvaluatedPromo[] = []
 
   for (const promo of candidatePromotions) {
+    // Check per_customer_limit if customerId is provided
+    if (promo.per_customer_limit && promo.per_customer_limit > 0 && customerId) {
+      try {
+        const supabase = await createClient()
+        const { count, error } = await supabase
+          .from('promotion_redemptions')
+          .select('id', { count: 'exact', head: true })
+          .eq('promotion_id', promo.id)
+          .eq('customer_id', customerId)
+
+        if (!error && count !== null && count >= promo.per_customer_limit) {
+          evaluated.push({
+            promotion: promo,
+            status: 'ineligible',
+            computedDiscount: 0,
+            isFreeShipping: false,
+            message: `You have reached the redemption limit (${promo.per_customer_limit}) for offer "${promo.name}".`,
+            subMessage: null,
+            reason: `Customer redemptions (${count}) reached per_customer_limit (${promo.per_customer_limit}).`
+          })
+          continue
+        }
+      } catch (err) {
+        console.warn('[evaluateCartDiscount] Notice querying customer redemptions:', err)
+      }
+    }
+
     const eligibleItems = cart.filter(item => isProductEligibleForPromotion(item.product, promo))
 
     if (eligibleItems.length === 0) {
@@ -280,9 +308,10 @@ export async function evaluateCartDiscount(params: {
     const eligibleSubtotal = eligibleItems.reduce((sum, i) => sum + i.unit_price * i.qty, 0)
     const eligibleQty = eligibleItems.reduce((sum, i) => sum + i.qty, 0)
 
-    // Check minimum cart value requirement
-    if (promo.min_cart_value && subtotal < promo.min_cart_value) {
-      const remaining = promo.min_cart_value - subtotal
+    // Check minimum cart value requirement (scoped to eligible subtotal when promotion is targeted)
+    const qualifyingSpend = promo.applies_to === 'all' ? subtotal : eligibleSubtotal
+    if (promo.min_cart_value && qualifyingSpend < promo.min_cart_value) {
+      const remaining = promo.min_cart_value - qualifyingSpend
       const label =
         promo.type === 'percentage'
           ? `${promo.discount_value}% OFF`
@@ -296,11 +325,11 @@ export async function evaluateCartDiscount(params: {
         computedDiscount: 0,
         isFreeShipping: false,
         discountLabel: label,
-        message: `Add ₹${Math.ceil(remaining).toLocaleString('en-IN')} more to unlock ${label}.`,
+        message: `Add ₹${Math.ceil(remaining).toLocaleString('en-IN')} more ${promo.applies_to !== 'all' ? 'of eligible styles ' : ''}to unlock ${label}.`,
         subMessage: null,
-        reason: `Subtotal ₹${subtotal} < min cart value ₹${promo.min_cart_value}.`,
+        reason: `${promo.applies_to === 'all' ? 'Subtotal' : 'Eligible subtotal'} ₹${qualifyingSpend} < min cart value ₹${promo.min_cart_value}.`,
         progress: {
-          current: subtotal,
+          current: qualifyingSpend,
           target: promo.min_cart_value,
           remaining,
           type: 'amount'
@@ -355,6 +384,10 @@ export async function evaluateCartDiscount(params: {
         for (let i = 0; i < freeUnitsCount; i++) {
           discount += unitPrices[i] * discountPercent
         }
+        // Enforce maximum discount cap if configured for BOGO
+        if (promo.max_discount_amount && discount > Number(promo.max_discount_amount)) {
+          discount = Number(promo.max_discount_amount)
+        }
         discount = Math.round(discount * 100) / 100
 
         evaluated.push({
@@ -405,7 +438,10 @@ export async function evaluateCartDiscount(params: {
         reason: 'Qualified for percentage discount.'
       })
     } else if (promo.type === 'flat' || promo.type === 'coupon') {
-      const rawDiscount = Number(promo.discount_value)
+      let rawDiscount = Number(promo.discount_value)
+      if (promo.max_discount_amount && rawDiscount > Number(promo.max_discount_amount)) {
+        rawDiscount = Number(promo.max_discount_amount)
+      }
       const discount = Math.min(rawDiscount, eligibleSubtotal)
       const rounded = Math.round(discount * 100) / 100
 
@@ -739,5 +775,83 @@ export async function togglePromotionStatusAction(
     return { success: true }
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : 'Failed to toggle status.' }
+  }
+}
+
+/**
+ * Authoritatively records promotion redemption in public.promotion_redemptions and increments usage_count.
+ * Guaranteed idempotent by orderId and promotionId checks.
+ */
+export async function recordPromotionRedemption(params: {
+  orderId: string
+  promotionId?: string | null
+  customerId?: string | null
+  discountAmount?: number
+  client?: any
+}): Promise<boolean> {
+  const { orderId, promotionId, customerId, discountAmount = 0, client } = params
+  if (!orderId || !promotionId || !customerId) return false
+
+  try {
+    const supabase = client || (await createClient())
+
+    // 1. Check idempotency: Do not duplicate redemption for the same order and promotion
+    const { data: existing } = await supabase
+      .from('promotion_redemptions')
+      .select('id')
+      .eq('order_id', orderId)
+      .eq('promotion_id', promotionId)
+      .maybeSingle()
+
+    if (existing) {
+      return true
+    }
+
+    // 2. Insert redemption record
+    const { error: insertErr } = await supabase
+      .from('promotion_redemptions')
+      .insert({
+        promotion_id: promotionId,
+        customer_id: customerId,
+        order_id: orderId,
+        discount_amount: discountAmount
+      })
+
+    if (insertErr) {
+      console.warn('[recordPromotionRedemption] Redemption insert notice:', insertErr.message)
+    }
+
+    // 3. Atomically increment promotion usage_count
+    const { data: promo } = await supabase
+      .from('promotions')
+      .select('usage_count')
+      .eq('id', promotionId)
+      .single()
+
+    if (promo) {
+      await supabase
+        .from('promotions')
+        .update({
+          usage_count: (promo.usage_count || 0) + 1,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', promotionId)
+    }
+
+    // 4. Update local mock data in dev if applicable
+    if (process.env.NODE_ENV !== 'production') {
+      const localList = readLocalPromotions()
+      const localPromo = localList.find(p => p.id === promotionId)
+      if (localPromo) {
+        localPromo.usage_count = (localPromo.usage_count || 0) + 1
+        localPromo.updated_at = new Date().toISOString()
+        writeLocalPromotions(localList)
+      }
+    }
+
+    return true
+  } catch (err) {
+    console.error('[recordPromotionRedemption] Failed to record redemption:', err)
+    return false
   }
 }

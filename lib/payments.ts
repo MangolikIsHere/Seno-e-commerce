@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { revalidateStorefrontForOrder } from './storefront-revalidation'
 import { notifyPaymentConfirmed, notifyPaymentFailed, notifyOrderCancelled } from '@/lib/notifications/service'
+import { recordPromotionRedemption } from '@/lib/promotions'
 
 export interface PaymentConfig {
   keyId: string
@@ -229,7 +230,7 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ve
     // 1. Authoritative lookup
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, order_number, customer_id, status, payment_status, total_amount, razorpay_order_id')
+      .select('id, order_number, customer_id, status, payment_status, total_amount, discount_amount, promotion_id, razorpay_order_id')
       .eq('id', input.orderId)
       .maybeSingle()
 
@@ -306,6 +307,16 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ve
     revalidatePath('/account')
     await revalidateStorefrontForOrder(order.id, supabase)
     notifyPaymentConfirmed(order.id).catch(() => {})
+
+    // Authoritatively record promotion redemption and increment usage_count
+    if (order.promotion_id && order.customer_id) {
+      recordPromotionRedemption({
+        orderId: order.id,
+        promotionId: order.promotion_id,
+        customerId: order.customer_id,
+        discountAmount: Number(order.discount_amount || 0)
+      }).catch(err => console.warn('[verifyPaymentAction] Notice recording redemption:', err))
+    }
 
     return {
       success: true,
@@ -508,6 +519,23 @@ export async function reconcilePendingOrderAction(orderId: string, razorpayOrder
           }
 
           notifyPaymentConfirmed(orderId).catch(() => {})
+
+          // Authoritatively record promotion redemption and increment usage_count
+          const { data: ord } = await supabase
+            .from('orders')
+            .select('customer_id, promotion_id, discount_amount')
+            .eq('id', orderId)
+            .maybeSingle()
+
+          if (ord?.promotion_id && ord?.customer_id) {
+            recordPromotionRedemption({
+              orderId,
+              promotionId: ord.promotion_id,
+              customerId: ord.customer_id,
+              discountAmount: Number(ord.discount_amount || 0)
+            }).catch(() => {})
+          }
+
           return { success: true, action: 'paid' as const, message: 'Payment successfully captured on gateway.', data: confirmRes }
         }
 

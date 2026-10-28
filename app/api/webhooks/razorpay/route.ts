@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { notifyPaymentConfirmed, notifyPaymentFailed, notifyRefundEvent } from '@/lib/notifications/service'
+import { recordPromotionRedemption } from '@/lib/promotions'
 
 function getAdminSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -117,6 +118,23 @@ export async function POST(req: NextRequest) {
         }
 
         notifyPaymentConfirmed(senoOrderId).catch(() => {})
+
+        // Authoritatively record promotion redemption and increment usage_count
+        const { data: ord } = await supabase
+          .from('orders')
+          .select('customer_id, promotion_id, discount_amount')
+          .eq('id', senoOrderId)
+          .maybeSingle()
+
+        if (ord?.promotion_id && ord?.customer_id) {
+          recordPromotionRedemption({
+            orderId: senoOrderId,
+            promotionId: ord.promotion_id,
+            customerId: ord.customer_id,
+            discountAmount: Number(ord.discount_amount || 0),
+            client: supabase
+          }).catch(() => {})
+        }
       }
     } else if (eventType === 'payment.failed') {
       // CRITICAL: A failed payment MUST NOT cancel the order or release inventory reservation.

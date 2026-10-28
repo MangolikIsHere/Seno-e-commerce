@@ -321,11 +321,17 @@ export function ProductDetailClient({
             <h1 className="product-title-detail">{product.name}</h1>
             <div className="product-price-row" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <span className="product-price-current">
-                {applicablePromotion?.type === 'percentage' && !applicablePromotion.min_cart_value
+                {applicablePromotion?.type === 'percentage' &&
+                !applicablePromotion.min_cart_value &&
+                (!applicablePromotion.min_quantity || applicablePromotion.min_quantity <= 1) &&
+                !applicablePromotion.coupon_code
                   ? money(Math.round(displayPrice * (1 - applicablePromotion.discount_value / 100)))
                   : money(displayPrice)}
               </span>
-              {applicablePromotion?.type === 'percentage' && !applicablePromotion.min_cart_value ? (
+              {applicablePromotion?.type === 'percentage' &&
+              !applicablePromotion.min_cart_value &&
+              (!applicablePromotion.min_quantity || applicablePromotion.min_quantity <= 1) &&
+              !applicablePromotion.coupon_code ? (
                 <>
                   <span className="product-price-compare" style={{ textDecoration: 'line-through', color: 'var(--muted)' }}>
                     {money(displayPrice)}

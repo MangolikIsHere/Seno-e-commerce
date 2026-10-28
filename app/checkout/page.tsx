@@ -207,7 +207,12 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (cart.length > 0) {
-      evaluateCartDiscount({ cart, promotionCode: appliedCouponCode, shippingFee })
+      evaluateCartDiscount({
+        cart,
+        promotionCode: appliedCouponCode,
+        shippingFee,
+        customerId: user?.id || null
+      })
         .then(res => {
           setPromoResult(res)
           if (res.status === 'ineligible' && appliedCouponCode) {
@@ -220,7 +225,7 @@ export default function CheckoutPage() {
     } else {
       setPromoResult(null)
     }
-  }, [cart, appliedCouponCode, shippingFee])
+  }, [cart, appliedCouponCode, shippingFee, user?.id])
 
   const promoDiscount = promoResult?.discountAmount || 0
   const finalShippingFee = promoResult?.isFreeShipping ? 0 : shippingFee
