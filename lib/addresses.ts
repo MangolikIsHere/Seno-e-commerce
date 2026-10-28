@@ -6,7 +6,8 @@ export interface Address {
   recipient_name: string
   phone: string
   address_line1: string
-  address_line2?: string
+  address_line2?: string | null
+  landmark?: string | null
   city: string
   state: string
   postal_code: string
@@ -15,7 +16,9 @@ export interface Address {
   created_at: string
 }
 
-export type AddressInput = Omit<Address, 'id' | 'user_id' | 'created_at' | 'updated_at'>
+export type AddressInput = Omit<Address, 'id' | 'user_id' | 'created_at' | 'updated_at'> & {
+  landmark: string
+}
 
 export async function fetchAddresses(userId: string): Promise<Address[]> {
   const supabase = createClient()
@@ -31,38 +34,88 @@ export async function fetchAddresses(userId: string): Promise<Address[]> {
 }
 
 export async function createAddress(userId: string, input: AddressInput): Promise<Address | null> {
+  const trimmedLandmark = input.landmark?.trim()
+  if (!trimmedLandmark) {
+    throw new Error('Please enter a nearby landmark to help locate your address.')
+  }
+
   const supabase = createClient()
-  
-  if (input.is_default) {
+
+  const payload = {
+    ...input,
+    landmark: trimmedLandmark
+  }
+
+  if (payload.is_default) {
     await supabase.from('addresses').update({ is_default: false }).eq('user_id', userId)
   }
 
   const { data, error } = await supabase
     .from('addresses')
-    .insert({ ...input, user_id: userId })
+    .insert({ ...payload, user_id: userId })
     .select('*')
     .single()
     
-  if (error || !data) return null
+  if (error) {
+    // Graceful fallback if database migration 20261029000000 has not yet been applied
+    if (error.code === '42703' || error.message?.includes('landmark')) {
+      const { landmark, ...payloadWithoutLandmark } = payload
+      const fallbackRes = await supabase
+        .from('addresses')
+        .insert({ ...payloadWithoutLandmark, user_id: userId })
+        .select('*')
+        .single()
+      if (!fallbackRes.error && fallbackRes.data) {
+        return { ...fallbackRes.data, landmark: trimmedLandmark }
+      }
+    }
+    return null
+  }
   return data
 }
 
 export async function updateAddress(userId: string, addressId: string, input: AddressInput): Promise<Address | null> {
+  const trimmedLandmark = input.landmark?.trim()
+  if (!trimmedLandmark) {
+    throw new Error('Please enter a nearby landmark to help locate your address.')
+  }
+
   const supabase = createClient()
-  
-  if (input.is_default) {
+
+  const payload = {
+    ...input,
+    landmark: trimmedLandmark
+  }
+
+  if (payload.is_default) {
     await supabase.from('addresses').update({ is_default: false }).eq('user_id', userId)
   }
 
   const { data, error } = await supabase
     .from('addresses')
-    .update(input)
+    .update(payload)
     .eq('id', addressId)
     .eq('user_id', userId)
     .select('*')
     .single()
     
-  if (error || !data) return null
+  if (error) {
+    // Graceful fallback if database migration 20261029000000 has not yet been applied
+    if (error.code === '42703' || error.message?.includes('landmark')) {
+      const { landmark, ...payloadWithoutLandmark } = payload
+      const fallbackRes = await supabase
+        .from('addresses')
+        .update(payloadWithoutLandmark)
+        .eq('id', addressId)
+        .eq('user_id', userId)
+        .select('*')
+        .single()
+      if (!fallbackRes.error && fallbackRes.data) {
+        return { ...fallbackRes.data, landmark: trimmedLandmark }
+      }
+    }
+    return null
+  }
   return data
 }
 

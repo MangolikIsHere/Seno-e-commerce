@@ -122,6 +122,7 @@ export function PrintableReceipt({
           <div>{customerPhone}</div>
           <div style={{ marginTop: '4px', fontWeight: 700, fontSize: '10px' }}>DELIVERY ADDRESS:</div>
           <div>{address.address_line1}{address.address_line2 ? `, ${address.address_line2}` : ''}</div>
+          {address.landmark && <div>Landmark: {address.landmark}</div>}
           <div>{address.city}, {address.state} {address.postal_code}</div>
         </div>
 
@@ -363,6 +364,7 @@ export function PrintableReceipt({
           </span>
           <div style={{ fontSize: '12px', lineHeight: 1.5, color: '#222222' }}>
             <div>{address.address_line1} {address.address_line2 ? `, ${address.address_line2}` : ''}</div>
+            {address.landmark && <div>Landmark: {address.landmark}</div>}
             <div>{address.city}, {address.state} {address.postal_code}</div>
             <div>{address.country || 'India'}</div>
           </div>

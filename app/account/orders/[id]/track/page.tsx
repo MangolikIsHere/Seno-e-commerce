@@ -839,6 +839,9 @@ export default function TrackingPage() {
               {order.shipping_address?.address_line2 && (
                 <div>{order.shipping_address.address_line2}</div>
               )}
+              {order.shipping_address?.landmark && (
+                <div><span style={{ color: 'var(--muted)' }}>Landmark:</span> {order.shipping_address.landmark}</div>
+              )}
               <div>
                 {order.shipping_address?.city || ''}
                 {order.shipping_address?.city && order.shipping_address?.state ? ', ' : ''}

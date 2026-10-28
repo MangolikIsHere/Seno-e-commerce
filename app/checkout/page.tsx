@@ -57,12 +57,15 @@ export default function CheckoutPage() {
     phone: '',
     address_line1: '',
     address_line2: '',
+    landmark: '',
     city: '',
     state: '',
     postal_code: '',
     country: 'India',
     is_default: false
   })
+  const [selectedAddressLandmark, setSelectedAddressLandmark] = useState<string>('')
+  const [landmarkError, setLandmarkError] = useState<string>('')
 
   // Order notes & idempotency
   const [orderNotes, setOrderNotes] = useState('')
@@ -116,6 +119,7 @@ export default function CheckoutPage() {
         if (addresses.length > 0) {
           const defaultAddr = addresses.find(a => a.is_default) || addresses[0]
           setSelectedAddressId(defaultAddr.id)
+          setSelectedAddressLandmark(defaultAddr.landmark || '')
           setUseNewAddress(false)
         } else {
           setUseNewAddress(true)
@@ -381,15 +385,22 @@ export default function CheckoutPage() {
       let addressIdPayload: string | undefined = undefined
 
       if (useNewAddress || savedAddresses.length === 0) {
+        const cleanLandmark = newAddress.landmark?.trim()
         if (
           !newAddress.recipient_name.trim() ||
           !newAddress.phone.trim() ||
           !newAddress.address_line1.trim() ||
+          !cleanLandmark ||
           !newAddress.city.trim() ||
           !newAddress.state.trim() ||
           !newAddress.postal_code.trim()
         ) {
-          setErrorMessage('Please fill in all required delivery address fields.')
+          if (!cleanLandmark) {
+            setLandmarkError('Please enter a nearby landmark to help locate your address.')
+            setErrorMessage('Please enter a nearby landmark to help locate your address.')
+          } else {
+            setErrorMessage('Please fill in all required delivery address fields.')
+          }
           setIsSubmitting(false)
           return
         }
@@ -399,6 +410,7 @@ export default function CheckoutPage() {
           phone: newAddress.phone.trim(),
           address_line1: newAddress.address_line1.trim(),
           address_line2: newAddress.address_line2?.trim() || null,
+          landmark: cleanLandmark,
           city: newAddress.city.trim(),
           state: newAddress.state.trim(),
           postal_code: newAddress.postal_code.trim(),
@@ -407,7 +419,7 @@ export default function CheckoutPage() {
 
         if (saveNewAddress && user) {
           try {
-            await createAddress(user.id, { ...newAddress, is_default: savedAddresses.length === 0 })
+            await createAddress(user.id, { ...newAddress, landmark: cleanLandmark, is_default: savedAddresses.length === 0 })
           } catch {
             // Non-fatal if address book persistence fails
           }
@@ -418,7 +430,28 @@ export default function CheckoutPage() {
           setIsSubmitting(false)
           return
         }
+        const selectedAddr = savedAddresses.find(a => a.id === selectedAddressId)
+        const effectiveLandmark = (selectedAddr?.landmark || selectedAddressLandmark || '').trim()
+        if (!effectiveLandmark) {
+          setLandmarkError('Please enter a nearby landmark to help locate your address.')
+          setErrorMessage('Please enter a nearby landmark to help locate your address.')
+          setIsSubmitting(false)
+          return
+        }
         addressIdPayload = selectedAddressId
+        if (selectedAddr) {
+          shippingAddressPayload = {
+            recipient_name: selectedAddr.recipient_name,
+            phone: selectedAddr.phone,
+            address_line1: selectedAddr.address_line1,
+            address_line2: selectedAddr.address_line2 || null,
+            landmark: effectiveLandmark,
+            city: selectedAddr.city,
+            state: selectedAddr.state,
+            postal_code: selectedAddr.postal_code,
+            country: selectedAddr.country || 'India'
+          }
+        }
       }
 
       const itemsPayload = cart.map(item => ({
@@ -734,6 +767,8 @@ export default function CheckoutPage() {
                           checked={selectedAddressId === addr.id && !useNewAddress}
                           onChange={() => {
                             setSelectedAddressId(addr.id)
+                            setSelectedAddressLandmark(addr.landmark || '')
+                            setLandmarkError('')
                             setUseNewAddress(false)
                           }}
                           style={{ marginTop: '3px' }}
@@ -749,7 +784,51 @@ export default function CheckoutPage() {
                           </div>
                           <div style={{ color: 'var(--muted)' }}>{addr.phone}</div>
                           <div>{addr.address_line1}{addr.address_line2 ? `, ${addr.address_line2}` : ''}</div>
+                          {addr.landmark ? (
+                            <div style={{ color: 'var(--muted)', fontSize: '12px' }}>Landmark: {addr.landmark}</div>
+                          ) : (
+                            <div style={{ color: '#b45309', fontSize: '11px', marginTop: '2px', fontWeight: 500 }}>
+                              ⚠️ Landmark required before checkout
+                            </div>
+                          )}
                           <div>{addr.city}, {addr.state} {addr.postal_code}, {addr.country}</div>
+
+                          {selectedAddressId === addr.id && !useNewAddress && !addr.landmark?.trim() && (
+                            <div
+                              style={{
+                                marginTop: '10px',
+                                padding: '12px',
+                                background: '#fffbeb',
+                                border: '1px solid #fde68a',
+                                borderRadius: '2px'
+                              }}
+                              onClick={e => e.stopPropagation()}
+                            >
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#92400e', marginBottom: '6px' }}>
+                                Landmark *
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="e.g., Near SBI Bank, Opposite City Hospital"
+                                className="form-input-field"
+                                value={selectedAddressLandmark}
+                                onChange={e => {
+                                  setSelectedAddressLandmark(e.target.value)
+                                  setLandmarkError('')
+                                }}
+                                style={{ background: '#fff' }}
+                                required
+                              />
+                              {landmarkError && (
+                                <div style={{ color: '#b91c1c', fontSize: '12px', marginTop: '4px' }}>
+                                  {landmarkError}
+                                </div>
+                              )}
+                              <p style={{ fontSize: '11px', color: '#78350f', margin: '4px 0 0', lineHeight: 1.4 }}>
+                                Please enter a nearby landmark to help locate your address.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </label>
                     ))}
@@ -805,11 +884,29 @@ export default function CheckoutPage() {
                     />
                     <input
                       type="text"
-                      placeholder="Address Line 2 (Apartment, Suite, Landmark - Optional)"
+                      placeholder="Address Line 2 (Apartment, Suite - Optional)"
                       className="form-input-field"
                       value={newAddress.address_line2 || ''}
                       onChange={e => setNewAddress({ ...newAddress, address_line2: e.target.value })}
                     />
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Landmark * (e.g., Near SBI Bank, Opposite City Hospital)"
+                        className="form-input-field"
+                        value={newAddress.landmark}
+                        onChange={e => {
+                          setNewAddress({ ...newAddress, landmark: e.target.value })
+                          setLandmarkError('')
+                        }}
+                        required
+                      />
+                      {landmarkError && (
+                        <div style={{ color: '#b91c1c', fontSize: '12px', marginTop: '4px' }}>
+                          {landmarkError}
+                        </div>
+                      )}
+                    </div>
                     <div className="checkout-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                       <input
                         type="text"

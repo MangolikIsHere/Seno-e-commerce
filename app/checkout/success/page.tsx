@@ -92,6 +92,7 @@ function CheckoutSuccessContent() {
             <div style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--ink)' }}>
               <strong>{order.shipping_address.recipient_name}</strong> ({order.shipping_address.phone})<br />
               {order.shipping_address.address_line1}{order.shipping_address.address_line2 ? `, ${order.shipping_address.address_line2}` : ''}<br />
+              {order.shipping_address.landmark && (<>Landmark: {order.shipping_address.landmark}<br /></>)}
               {order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.postal_code}, {order.shipping_address.country}
             </div>
           </div>

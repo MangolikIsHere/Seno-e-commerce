@@ -10,6 +10,7 @@ export interface OrderAddress {
   phone: string
   address_line1: string
   address_line2?: string | null
+  landmark?: string | null
   city: string
   state: string
   postal_code: string
@@ -212,11 +213,35 @@ export async function placeOrderAction(
         }
       }
 
+      // Check for landmark (required for delivery). If saved address lacks landmark,
+      // allow customer to provide it in input.shipping_address without blocking checkout
+      const resolvedLandmark = (addrData.landmark || input.shipping_address?.landmark || '').trim()
+      if (!resolvedLandmark) {
+        return {
+          success: false,
+          error: 'Please enter a nearby landmark to help locate your address.'
+        }
+      }
+
+      // If address didn't have a landmark in DB, proactively save it to their address book
+      if (!addrData.landmark?.trim() && resolvedLandmark) {
+        try {
+          await supabase
+            .from('addresses')
+            .update({ landmark: resolvedLandmark })
+            .eq('id', input.address_id)
+            .eq('user_id', user.id)
+        } catch {
+          // Non-fatal if column migration pending
+        }
+      }
+
       verifiedShippingAddress = {
         recipient_name: addrData.recipient_name,
         phone: addrData.phone,
         address_line1: addrData.address_line1,
         address_line2: addrData.address_line2 || null,
+        landmark: resolvedLandmark,
         city: addrData.city,
         state: addrData.state,
         postal_code: addrData.postal_code,
@@ -229,10 +254,17 @@ export async function placeOrderAction(
         !addr.recipient_name?.trim() ||
         !addr.phone?.trim() ||
         !addr.address_line1?.trim() ||
+        !addr.landmark?.trim() ||
         !addr.city?.trim() ||
         !addr.state?.trim() ||
         !addr.postal_code?.trim()
       ) {
+        if (!addr.landmark?.trim()) {
+          return {
+            success: false,
+            error: 'Please enter a nearby landmark to help locate your address.'
+          }
+        }
         return {
           success: false,
           error: 'Please fill in all required shipping address fields.'
@@ -243,6 +275,7 @@ export async function placeOrderAction(
         phone: addr.phone.trim(),
         address_line1: addr.address_line1.trim(),
         address_line2: addr.address_line2?.trim() || null,
+        landmark: addr.landmark.trim(),
         city: addr.city.trim(),
         state: addr.state.trim(),
         postal_code: addr.postal_code.trim(),

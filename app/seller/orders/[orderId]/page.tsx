@@ -89,6 +89,7 @@ export default async function SellerOrderDetailPage({ params }: { params: Promis
                 <div style={{ lineHeight: 1.6, color: 'var(--ink)', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                   <div>{customer.address_line1 || '—'}</div>
                   {customer.address_line2 ? <div>{customer.address_line2}</div> : null}
+                  {customer.landmark ? <div><span style={{ color: 'var(--muted)', fontSize: '12px' }}>Landmark:</span> {customer.landmark}</div> : null}
                   <div>{customer.city || ''}{customer.city && customer.state ? ', ' : ''}{customer.state || ''} {customer.postal_code || ''}</div>
                   <div>{customer.country || 'India'}</div>
                 </div>

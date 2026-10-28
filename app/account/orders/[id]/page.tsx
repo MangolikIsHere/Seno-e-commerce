@@ -198,6 +198,9 @@ export default function OrderDetailPage() {
                 <div style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--ink)' }}>
                   <strong style={{ display: 'block', marginBottom: '2px' }}>{order.shipping_address.recipient_name}</strong>
                   <div>{order.shipping_address.address_line1}{order.shipping_address.address_line2 ? `, ${order.shipping_address.address_line2}` : ''}</div>
+                  {order.shipping_address.landmark && (
+                    <div><span style={{ color: 'var(--muted)', fontSize: '12px' }}>Landmark:</span> {order.shipping_address.landmark}</div>
+                  )}
                   <div>{order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.postal_code}</div>
                   <div>{order.shipping_address.country}</div>
                   <div style={{ marginTop: '8px', color: 'var(--muted)', fontSize: '12px' }}>Phone: {order.shipping_address.phone}</div>

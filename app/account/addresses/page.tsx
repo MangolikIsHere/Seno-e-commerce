@@ -13,12 +13,14 @@ export default function AddressesPage() {
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
+  const [landmarkError, setLandmarkError] = useState<string>('')
 
   const [formData, setFormData] = useState<AddressInput>({
     recipient_name: '',
     phone: '',
     address_line1: '',
     address_line2: '',
+    landmark: '',
     city: '',
     state: '',
     postal_code: '',
@@ -49,12 +51,14 @@ export default function AddressesPage() {
       phone: '',
       address_line1: '',
       address_line2: '',
+      landmark: '',
       city: '',
       state: '',
       postal_code: '',
       country: 'India',
       is_default: addresses.length === 0
     })
+    setLandmarkError('')
     setEditId(null)
     setIsEditing(true)
   }
@@ -65,12 +69,14 @@ export default function AddressesPage() {
       phone: addr.phone,
       address_line1: addr.address_line1,
       address_line2: addr.address_line2 || '',
+      landmark: addr.landmark || '',
       city: addr.city,
       state: addr.state,
       postal_code: addr.postal_code,
       country: addr.country,
       is_default: addr.is_default
     })
+    setLandmarkError('')
     setEditId(addr.id)
     setIsEditing(true)
   }
@@ -89,14 +95,33 @@ export default function AddressesPage() {
     e.preventDefault()
     if (!user) return
 
+    const cleanLandmark = formData.landmark?.trim()
+    if (!cleanLandmark) {
+      setLandmarkError('Please enter a nearby landmark to help locate your address.')
+      return
+    }
+
     setLoading(true)
+    const payload: AddressInput = {
+      ...formData,
+      recipient_name: formData.recipient_name.trim(),
+      phone: formData.phone.trim(),
+      address_line1: formData.address_line1.trim(),
+      address_line2: formData.address_line2?.trim() || '',
+      landmark: cleanLandmark,
+      city: formData.city.trim(),
+      state: formData.state.trim(),
+      postal_code: formData.postal_code.trim(),
+      country: formData.country.trim() || 'India'
+    }
+
     if (editId) {
-      const updated = await updateAddress(user.id, editId, formData)
+      const updated = await updateAddress(user.id, editId, payload)
       if (updated) {
         setAddresses(prev => prev.map(a => a.id === editId ? updated : (updated.is_default ? {...a, is_default: false} : a)).sort((a,b) => Number(b.is_default) - Number(a.is_default)))
       }
     } else {
-      const created = await createAddress(user.id, formData)
+      const created = await createAddress(user.id, payload)
       if (created) {
         if (created.is_default) {
           setAddresses(prev => [created, ...prev.map(a => ({...a, is_default: false}))])
@@ -193,13 +218,34 @@ export default function AddressesPage() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>Address Line 2 (Optional)</label>
+                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>Address Line 2 (Apartment, Suite - Optional)</label>
                 <input
                   type="text"
                   className="form-input-field"
-                  value={formData.address_line2}
+                  placeholder="e.g., Flat 4B, 2nd Floor"
+                  value={formData.address_line2 || ''}
                   onChange={e => setFormData({...formData, address_line2: e.target.value})}
                 />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>Landmark *</label>
+                <input
+                  type="text"
+                  className="form-input-field"
+                  placeholder="e.g., Near SBI Bank, Opposite City Hospital"
+                  value={formData.landmark}
+                  onChange={e => {
+                    setFormData({...formData, landmark: e.target.value})
+                    setLandmarkError('')
+                  }}
+                  required
+                />
+                {landmarkError && (
+                  <div style={{ color: '#b91c1c', fontSize: '12px', marginTop: '4px' }}>
+                    {landmarkError}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
@@ -321,6 +367,15 @@ export default function AddressesPage() {
                       <p style={{ margin: '0 0 4px', fontSize: '13px', color: 'var(--ink)', lineHeight: 1.5 }}>
                         {addr.address_line1}{addr.address_line2 ? `, ${addr.address_line2}` : ''}
                       </p>
+                      {addr.landmark ? (
+                        <p style={{ margin: '0 0 4px', fontSize: '12.5px', color: 'var(--muted)' }}>
+                          Landmark: <span style={{ color: 'var(--ink)' }}>{addr.landmark}</span>
+                        </p>
+                      ) : (
+                        <p style={{ margin: '0 0 6px', fontSize: '11px', color: '#b45309', fontWeight: 500 }}>
+                          ⚠️ Landmark required for orders — click Edit to add
+                        </p>
+                      )}
                       <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: 'var(--muted)' }}>
                         {addr.city}, {addr.state} {addr.postal_code}, {addr.country}
                       </p>

@@ -397,6 +397,9 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                 </span>
                 <div style={{ lineHeight: 1.5, color: 'var(--ink)' }}>
                   <div>{customer.address_line1} {customer.address_line2 ? `, ${customer.address_line2}` : ''}</div>
+                  {customer.landmark && (
+                    <div><span style={{ color: 'var(--muted)', fontSize: '12px' }}>Landmark:</span> {customer.landmark}</div>
+                  )}
                   <div>{customer.city}, {customer.state} {customer.postal_code}</div>
                   <div>{customer.country || 'India'}</div>
                 </div>
