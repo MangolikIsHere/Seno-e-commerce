@@ -1047,6 +1047,7 @@ a {
   border-radius: 20px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   opacity: 0;
+  pointer-events: none;
   transform: translateY(6px);
   transition: opacity 0.2s ease, transform 0.2s ease, background 0.15s ease, color 0.15s ease;
   z-index: 4;
@@ -1055,12 +1056,14 @@ a {
 
 .product-card:hover .quick-add-btn {
   opacity: 1;
+  pointer-events: auto;
   transform: translateY(0);
 }
 
 @media (hover: none), (max-width: 900px) {
   .quick-add-btn {
     opacity: 1;
+    pointer-events: auto;
     transform: translateY(0);
   }
 }
@@ -5214,11 +5217,18 @@ textarea.input-field {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* pointer-events: none on the root overlay at all times; the dismiss button
+     re-enables pointer-events via its own inline style, which is the only
+     interactive child. Nothing beneath is ever blocked by the overlay itself. */
   pointer-events: none;
   user-select: none;
   overflow: hidden;
   transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
-  animation: introAutoDismiss 0.5s ease 2.7s forwards;
+  /* CSS fallback: fires only if React fails to remove the element within 1.9s.
+     React's timers remove the element at 1350ms (primary) and 1800ms (fallback),
+     so this CSS animation is a last-resort safety net. Using orwards fill-mode
+     so the element stays invisible if it somehow persists past the animation. */
+  animation: introAutoDismiss 0.4s ease 1.9s forwards;
 }
 
 .seno-brand-intro.intro-exiting {
@@ -5353,7 +5363,6 @@ textarea.input-field {
 @keyframes introAutoDismiss {
   to {
     opacity: 0;
-    pointer-events: none;
     visibility: hidden;
   }
 }
@@ -5728,6 +5737,7 @@ textarea.input-field {
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: none;
   background: radial-gradient(135% 135% at 20% 20%, rgba(255, 255, 255, 0.96) 0%, rgba(251, 250, 248, 0.9) 100%);
   border: 1px solid rgba(255, 255, 255, 0.95);
   box-shadow:

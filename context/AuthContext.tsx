@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { User, Session } from '@supabase/supabase-js'
 
@@ -27,10 +27,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [supabase] = useState(() => createClient())
+  // Track mounted state to prevent state updates after unmount (e.g., if the
+  // Supabase profile fetch resolves after a route change has unmounted this tree).
+  const mountedRef = useRef(true)
 
   useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
     const fetchSessionAndProfile = async () => {
       const { data: { session } } = await supabase.auth.getSession()
+      if (cancelled || !mountedRef.current) return
       setSession(session)
       setUser(session?.user ?? null)
 
@@ -40,10 +53,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select('*')
           .eq('id', session.user.id)
           .single()
+        if (cancelled || !mountedRef.current) return
         setProfile(data)
       } else {
+        if (!mountedRef.current) return
         setProfile(null)
       }
+      if (!mountedRef.current) return
       setLoading(false)
     }
 
@@ -51,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
+        if (!mountedRef.current) return
         setSession(currentSession)
         setUser(currentSession?.user ?? null)
         
@@ -60,22 +77,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .select('*')
             .eq('id', currentSession.user.id)
             .single()
+          if (!mountedRef.current) return
           setProfile(data)
         } else {
+          if (!mountedRef.current) return
           setProfile(null)
         }
+        if (!mountedRef.current) return
         setLoading(false)
       }
     )
 
     return () => {
+      cancelled = true
       subscription.unsubscribe()
     }
   }, [supabase])
 
-  const signOut = async () => {
+  // Stable function reference — prevents StoreProvider (which reads useAuth())
+  // from re-rendering whenever AuthProvider's internal state changes.
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut()
-  }
+  }, [supabase])
 
   return (
     <AuthContext.Provider value={{ user, session, profile, loading, signOut }}>

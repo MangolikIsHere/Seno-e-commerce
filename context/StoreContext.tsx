@@ -29,7 +29,7 @@ interface StoreContextType {
   setMobileMenuOpen: (open: boolean) => void
   searchOpen: boolean
   setSearchOpen: (open: boolean) => void
-  addToCart: (product: Product, variant: Variant, qty?: number) => void
+  addToCart: (product: Product, variant: Variant, qty?: number, openDrawer?: boolean) => void
   removeFromCart: (variant_id: string) => void
   updateCartQty: (variant_id: string, delta: number) => void
   clearCart: () => void
@@ -62,7 +62,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     wishlistRef.current = wishlist
   }, [wishlist])
 
-  // Hydrate from localStorage
+  // Hydrate cart and coupon from localStorage exactly once on mount.
+  // This effect intentionally has an empty dependency array so it only runs once.
+  // Running it on every auth-state change would wipe cart items added during
+  // the auth-loading window (before the persist effect has written them to storage).
   useEffect(() => {
     try {
       const savedCart = localStorage.getItem('seno_cart')
@@ -87,17 +90,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           setCart(normalized)
         }
       }
-      
-      if (!user) {
-        const savedWishlist = localStorage.getItem('seno_wishlist')
-        if (savedWishlist) {
-          const parsed = JSON.parse(savedWishlist)
-          if (Array.isArray(parsed)) setWishlist(parsed)
-        }
-      }
 
       const savedCoupon = localStorage.getItem('seno_coupon')
       if (savedCoupon) setAppliedCouponCode(savedCoupon)
+    } catch {
+      // Ignore localStorage read errors
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Restore guest wishlist from localStorage when there is no authenticated user.
+  // Kept separate from the cart effect above so auth-state changes do not re-run
+  // cart hydration and overwrite in-session cart items.
+  useEffect(() => {
+    if (user) return // Authenticated wishlist is handled by the DB-sync effect below
+    try {
+      const savedWishlist = localStorage.getItem('seno_wishlist')
+      if (savedWishlist) {
+        const parsed = JSON.parse(savedWishlist)
+        if (Array.isArray(parsed)) setWishlist(parsed)
+      }
     } catch {
       // Ignore localStorage read errors
     }
@@ -150,7 +162,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [wishlist, user])
 
-  const addToCart = (product: Product, variant: Variant, qty = 1) => {
+  const addToCart = (product: Product, variant: Variant, qty = 1, openDrawer = true) => {
     if (variant.inventoryQuantity < qty) return
 
     setCart(prev => {
@@ -189,7 +201,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         image_url: variantImage
       }]
     })
-    setCartOpen(true)
+    if (openDrawer) {
+      setCartOpen(true)
+    }
   }
 
   const removeFromCart = (variant_id: string) => {

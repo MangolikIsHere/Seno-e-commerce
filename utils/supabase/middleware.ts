@@ -58,9 +58,13 @@ export async function updateSession(request: NextRequest) {
   )
 
   // 5. Authoritatively validate and refresh the session
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data?.user || null
+  } catch (err) {
+    console.warn('[Middleware] supabase.auth.getUser() error during navigation:', err)
+  }
 
   // 6. Enforce protection for strictly protected routes
   const isStrictlyProtected = pathname.startsWith('/admin') || pathname.startsWith('/seller')

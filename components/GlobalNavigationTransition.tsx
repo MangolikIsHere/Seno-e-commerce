@@ -13,12 +13,16 @@ export function GlobalNavigationTransition() {
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevPathnameRef = useRef(pathname)
   const prevSearchRef = useRef(searchParams?.toString() || '')
+  // Track in-progress navigation destination to avoid re-triggering feedback
+  // for rapid clicks to the same destination.
+  const navigatingToRef = useRef<string | null>(null)
 
   const clearNavigationFeedback = () => {
     if (fallbackTimerRef.current) {
       clearTimeout(fallbackTimerRef.current)
       fallbackTimerRef.current = null
     }
+    navigatingToRef.current = null
     setIsNavigating(false)
   }
 
@@ -57,10 +61,20 @@ export function GlobalNavigationTransition() {
           return
         }
 
+        const destKey = destination.pathname + destination.search
+        // If we're already showing the loader for this exact destination,
+        // don't reset the timer — prevents rapid-click timer resets from
+        // extending the feedback window on each subsequent click.
+        if (navigatingToRef.current === destKey) return
+
         if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current)
+        navigatingToRef.current = destKey
         setIsNavigating(true)
-        // This only clears feedback if the browser keeps the current document
-        // after a cancelled/failed client navigation; it never delays navigation.
+        // Fallback: only clears feedback if the browser keeps the current document
+        // after a cancelled or failed client navigation. It never delays navigation.
+        // The nav loader has pointer-events: none on all elements so it cannot block
+        // clicks regardless of how long it's visible. 1500ms gives adequate coverage
+        // for slow RSC payloads without causing false-stuck state.
         fallbackTimerRef.current = setTimeout(clearNavigationFeedback, 1500)
       } catch {
         // Invalid URLs are left to the browser's normal handling.
