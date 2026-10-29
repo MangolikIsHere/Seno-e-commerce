@@ -20,7 +20,8 @@ import {
   ShieldCheck,
   LogOut,
   ChevronRight,
-  Bell
+  Bell,
+  Sparkles
 } from 'lucide-react'
 import { NotificationBell } from '@/components/NotificationBell'
 import { createClient } from '@/utils/supabase/client'
@@ -73,6 +74,12 @@ export function AdminMobileNav({ adminEmail }: AdminMobileNavProps) {
       ]
     },
     {
+      title: 'Storefront',
+      items: [
+        { label: 'Hero Slides', href: '/admin/storefront/hero', icon: Sparkles },
+      ]
+    },
+    {
       title: 'Finance & Marketing',
       items: [
         { label: 'Payments & Refunds', href: '/admin/payments', icon: CreditCard },
@@ -97,6 +104,7 @@ export function AdminMobileNav({ adminEmail }: AdminMobileNavProps) {
     if (pathname.includes('/admin/notifications')) return 'Notifications'
     if (pathname.includes('/admin/payments')) return 'Payments'
     if (pathname.includes('/admin/promotions')) return 'Offers'
+    if (pathname.includes('/admin/storefront/hero') || pathname.includes('/admin/hero')) return 'Hero Slides'
     if (pathname.includes('/admin/settings')) return 'Settings'
     return 'Overview'
   }

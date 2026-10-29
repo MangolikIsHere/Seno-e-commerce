@@ -21,25 +21,29 @@ import {
 } from '@/lib/revisionFeedback'
 
 export async function checkIsAdmin() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  if (user) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle()
+    if (user) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
 
-    if (
-      data?.role === 'admin' ||
-      user.email === 'admin@seno-luxury.com' ||
-      user.email === 'admin.seno@gmail.com' ||
-      user.email === 'debnathmangolik@gmail.com' ||
-      user.email === 'officialsenostore@gmail.com'
-    ) {
-      return true
+      if (
+        data?.role === 'admin' ||
+        user.email === 'admin@seno-luxury.com' ||
+        user.email === 'admin.seno@gmail.com' ||
+        user.email === 'debnathmangolik@gmail.com' ||
+        user.email === 'officialsenostore@gmail.com'
+      ) {
+        return true
+      }
     }
+  } catch {
+    // Outside request context
   }
 
   // Allow developer access in local development mode for workflow verification

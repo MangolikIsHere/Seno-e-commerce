@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   User,
   LogOut,
-  Bell
+  Bell,
+  Sparkles
 } from 'lucide-react'
 import { NotificationBell } from '@/components/NotificationBell'
 import { createClient } from '@/utils/supabase/client'
@@ -46,6 +47,10 @@ export function AdminSidebar({ adminEmail }: AdminSidebarProps) {
     { label: 'Sellers', href: '/admin/sellers', icon: Store },
     { label: 'Customers', href: '/admin/customers', icon: Users },
     { label: 'Notifications', href: '/admin/notifications', icon: Bell },
+  ]
+
+  const storefrontNav = [
+    { label: 'Hero Slides', href: '/admin/storefront/hero', icon: Sparkles },
   ]
 
   const marketingFinanceNav = [
@@ -80,6 +85,26 @@ export function AdminSidebar({ adminEmail }: AdminSidebarProps) {
           {operationsNav.map(item => {
             const Icon = item.icon
             const isActive = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`admin-nav-item ${isActive ? 'active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <Icon size={16} strokeWidth={isActive ? 2 : 1.6} />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+
+        {/* Group: Storefront */}
+        <div className="admin-nav-group">
+          <span className="admin-nav-group-title">Storefront</span>
+          {storefrontNav.map(item => {
+            const Icon = item.icon
+            const isActive = pathname === item.href || pathname.startsWith(item.href)
             return (
               <Link
                 key={item.href}

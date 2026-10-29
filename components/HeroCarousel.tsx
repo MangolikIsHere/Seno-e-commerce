@@ -1,60 +1,56 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
+import { HeroSlideRecord, DEFAULT_HERO_SLIDE } from '@/lib/hero-slides-shared'
 import { Promotion } from '@/lib/promotions-shared'
 
-export interface HeroSlide {
-  id: string
-  badge?: string
-  headline: React.ReactNode
-  subheading?: string
-  ctaText: string
-  ctaLink: string
-  imageUrl: string
-  imageAlt: string
-  isPrimaryCampaign?: boolean
+export interface HeroCarouselProps {
+  slides?: HeroSlideRecord[]
+  featuredPromotions?: Promotion[] // Maintained for backward compatibility
 }
 
-interface HeroCarouselProps {
-  featuredPromotions?: Promotion[]
-}
+export function HeroCarousel({
+  slides = [],
+  featuredPromotions = []
+}: HeroCarouselProps) {
+  // Resolve active slides: prioritize explicit slides from HeroSlideRecord store
+  const activeConfiguredSlides: HeroSlideRecord[] = useMemo(() => {
+    if (slides && slides.length > 0) {
+      const active = slides.filter(s => s.is_active)
+      if (active.length > 0) {
+        return [...active].sort((a, b) => (a.display_priority ?? 1) - (b.display_priority ?? 1))
+      }
+    }
 
-const DEFAULT_BRAND_SLIDE: HeroSlide = {
-  id: 'seno-ss26-default',
-  badge: 'SPRING / SUMMER 26',
-  headline: (
-    <>
-      New forms
-      <br />
-      for everyday.
-    </>
-  ),
-  subheading: 'Considered clothing for everyday life.',
-  ctaText: 'SHOP NOW',
-  ctaLink: '/collections/new-arrivals',
-  imageUrl: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1800&q=85',
-  imageAlt: 'SENO Spring / Summer 26 Campaign',
-  isPrimaryCampaign: true
-}
+    // Fallback: if no slides provided or all inactive, construct from featuredPromotions or default brand slide
+    if (featuredPromotions && featuredPromotions.length > 0) {
+      const promoSlides: HeroSlideRecord[] = featuredPromotions.map((promo, idx) => ({
+        id: promo.id,
+        title: promo.name,
+        eyebrow: promo.hero_badge || 'LIMITED OFFER',
+        headline: promo.hero_headline || promo.name.toUpperCase(),
+        subheading: promo.hero_subheading || promo.description || null,
+        cta_text: promo.hero_cta_text || 'SHOP THE OFFER',
+        cta_link: `/offers/${promo.slug}`,
+        image_url:
+          promo.hero_image_url ||
+          'https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1800&q=85',
+        mobile_image_url: null,
+        image_alt: (promo as any).hero_image_alt || `SENO Promotion — ${promo.name}`,
+        image_focal_point: 'center',
+        text_alignment: 'left',
+        content_placement: 'bottom-left',
+        overlay_opacity: 30,
+        is_active: true,
+        display_priority: idx + 2
+      }))
+      return [DEFAULT_HERO_SLIDE, ...promoSlides]
+    }
 
-export function HeroCarousel({ featuredPromotions = [] }: HeroCarouselProps) {
-  // Construct all slides: Slide 1 is always the primary SENO brand campaign
-  const promoSlides: HeroSlide[] = featuredPromotions.map(promo => ({
-    id: promo.id,
-    badge: promo.hero_badge || 'LIMITED OFFER',
-    headline: promo.hero_headline || promo.name.toUpperCase(),
-    subheading: promo.hero_subheading || promo.description || undefined,
-    ctaText: promo.hero_cta_text || 'SHOP THE OFFER',
-    ctaLink: `/offers/${promo.slug}`,
-    imageUrl:
-      promo.hero_image_url ||
-      'https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1800&q=85',
-    imageAlt: (promo as any).hero_image_alt || (promo.name ? `SENO Promotion — ${promo.name}` : 'SENO Featured Campaign')
-  }))
-
-  const allSlides: HeroSlide[] = [DEFAULT_BRAND_SLIDE, ...promoSlides].slice(0, 5)
+    return [DEFAULT_HERO_SLIDE]
+  }, [slides, featuredPromotions])
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
@@ -75,13 +71,20 @@ export function HeroCarousel({ featuredPromotions = [] }: HeroCarouselProps) {
     }
   }, [])
 
+  // Safely clamp index if slide count changes
+  useEffect(() => {
+    if (currentIndex >= activeConfiguredSlides.length) {
+      setCurrentIndex(0)
+    }
+  }, [activeConfiguredSlides.length, currentIndex])
+
   const nextSlide = useCallback(() => {
-    setCurrentIndex(prev => (prev + 1) % allSlides.length)
-  }, [allSlides.length])
+    setCurrentIndex(prev => (prev + 1) % activeConfiguredSlides.length)
+  }, [activeConfiguredSlides.length])
 
   const prevSlide = useCallback(() => {
-    setCurrentIndex(prev => (prev - 1 + allSlides.length) % allSlides.length)
-  }, [allSlides.length])
+    setCurrentIndex(prev => (prev - 1 + activeConfiguredSlides.length) % activeConfiguredSlides.length)
+  }, [activeConfiguredSlides.length])
 
   const goToSlide = (idx: number) => {
     setCurrentIndex(idx)
@@ -90,7 +93,7 @@ export function HeroCarousel({ featuredPromotions = [] }: HeroCarouselProps) {
 
   // Autoplay management
   useEffect(() => {
-    if (allSlides.length <= 1 || isPaused || prefersReducedMotion) {
+    if (activeConfiguredSlides.length <= 1 || isPaused || prefersReducedMotion) {
       if (timerRef.current) clearInterval(timerRef.current)
       return
     }
@@ -102,7 +105,7 @@ export function HeroCarousel({ featuredPromotions = [] }: HeroCarouselProps) {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [allSlides.length, isPaused, prefersReducedMotion, nextSlide])
+  }, [activeConfiguredSlides.length, isPaused, prefersReducedMotion, nextSlide])
 
   // Touch handlers for mobile swipe
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -147,7 +150,7 @@ export function HeroCarousel({ featuredPromotions = [] }: HeroCarouselProps) {
       className="hero-section hero-carousel-container"
       role="region"
       aria-roledescription="carousel"
-      aria-label="SENO Brand Campaigns and Featured Offers"
+      aria-label="SENO Brand Campaigns and Featured Collections"
       tabIndex={0}
       onKeyDown={handleKeyDown}
       onMouseEnter={() => setIsPaused(true)}
@@ -163,8 +166,28 @@ export function HeroCarousel({ featuredPromotions = [] }: HeroCarouselProps) {
     >
       {/* Slides Container */}
       <div className="hero-slides-wrapper" style={{ position: 'relative', width: '100%', height: '100%' }}>
-        {allSlides.map((slide, idx) => {
+        {activeConfiguredSlides.map((slide, idx) => {
           const isActive = idx === currentIndex
+          const headlineLines = (slide.headline || '').split('\n')
+
+          // Dynamic placement mapping
+          const placement = slide.content_placement || 'bottom-left'
+          const textAlign = slide.text_alignment || 'left'
+
+          let justifyContent = 'flex-end'
+          let alignItems = 'flex-start'
+
+          if (placement === 'center') {
+            justifyContent = 'center'
+            alignItems = 'center'
+          } else if (placement === 'center-left') {
+            justifyContent = 'center'
+            alignItems = 'flex-start'
+          } else if (placement === 'bottom-center') {
+            justifyContent = 'flex-end'
+            alignItems = 'center'
+          }
+
           return (
             <div
               key={slide.id}
@@ -181,39 +204,76 @@ export function HeroCarousel({ featuredPromotions = [] }: HeroCarouselProps) {
                 zIndex: isActive ? 1 : 0
               }}
             >
-              {/* Background Image */}
+              {/* Background Responsive Picture with Desktop / Mobile Source */}
               <div className="hero-image-wrapper">
-                <img
-                  src={slide.imageUrl}
-                  alt={slide.imageAlt}
-                  loading={idx === 0 ? 'eager' : 'lazy'}
-                  decoding={idx === 0 ? 'sync' : 'async'}
-                  fetchPriority={idx === 0 ? 'high' : 'auto'}
+                <picture style={{ width: '100%', height: '100%', display: 'block' }}>
+                  {slide.mobile_image_url && (
+                    <source media="(max-width: 768px)" srcSet={slide.mobile_image_url} />
+                  )}
+                  <img
+                    src={slide.image_url}
+                    alt={slide.image_alt || slide.title || 'SENO Campaign'}
+                    loading={idx === 0 ? 'eager' : 'lazy'}
+                    decoding={idx === 0 ? 'sync' : 'async'}
+                    fetchPriority={idx === 0 ? 'high' : 'auto'}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      objectPosition: slide.image_focal_point || 'center',
+                      transform: isActive && !prefersReducedMotion ? 'scale(1)' : 'scale(1.02)',
+                      transition: 'transform 6s ease-out'
+                    }}
+                  />
+                </picture>
+
+                {/* Configurable Contrast Overlay */}
+                <div
+                  className="hero-overlay-tint"
+                  aria-hidden="true"
                   style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    transform: isActive && !prefersReducedMotion ? 'scale(1)' : 'scale(1.02)',
-                    transition: 'transform 6s ease-out'
+                    position: 'absolute',
+                    inset: 0,
+                    backgroundColor: `rgba(0, 0, 0, ${(slide.overlay_opacity ?? 25) / 100})`,
+                    pointerEvents: 'none'
                   }}
                 />
               </div>
 
-              {/* Editorial Overlay */}
-              <div className="hero-content-overlay">
-                {slide.badge && (
+              {/* Editorial Content Overlay */}
+              <div
+                className="hero-content-overlay"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent,
+                  alignItems,
+                  textAlign: textAlign as any
+                }}
+              >
+                {slide.eyebrow && (
                   <span className="hero-season-kicker">
-                    {slide.badge}
+                    {slide.eyebrow}
                   </span>
                 )}
 
                 {idx === 0 ? (
                   <h1 className="hero-headline">
-                    {slide.headline}
+                    {headlineLines.map((line, lIdx) => (
+                      <React.Fragment key={lIdx}>
+                        {line}
+                        {lIdx < headlineLines.length - 1 && <br />}
+                      </React.Fragment>
+                    ))}
                   </h1>
                 ) : (
                   <h2 className="hero-headline">
-                    {slide.headline}
+                    {headlineLines.map((line, lIdx) => (
+                      <React.Fragment key={lIdx}>
+                        {line}
+                        {lIdx < headlineLines.length - 1 && <br />}
+                      </React.Fragment>
+                    ))}
                   </h2>
                 )}
 
@@ -223,8 +283,12 @@ export function HeroCarousel({ featuredPromotions = [] }: HeroCarouselProps) {
                   </p>
                 )}
 
-                <Link href={slide.ctaLink} className="hero-cta-btn">
-                  {slide.ctaText} <span>→</span>
+                <Link
+                  href={slide.cta_link || '/collections/all'}
+                  className="hero-cta-btn"
+                  style={{ alignSelf: textAlign === 'center' ? 'center' : textAlign === 'right' ? 'flex-end' : 'flex-start' }}
+                >
+                  {slide.cta_text || 'SHOP NOW'} <span aria-hidden="true">→</span>
                 </Link>
               </div>
             </div>
@@ -233,7 +297,7 @@ export function HeroCarousel({ featuredPromotions = [] }: HeroCarouselProps) {
       </div>
 
       {/* Navigation Arrows (Visible only if multiple slides) */}
-      {allSlides.length > 1 && (
+      {activeConfiguredSlides.length > 1 && (
         <>
           <button
             type="button"
@@ -264,13 +328,13 @@ export function HeroCarousel({ featuredPromotions = [] }: HeroCarouselProps) {
           {/* Pagination Indicators & Play/Pause */}
           <div className="hero-carousel-pagination" aria-label="Slide indicators">
             <div className="hero-dots-track">
-              {allSlides.map((slide, idx) => (
+              {activeConfiguredSlides.map((slide, idx) => (
                 <button
                   key={slide.id}
                   type="button"
                   className={`hero-dot-indicator ${idx === currentIndex ? 'active' : ''}`}
                   onClick={() => goToSlide(idx)}
-                  aria-label={`Go to slide ${idx + 1}: ${slide.badge || 'Offer'}`}
+                  aria-label={`Go to slide ${idx + 1}: ${slide.title || slide.eyebrow || 'Campaign'}`}
                   aria-current={idx === currentIndex ? 'true' : 'false'}
                 >
                   <span className="hero-dot-bar" />

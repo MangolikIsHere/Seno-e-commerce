@@ -8,6 +8,7 @@ import { getActiveCategories } from '@/lib/categories'
 import { getFeaturedHeroPromotions, getActivePromotions } from '@/lib/promotions'
 import { isProductEligibleForPromotion, getPromotionBadgeText } from '@/lib/promotions-shared'
 import { HeroCarousel } from '@/components/HeroCarousel'
+import { getCachedActiveHeroSlides } from '@/lib/hero-slides'
 import {
   SITE_URL,
   SITE_NAME,
@@ -71,12 +72,13 @@ export default async function HomePage() {
   let categories: any[] = []
   let categoryFetchError: string | null = null
 
-  const [newArrivals, bestsellers, cosmeticsProducts, featuredPromotions, activePromotions] = await Promise.all([
+  const [newArrivals, bestsellers, cosmeticsProducts, featuredPromotions, activePromotions, heroSlides] = await Promise.all([
     getNewArrivals(8),
     getBestsellers(8),
     getCollectionProducts('cosmetics', { sort: 'Newest' }).then(p => p.slice(0, 8)),
     getFeaturedHeroPromotions(),
     getActivePromotions(),
+    getCachedActiveHeroSlides(),
   ])
 
   try {
@@ -133,7 +135,7 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
       />
       {/* 1. HERO CAROUSEL */}
-      <HeroCarousel featuredPromotions={featuredPromotions} />
+      <HeroCarousel slides={heroSlides} featuredPromotions={featuredPromotions} />
 
       {/* 2. NEW ARRIVALS */}
       <section className="section-padding" id="new-arrivals">
