@@ -100,7 +100,7 @@ export function HeroCarousel({
 
     timerRef.current = setInterval(() => {
       nextSlide()
-    }, 6000)
+    }, 4000)
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
@@ -222,7 +222,7 @@ export function HeroCarousel({
                       objectFit: 'cover',
                       objectPosition: slide.image_focal_point || 'center',
                       transform: isActive && !prefersReducedMotion ? 'scale(1)' : 'scale(1.02)',
-                      transition: 'transform 6s ease-out'
+                      transition: 'transform 4s ease-out'
                     }}
                   />
                 </picture>

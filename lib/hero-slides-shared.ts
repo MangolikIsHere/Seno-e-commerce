@@ -20,7 +20,7 @@ export interface HeroSlideRecord {
 }
 
 export const DEFAULT_HERO_SLIDE: HeroSlideRecord = {
-  id: 'slide-ss26-default',
+  id: '00000000-0000-0000-0000-000000000001',
   title: 'New forms for everyday',
   eyebrow: 'SPRING / SUMMER 26',
   headline: 'New forms\nfor everyday.',

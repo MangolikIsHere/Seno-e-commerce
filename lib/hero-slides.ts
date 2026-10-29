@@ -3,8 +3,10 @@
 import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
-import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
+import { revalidatePath, revalidateTag, updateTag, unstable_cache } from 'next/cache'
 import { supabase as publicSupabase } from '@/lib/supabase'
+import { getAdminSupabase } from '@/lib/supabaseAdmin'
+import { createClient as createServerSupabase } from '@/utils/supabase/server'
 import { checkIsAdmin } from '@/lib/admin'
 import { HeroSlideRecord, DEFAULT_HERO_SLIDE } from './hero-slides-shared'
 
@@ -12,17 +14,57 @@ export type { HeroSlideRecord }
 
 const LOCAL_DATA_PATH = path.join(process.cwd(), 'data', 'hero_slides.json')
 
-function safeRevalidate() {
+const LEGACY_ID_MAP: Record<string, string> = {
+  'slide-ss26-default': '00000000-0000-0000-0000-000000000001',
+  'slide-essentials-bogo': '00000000-0000-0000-0000-000000000002',
+  'slide-festive-capsule': '00000000-0000-0000-0000-000000000003'
+}
+
+function normalizeSlideId(id?: string | null): string {
+  if (!id) return crypto.randomUUID()
+  const trimmed = id.trim()
+  if (LEGACY_ID_MAP[trimmed]) return LEGACY_ID_MAP[trimmed]
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)
+  return isUuid ? trimmed : crypto.randomUUID()
+}
+
+/**
+ * Returns an authoritative Supabase client with admin capabilities when available,
+ * falling back to server session client or public anonymous client.
+ */
+async function getAuthoritativeSupabase() {
+  try {
+    return getAdminSupabase()
+  } catch {
+    try {
+      return await createServerSupabase()
+    } catch {
+      return publicSupabase
+    }
+  }
+}
+
+/**
+ * Invalidate hero slide caches across tags and paths immediately.
+ */
+export async function invalidateHeroSlidesCache(): Promise<void> {
+  try {
+    updateTag('hero_slides')
+  } catch {
+    // Safely ignore when outside Next.js request scope
+  }
   try {
     revalidateTag('hero_slides', 'seconds')
   } catch {
-    // Safely ignore when called outside Next.js request scope
+    // Safely ignore when outside Next.js request scope
   }
   try {
+    revalidatePath('/', 'page')
+    revalidatePath('/', 'layout')
     revalidatePath('/')
     revalidatePath('/admin/storefront/hero')
   } catch {
-    // Safely ignore when called outside Next.js request scope
+    // Safely ignore when outside Next.js request scope
   }
 }
 
@@ -60,13 +102,17 @@ function writeLocalHeroSlides(slides: HeroSlideRecord[]): void {
  */
 export async function getAllHeroSlides(): Promise<HeroSlideRecord[]> {
   try {
-    const { data, error } = await publicSupabase
+    const supabase = await getAuthoritativeSupabase()
+    const { data, error } = await supabase
       .from('hero_slides')
       .select('*')
       .order('display_priority', { ascending: true })
       .order('created_at', { ascending: true })
 
-    if (!error && Array.isArray(data)) {
+    if (!error && Array.isArray(data) && data.length > 0) {
+      try {
+        writeLocalHeroSlides(data)
+      } catch {}
       return data
     }
     if (error && error.code !== 'PGRST205') {
@@ -80,35 +126,53 @@ export async function getAllHeroSlides(): Promise<HeroSlideRecord[]> {
 }
 
 /**
- * Server-cached active hero slides retriever for the storefront homepage.
+ * Direct retriever for active hero slides.
  */
-export const getCachedActiveHeroSlides = unstable_cache(
-  async (): Promise<HeroSlideRecord[]> => {
-    try {
-      const { data, error } = await publicSupabase
-        .from('hero_slides')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_priority', { ascending: true })
-        .order('created_at', { ascending: true })
+export async function getActiveHeroSlides(): Promise<HeroSlideRecord[]> {
+  try {
+    const supabase = await getAuthoritativeSupabase()
+    const { data, error } = await supabase
+      .from('hero_slides')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_priority', { ascending: true })
+      .order('created_at', { ascending: true })
 
-      if (!error && Array.isArray(data) && data.length > 0) {
+    if (!error && Array.isArray(data)) {
+      if (data.length > 0) {
         return data
       }
-      if (error && error.code !== 'PGRST205') {
-        console.warn('[HeroSlides] Active slides query notice:', error.message)
-      }
-    } catch (err) {
-      console.warn('[HeroSlides] Active slides fetch fallback to local:', err)
+      return [DEFAULT_HERO_SLIDE]
     }
+    if (error && error.code !== 'PGRST205') {
+      console.warn('[HeroSlides] Active slides query notice:', error.message)
+    }
+  } catch (err) {
+    console.warn('[HeroSlides] Active slides fetch fallback to local:', err)
+  }
 
-    const local = readLocalHeroSlides()
-    const active = local.filter(s => s.is_active)
-    return active.length > 0 ? active : [DEFAULT_HERO_SLIDE]
-  },
+  const local = readLocalHeroSlides()
+  const active = local.filter(s => s.is_active)
+  return active.length > 0 ? active : [DEFAULT_HERO_SLIDE]
+}
+
+const getCachedActiveHeroSlidesInternal = unstable_cache(
+  getActiveHeroSlides,
   ['seno-active-hero-slides'],
   { revalidate: 60, tags: ['hero_slides'] }
 )
+
+/**
+ * Server-cached active hero slides retriever for the storefront homepage.
+ */
+export async function getCachedActiveHeroSlides(): Promise<HeroSlideRecord[]> {
+  try {
+    return await getCachedActiveHeroSlidesInternal()
+  } catch {
+    // When called outside Next.js server runtime (e.g. test scripts), fallback directly
+    return await getActiveHeroSlides()
+  }
+}
 
 /**
  * Server Action: Create or update a hero slide.
@@ -131,7 +195,7 @@ export async function saveHeroSlideAction(
     return { success: false, error: 'Desktop background image is required.' }
   }
 
-  const id = slideData.id || crypto.randomUUID()
+  const id = normalizeSlideId(slideData.id)
   const now = new Date().toISOString()
 
   const payload: HeroSlideRecord = {
@@ -155,39 +219,45 @@ export async function saveHeroSlideAction(
     updated_at: now
   }
 
-  // 1. Attempt Supabase Upsert
+  // 1. Authoritative write to Supabase
+  let savedSlide: HeroSlideRecord = payload
+
   try {
-    const { data, error } = await publicSupabase
+    const supabase = await getAuthoritativeSupabase()
+    const { data, error } = await supabase
       .from('hero_slides')
-      .upsert(payload)
+      .upsert(payload, { onConflict: 'id' })
       .select()
       .single()
 
-    if (!error && data) {
-      // Also sync local
-      const local = readLocalHeroSlides()
-      const idx = local.findIndex(s => s.id === id)
-      if (idx >= 0) local[idx] = data
-      else local.push(data)
-      writeLocalHeroSlides(local)
-
-      safeRevalidate()
-      return { success: true, slide: data }
+    if (error) {
+      console.error('[HeroSlides] Supabase upsert error:', error)
+      return { success: false, error: `Database error saving slide: ${error.message}` }
     }
-  } catch (err) {
-    console.warn('[HeroSlides] Supabase upsert failed, syncing to local storage:', err)
+
+    if (data) {
+      savedSlide = data
+    }
+  } catch (err: any) {
+    console.error('[HeroSlides] Database connection error during save:', err)
+    return { success: false, error: `Database error: ${err?.message || 'Connection failed'}` }
   }
 
-  // 2. Local Fallback Sync
-  const local = readLocalHeroSlides()
-  const idx = local.findIndex(s => s.id === id)
-  if (idx >= 0) local[idx] = payload
-  else local.push(payload)
-  writeLocalHeroSlides(local)
+  // 2. Synchronize local fallback mirror
+  try {
+    const local = readLocalHeroSlides()
+    const idx = local.findIndex(s => s.id === savedSlide.id || (slideData.id && s.id === slideData.id))
+    if (idx >= 0) local[idx] = savedSlide
+    else local.push(savedSlide)
+    writeLocalHeroSlides(local)
+  } catch (err) {
+    console.warn('[HeroSlides] Local fallback sync warning:', err)
+  }
 
-  safeRevalidate()
+  // 3. Immediately invalidate cache
+  await invalidateHeroSlidesCache()
 
-  return { success: true, slide: payload }
+  return { success: true, slide: savedSlide }
 }
 
 /**
@@ -201,19 +271,32 @@ export async function deleteHeroSlideAction(
     return { success: false, error: 'Unauthorized: Admin privileges required.' }
   }
 
+  const id = normalizeSlideId(slideId)
+
   try {
-    await publicSupabase
+    const supabase = await getAuthoritativeSupabase()
+    const { error } = await supabase
       .from('hero_slides')
       .delete()
-      .eq('id', slideId)
-  } catch (err) {
-    console.warn('[HeroSlides] Supabase delete warning:', err)
+      .eq('id', id)
+
+    if (error) {
+      console.error('[HeroSlides] Supabase delete error:', error)
+      return { success: false, error: `Database error deleting slide: ${error.message}` }
+    }
+  } catch (err: any) {
+    console.error('[HeroSlides] Supabase delete connection error:', err)
+    return { success: false, error: `Database error: ${err?.message || 'Connection failed'}` }
   }
 
-  const local = readLocalHeroSlides().filter(s => s.id !== slideId)
-  writeLocalHeroSlides(local)
+  try {
+    const local = readLocalHeroSlides().filter(s => s.id !== slideId && s.id !== id)
+    writeLocalHeroSlides(local)
+  } catch (err) {
+    console.warn('[HeroSlides] Local delete warning:', err)
+  }
 
-  safeRevalidate()
+  await invalidateHeroSlidesCache()
 
   return { success: true }
 }
@@ -230,24 +313,37 @@ export async function toggleHeroSlideStatusAction(
     return { success: false, error: 'Unauthorized: Admin privileges required.' }
   }
 
+  const id = normalizeSlideId(slideId)
+
   try {
-    await publicSupabase
+    const supabase = await getAuthoritativeSupabase()
+    const { error } = await supabase
       .from('hero_slides')
       .update({ is_active: isActive, updated_at: new Date().toISOString() })
-      .eq('id', slideId)
+      .eq('id', id)
+
+    if (error) {
+      console.error('[HeroSlides] Supabase status update error:', error)
+      return { success: false, error: `Database error updating status: ${error.message}` }
+    }
+  } catch (err: any) {
+    console.error('[HeroSlides] Supabase status connection error:', err)
+    return { success: false, error: `Database error: ${err?.message || 'Connection failed'}` }
+  }
+
+  try {
+    const local = readLocalHeroSlides()
+    const target = local.find(s => s.id === slideId || s.id === id)
+    if (target) {
+      target.is_active = isActive
+      target.updated_at = new Date().toISOString()
+      writeLocalHeroSlides(local)
+    }
   } catch (err) {
-    console.warn('[HeroSlides] Supabase status update warning:', err)
+    console.warn('[HeroSlides] Local toggle warning:', err)
   }
 
-  const local = readLocalHeroSlides()
-  const target = local.find(s => s.id === slideId)
-  if (target) {
-    target.is_active = isActive
-    target.updated_at = new Date().toISOString()
-    writeLocalHeroSlides(local)
-  }
-
-  safeRevalidate()
+  await invalidateHeroSlidesCache()
 
   return { success: true }
 }
@@ -270,36 +366,51 @@ export async function reorderHeroSlidesAction(
 
   const now = new Date().toISOString()
 
-  // 1. Supabase sequential update
+  // 1. Authoritative sequential update in Supabase
   try {
+    const supabase = await getAuthoritativeSupabase()
     for (let i = 0; i < orderedSlideIds.length; i++) {
-      const id = orderedSlideIds[i]
-      await publicSupabase
+      const rawId = orderedSlideIds[i]
+      const id = normalizeSlideId(rawId)
+
+      const { error } = await supabase
         .from('hero_slides')
         .update({ display_priority: i + 1, updated_at: now })
         .eq('id', id)
+
+      if (error) {
+        console.error('[HeroSlides] Supabase reorder error for id', id, error)
+        return { success: false, error: `Failed to update slide order in database: ${error.message}` }
+      }
     }
-  } catch (err) {
-    console.warn('[HeroSlides] Supabase reorder warning:', err)
+  } catch (err: any) {
+    console.error('[HeroSlides] Supabase reorder exception:', err)
+    return { success: false, error: `Failed to connect to database for reordering: ${err?.message || 'Connection error'}` }
   }
 
   // 2. Local Fallback update
-  const local = readLocalHeroSlides()
-  const map = new Map<string, number>()
-  orderedSlideIds.forEach((id, index) => {
-    map.set(id, index + 1)
-  })
+  try {
+    const local = readLocalHeroSlides()
+    const map = new Map<string, number>()
+    orderedSlideIds.forEach((rawId, index) => {
+      const normalized = normalizeSlideId(rawId)
+      map.set(rawId, index + 1)
+      map.set(normalized, index + 1)
+    })
 
-  local.forEach(slide => {
-    if (map.has(slide.id)) {
-      slide.display_priority = map.get(slide.id)!
-      slide.updated_at = now
-    }
-  })
+    local.forEach(slide => {
+      if (map.has(slide.id)) {
+        slide.display_priority = map.get(slide.id)!
+        slide.updated_at = now
+      }
+    })
 
-  writeLocalHeroSlides(local)
+    writeLocalHeroSlides(local)
+  } catch (err) {
+    console.warn('[HeroSlides] Local fallback reorder sync warning:', err)
+  }
 
-  safeRevalidate()
+  await invalidateHeroSlidesCache()
 
   return { success: true }
 }

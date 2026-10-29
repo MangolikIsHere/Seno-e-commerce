@@ -242,7 +242,7 @@ export function AdminHeroSlidesClient({ initialSlides }: AdminHeroSlidesClientPr
       } else {
         setFeedbackMsg({
           type: 'success',
-          text: `Slide "${slide.title}" is now ${nextStatus ? 'ACTIVE on storefront' : 'INACTIVE (hidden from customers)'}.`
+          text: `Slide "${slide.title}" is now ${nextStatus ? 'ACTIVE on storefront' : 'INACTIVE (hidden from customers)'}. Database updated and homepage revalidated.`
         })
       }
     } catch {
@@ -256,6 +256,7 @@ export function AdminHeroSlidesClient({ initialSlides }: AdminHeroSlidesClientPr
     const targetIndex = direction === 'up' ? index - 1 : index + 1
     if (targetIndex < 0 || targetIndex >= slides.length) return
 
+    const previousSlides = [...slides]
     const reordered = [...slides]
     const [moved] = reordered.splice(index, 1)
     reordered.splice(targetIndex, 0, moved)
@@ -274,12 +275,14 @@ export function AdminHeroSlidesClient({ initialSlides }: AdminHeroSlidesClientPr
       if (res.success) {
         setFeedbackMsg({
           type: 'success',
-          text: `Slide order updated: "${moved.title}" moved to position #${targetIndex + 1}. Homepage revalidated.`
+          text: `Slide order updated: "${moved.title}" moved to position #${targetIndex + 1}. Database updated and homepage revalidated.`
         })
       } else {
+        setSlides(previousSlides)
         setFeedbackMsg({ type: 'error', text: res.error || 'Failed to persist slide reordering.' })
       }
     } catch {
+      setSlides(previousSlides)
       setFeedbackMsg({ type: 'error', text: 'Error saving new slide order.' })
     }
   }
