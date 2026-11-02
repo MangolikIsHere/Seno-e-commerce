@@ -26,6 +26,7 @@ import { AdminOrderFulfillmentForm, AdminSellerGroupFulfillmentForm } from './Ad
 import { AdminOrderActions } from '@/components/admin/AdminOrderActions'
 import { OrderStatusTimeline } from '@/components/admin/OrderStatusTimeline'
 import { groupOrderItemsBySeller } from '@/lib/sellerOrderHelpers'
+import { formatSizeDisplay } from '@/lib/variants-shared'
 
 function formatDate(value?: string | null) {
   if (!value) return 'Not set'
@@ -253,7 +254,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                             </div>
                             <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '6px' }}>
                               SKU: <span style={{ fontFamily: 'monospace' }}>{item.sku}</span>
-                              {variantSize ? ` · Size: ${variantSize}` : ''}
+                              {variantSize ? ` · Size: ${formatSizeDisplay(variantSize)}` : ''}
                               {variantColour && variantColour !== 'Default' ? ` · Colour: ${variantColour}` : ''}
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', fontSize: '11px', color: 'var(--muted)' }}>

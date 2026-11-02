@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { Heart, Check } from 'lucide-react'
+import { Heart, Check, Share2 } from 'lucide-react'
 import { Product, money } from '@/lib/catalog'
 import { getColourSwatchHex, normalizeColourKey } from '@/lib/colours'
 import { useStore } from '@/context/StoreContext'
 import { SenoImage } from '@/components/SenoImage'
+import { ShareProductModal } from '@/components/ShareProductModal'
 
 interface ProductCardProps {
   product: Product
@@ -18,6 +19,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
   const { toggleWishlist, isWishlisted, addToCart } = useStore()
   const [added, setAdded] = useState(false)
   const [activeColour, setActiveColour] = useState<string | null>(null)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
 
   const wishlisted = isWishlisted(product.slug)
   const activePromoBadge = promotionBadge || (product as any).promotionBadge
@@ -142,6 +144,22 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
         >
           <Heart size={15} fill={wishlisted ? 'currentColor' : 'none'} />
         </button>
+
+        {/* Share Button - Positioned cleanly over visual as a sibling to Link */}
+        <button
+          className="wishlist-btn"
+          style={{ top: '44px' }}
+          aria-label={`Share ${product.name}`}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setShareModalOpen(true)
+          }}
+          type="button"
+          data-no-navigation="true"
+        >
+          <Share2 size={13} />
+        </button>
       </div>
 
       {/* Text section: navigates to product */}
@@ -221,6 +239,22 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
           </div>
         </Link>
       </div>
+
+      <ShareProductModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        product={{
+          name: product.name,
+          slug: product.slug,
+          price: product.price,
+          compareAtPrice: product.compareAtPrice,
+          image: primaryImg,
+          images: product.images,
+          description: product.description,
+          category: product.category,
+          selectedColour: activeColour || undefined
+        }}
+      />
     </article>
   )
 }

@@ -20,16 +20,19 @@ import {
   AlertCircle,
   AlertTriangle,
   Copy,
-  Sparkles
+  Sparkles,
+  Share2
 } from 'lucide-react'
 import { money, Product } from '@/lib/catalog'
 import { getColourSwatchHex, normalizeColourKey } from '@/lib/colours'
+import { FREE_SIZE_CANONICAL, isFreeSize, formatSizeDisplay } from '@/lib/variants-shared'
 import { useStore } from '@/context/StoreContext'
 import { ProductCard } from '@/components/ProductCard'
 import { SizeGuideModal } from '@/components/SizeGuideModal'
 import { SenoImage } from '@/components/SenoImage'
 import { Promotion } from '@/lib/promotions-shared'
 import { CheckoutPolicyModal } from '@/components/CheckoutPolicyModal'
+import { ShareProductModal } from '@/components/ShareProductModal'
 
 interface ProductDetailClientProps {
   product: Product
@@ -81,9 +84,17 @@ export function ProductDetailClient({
     return res.length > 0 ? res : product.sizes
   }, [product.sizes, product.variants, selectedColour])
 
+  const isOnlyFreeSize = useMemo(() => {
+    return availableSizesForSelectedColour.length > 0 && availableSizesForSelectedColour.every(s => isFreeSize(s))
+  }, [availableSizesForSelectedColour])
+
   const [selectedSize, setSelectedSize] = useState<string>(() => {
-    if (availableSizesForSelectedColour.length === 1 && availableSizesForSelectedColour[0] !== 'One size') {
+    if (availableSizesForSelectedColour.length === 1) {
       return availableSizesForSelectedColour[0]
+    }
+    const fs = availableSizesForSelectedColour.find(s => isFreeSize(s))
+    if (fs && availableSizesForSelectedColour.length === 1) {
+      return fs
     }
     return product.sizes.length === 1 ? product.sizes[0] : ''
   })
@@ -93,6 +104,7 @@ export function ProductDetailClient({
   const [openAccordion, setOpenAccordion] = useState<string>('Details')
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false)
   const [buyNowPolicyModalOpen, setBuyNowPolicyModalOpen] = useState(false)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [addedNotice, setAddedNotice] = useState(false)
   const [wishlistNotice, setWishlistNotice] = useState(false)
@@ -173,6 +185,13 @@ export function ProductDetailClient({
       setSelectedSize(availableSizesForSelectedColour.length === 1 ? availableSizesForSelectedColour[0] : '')
     }
   }, [availableSizesForSelectedColour, selectedSize])
+
+  // Auto-select Free Size if it is the only size for the selected colour
+  useEffect(() => {
+    if (isOnlyFreeSize && (!selectedSize || !isFreeSize(selectedSize))) {
+      setSelectedSize(availableSizesForSelectedColour[0] || FREE_SIZE_CANONICAL)
+    }
+  }, [isOnlyFreeSize, availableSizesForSelectedColour, selectedSize])
 
   // Reset active image index if out of bounds on colour change
   useEffect(() => {
@@ -506,9 +525,35 @@ export function ProductDetailClient({
         {/* Product Information Sidebar */}
         <div className="product-info-sidebar">
           <div className="product-header">
-            {product.category && (
-              <span className="product-category-tag">{product.category}</span>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+              {product.category ? (
+                <span className="product-category-tag" style={{ margin: 0 }}>{product.category}</span>
+              ) : <span />}
+              <button
+                type="button"
+                onClick={() => setShareModalOpen(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  letterSpacing: '0.8px',
+                  textTransform: 'uppercase',
+                  border: '1px solid var(--border)',
+                  background: '#ffffff',
+                  color: 'var(--ink)',
+                  borderRadius: '2px',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s ease'
+                }}
+                aria-label={`Share ${product.name}`}
+              >
+                <Share2 size={12} />
+                <span>SHARE</span>
+              </button>
+            </div>
             
             {/* 2. Product Title */}
             <h1 className="product-title-detail">{product.name}</h1>
@@ -694,15 +739,17 @@ export function ProductDetailClient({
             <div className="product-option-section">
               <div className="product-option-label">
                 <span>SIZE:</span>
-                <strong>{selectedSize || 'SELECT SIZE'}</strong>
-                <button
-                  type="button"
-                  onClick={() => setSizeGuideOpen(true)}
-                  className="size-guide-trigger"
-                  aria-haspopup="dialog"
-                >
-                  SIZE GUIDE
-                </button>
+                <strong>{formatSizeDisplay(selectedSize) || 'SELECT SIZE'}</strong>
+                {!isOnlyFreeSize && (
+                  <button
+                    type="button"
+                    onClick={() => setSizeGuideOpen(true)}
+                    className="size-guide-trigger"
+                    aria-haspopup="dialog"
+                  >
+                    SIZE GUIDE
+                  </button>
+                )}
               </div>
               <div
                 className="product-size-options"
@@ -711,7 +758,8 @@ export function ProductDetailClient({
               >
                 {availableSizesForSelectedColour.map(sz => {
                   const avail = isSizeAvailable(sz)
-                  const isSelected = selectedSize === sz
+                  const isSelected = selectedSize === sz || (isOnlyFreeSize && isFreeSize(sz))
+                  const displayLabel = formatSizeDisplay(sz)
                   return (
                     <button
                       key={sz}
@@ -719,11 +767,11 @@ export function ProductDetailClient({
                       role="radio"
                       aria-checked={isSelected}
                       aria-disabled={!avail}
-                      aria-label={`Size ${sz}${!avail ? ' - Out of Stock' : ''}`}
+                      aria-label={`Size ${displayLabel}${!avail ? ' - Out of Stock' : ''}`}
                       className={`size-selector-chip ${isSelected ? 'selected' : ''} ${!avail ? 'out-of-stock' : ''}`}
                       onClick={() => setSelectedSize(sz)}
                     >
-                      {sz}
+                      {displayLabel}
                     </button>
                   )
                 })}
@@ -812,6 +860,16 @@ export function ProductDetailClient({
               aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
             >
               <Heart size={18} fill={wishlisted ? 'currentColor' : 'none'} />
+            </button>
+
+            <button
+              type="button"
+              className="wishlist-toggle-icon-btn"
+              onClick={() => setShareModalOpen(true)}
+              title="Share piece"
+              aria-label={`Share ${product.name}`}
+            >
+              <Share2 size={17} />
             </button>
 
             {wishlistNotice && (
@@ -1063,6 +1121,21 @@ export function ProductDetailClient({
         isOpen={buyNowPolicyModalOpen}
         onClose={() => setBuyNowPolicyModalOpen(false)}
         onContinue={handleContinueBuyNowCheckout}
+      />
+      <ShareProductModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        product={{
+          name: product.name,
+          slug: product.slug,
+          price: effectiveSellingPrice,
+          compareAtPrice: referenceMrp,
+          image: galleryImages[0] || product.image,
+          images: galleryImages,
+          description: product.description,
+          category: product.category,
+          selectedColour: selectedColour
+        }}
       />
     </div>
   )

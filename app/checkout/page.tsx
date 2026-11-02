@@ -13,6 +13,7 @@ import { fetchActiveShippingConfig, calculateShippingForLines, DEFAULT_SHIPPING_
 import { placeOrderAction, OrderAddress } from '@/lib/orders'
 import { evaluateCartDiscount } from '@/lib/promotions'
 import { PromotionEvaluationResult } from '@/lib/promotions-shared'
+import { formatSizeDisplay } from '@/lib/variants-shared'
 import {
   getPaymentConfigAction,
   createRazorpayOrderAction,
@@ -691,7 +692,7 @@ export default function CheckoutPage() {
                     </div>
                     <div style={{ flex: 1, fontSize: '12px' }}>
                       <div style={{ fontWeight: 600 }}>{item.product.name}</div>
-                      <div style={{ color: 'var(--muted)', fontSize: '11px' }}>Size: {item.size} {item.colour && item.colour !== 'Default' ? `· ${item.colour}` : ''} · Qty: {item.qty}</div>
+                      <div style={{ color: 'var(--muted)', fontSize: '11px' }}>Size: {formatSizeDisplay(item.size)} {item.colour && item.colour !== 'Default' ? `· ${item.colour}` : ''} · Qty: {item.qty}</div>
                     </div>
                     <div style={{ fontWeight: 600, fontSize: '13px' }}>{money(item.unit_price * item.qty)}</div>
                   </div>
@@ -991,7 +992,7 @@ export default function CheckoutPage() {
                     <div style={{ flex: 1, fontSize: '12px', lineHeight: 1.4 }}>
                       <div style={{ fontWeight: 600, marginBottom: '2px' }}>{item.product.name}</div>
                       <div style={{ color: 'var(--muted)', fontSize: '11px' }}>
-                        Size: {item.size} {item.colour && item.colour !== 'Default' ? `| ${item.colour}` : ''}
+                        Size: {formatSizeDisplay(item.size)} {item.colour && item.colour !== 'Default' ? `| ${item.colour}` : ''}
                       </div>
                       <div style={{ color: 'var(--muted)', fontSize: '11px' }}>
                         Qty: {item.qty} × {money(item.unit_price)}

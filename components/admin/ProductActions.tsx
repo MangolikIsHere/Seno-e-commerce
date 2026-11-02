@@ -3,8 +3,10 @@
 import React, { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { MoreHorizontal, Edit, AlertTriangle, PackageX, PackageCheck, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Edit, AlertTriangle, PackageX, PackageCheck, Trash2, ExternalLink, Copy, Share2, Check } from 'lucide-react'
 import { setProductSoldOutAction, deleteProductAction } from '@/lib/sellers'
+import { SITE_URL } from '@/lib/seo'
+import { ShareProductModal } from '@/components/ShareProductModal'
 
 interface ProductActionsProps {
   product: {
@@ -12,6 +14,10 @@ interface ProductActionsProps {
     isSoldOut?: boolean
     is_sold_out?: boolean
     slug: string
+    name?: string
+    price?: number
+    compareAtPrice?: number | null
+    image?: string
   }
   onOptimisticUpdate?: (productId: string, isSoldOut: boolean) => void
 }
@@ -25,7 +31,33 @@ export function ProductActions({ product, onOptimisticUpdate }: ProductActionsPr
   const [isOpen, setIsOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [copiedLink, setCopiedLink] = useState(false)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
+
+  const productUrl = `${SITE_URL}/products/${product.slug}`
+
+  const handleCopyProductLink = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(productUrl)
+      } else {
+        const input = document.createElement('input')
+        input.value = productUrl
+        document.body.appendChild(input)
+        input.select()
+        document.execCommand('copy')
+        document.body.removeChild(input)
+      }
+      setCopiedLink(true)
+      setTimeout(() => {
+        setCopiedLink(false)
+        setIsOpen(false)
+      }, 1500)
+    } catch {
+      // Fallback
+    }
+  }
   
   const isSoldOut = product.isSoldOut || product.is_sold_out || false
 
@@ -117,6 +149,39 @@ export function ProductActions({ product, onOptimisticUpdate }: ProductActionsPr
               <Edit size={14} /> Edit product
             </Link>
 
+            <a
+              href={`/products/${product.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="dropdown-item"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', fontSize: '13px', color: 'var(--ink)', textDecoration: 'none', borderBottom: '1px solid var(--border)' }}
+              onClick={() => setIsOpen(false)}
+            >
+              <ExternalLink size={14} /> View public page
+            </a>
+
+            <button
+              type="button"
+              onClick={handleCopyProductLink}
+              className="dropdown-item"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', fontSize: '13px', color: copiedLink ? '#15803d' : 'var(--ink)', width: '100%', textAlign: 'left', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+            >
+              {copiedLink ? <Check size={14} color="#15803d" /> : <Copy size={14} />}
+              {copiedLink ? 'Link copied!' : 'Copy public link'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false)
+                setShareModalOpen(true)
+              }}
+              className="dropdown-item"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', fontSize: '13px', color: 'var(--ink)', width: '100%', textAlign: 'left', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+            >
+              <Share2 size={14} /> Share preview
+            </button>
+
             <button 
               type="button"
               disabled={isPending}
@@ -194,6 +259,18 @@ export function ProductActions({ product, onOptimisticUpdate }: ProductActionsPr
           </div>
         </div>
       )}
+
+      <ShareProductModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        product={{
+          name: product.name || product.slug,
+          slug: product.slug,
+          price: product.price || 0,
+          compareAtPrice: product.compareAtPrice,
+          image: product.image
+        }}
+      />
     </div>
   )
 }

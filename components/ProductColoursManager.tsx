@@ -20,6 +20,14 @@ import {
   Info
 } from 'lucide-react'
 import { getColourSwatchHex, getStandardHexForColour, normalizeColourKey } from '@/lib/colours'
+import {
+  FREE_SIZE_CANONICAL,
+  FREE_SIZE_UPPER,
+  isFreeSize,
+  formatSizeDisplay,
+  getSizeSkuSegment,
+  STANDARD_SIZES
+} from '@/lib/variants-shared'
 
 export interface ColourImageItem {
   id?: string
@@ -67,7 +75,7 @@ function clientSlugify(text: string): string {
     .replace(/^-|-$/g, '')
 }
 
-const STANDARD_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+const ALL_QUICK_SIZES = [FREE_SIZE_CANONICAL, ...STANDARD_SIZES]
 const POPULAR_COLOUR_PRESETS = [
   'Black',
   'Washed Navy',
@@ -238,18 +246,23 @@ export function ProductColoursManager({
       return
     }
 
-    // Default sizes (S, M, L, XL) for the new colour
+    // Determine whether product currently uses Free Size
+    const isProductFreeSize = variants.length > 0 && variants.every(v => isFreeSize(v.size))
     const baseSlug = clientSlugify(productSlug || productName || 'prod').toUpperCase().slice(0, 4)
     const colCode = clientSlugify(trimmed).toUpperCase().slice(0, 3)
-    const defaultSizes = ['S', 'M', 'L', 'XL']
-    const newVariants: ColourVariantItem[] = defaultSizes.map(sz => ({
-      size: sz,
-      colour: trimmed,
-      sku: `SENO-${baseSlug}-${sz}-${colCode}`,
-      quantity: 10,
-      price_override: null,
-      is_active: true
-    }))
+
+    const defaultSizes = isProductFreeSize ? [FREE_SIZE_CANONICAL] : ['S', 'M', 'L', 'XL']
+    const newVariants: ColourVariantItem[] = defaultSizes.map(sz => {
+      const szCode = getSizeSkuSegment(sz)
+      return {
+        size: sz,
+        colour: trimmed,
+        sku: `SENO-${baseSlug}-${szCode}-${colCode}`,
+        quantity: 10,
+        price_override: null,
+        is_active: true
+      }
+    })
 
     updateVariants((prev: ColourVariantItem[]) => [...prev, ...newVariants])
     setActiveColour(trimmed)
@@ -437,7 +450,8 @@ export function ProductColoursManager({
       // Add size
       const baseSlug = clientSlugify(productSlug || productName || 'prod').toUpperCase().slice(0, 4)
       const colCode = clientSlugify(currentColour).toUpperCase().slice(0, 3)
-      const newSku = `SENO-${baseSlug}-${sizeLabel.toUpperCase()}-${colCode}`
+      const szCode = getSizeSkuSegment(sizeLabel)
+      const newSku = `SENO-${baseSlug}-${szCode}-${colCode}`
       const newVar: ColourVariantItem = {
         size: sizeLabel,
         colour: currentColour,
@@ -448,6 +462,74 @@ export function ProductColoursManager({
       }
       updateVariants((prev: ColourVariantItem[]) => [...prev, newVar])
     }
+    markDirty()
+  }
+
+  // Set the current colour to Free Size (or apply to all colours)
+  const handleSetFreeSize = (forAllColours: boolean = false) => {
+    const baseSlug = clientSlugify(productSlug || productName || 'prod').toUpperCase().slice(0, 4)
+    const targetColours = forAllColours ? configuredColours : [currentColour]
+
+    updateVariants((prev: ColourVariantItem[]) => {
+      const targetKeys = new Set(targetColours.map(c => normalizeColourKey(c)))
+      const preserved = prev.filter(v => !targetKeys.has(normalizeColourKey(v.colour)))
+
+      const newItems: ColourVariantItem[] = targetColours.map(colourName => {
+        const colKey = normalizeColourKey(colourName)
+        const existing = prev.find(v => normalizeColourKey(v.colour) === colKey && isFreeSize(v.size))
+          || prev.find(v => normalizeColourKey(v.colour) === colKey)
+        const colCode = clientSlugify(colourName).toUpperCase().slice(0, 3)
+        const sku = existing?.sku && existing.sku.includes('-FS-')
+          ? existing.sku
+          : `SENO-${baseSlug}-FS-${colCode}`
+
+        return {
+          id: existing?.id,
+          size: FREE_SIZE_CANONICAL,
+          colour: colourName,
+          sku,
+          quantity: existing ? existing.quantity : 10,
+          price_override: existing?.price_override ?? null,
+          is_active: true
+        }
+      })
+
+      return [...preserved, ...newItems]
+    })
+    markDirty()
+  }
+
+  // Set standard sizes (S, M, L, XL) for current colour (or all colours)
+  const handleSetStandardSizes = (forAllColours: boolean = false) => {
+    const baseSlug = clientSlugify(productSlug || productName || 'prod').toUpperCase().slice(0, 4)
+    const targetColours = forAllColours ? configuredColours : [currentColour]
+    const standardList = ['S', 'M', 'L', 'XL']
+
+    updateVariants((prev: ColourVariantItem[]) => {
+      const targetKeys = new Set(targetColours.map(c => normalizeColourKey(c)))
+      const preserved = prev.filter(v => !targetKeys.has(normalizeColourKey(v.colour)))
+
+      const newItems: ColourVariantItem[] = []
+      for (const colourName of targetColours) {
+        const colKey = normalizeColourKey(colourName)
+        const colCode = clientSlugify(colourName).toUpperCase().slice(0, 3)
+
+        for (const sz of standardList) {
+          const existing = prev.find(v => normalizeColourKey(v.colour) === colKey && v.size.trim().toLowerCase() === sz.toLowerCase())
+          newItems.push({
+            id: existing?.id,
+            size: sz,
+            colour: colourName,
+            sku: existing?.sku || `SENO-${baseSlug}-${sz}-${colCode}`,
+            quantity: existing ? existing.quantity : 10,
+            price_override: existing?.price_override ?? null,
+            is_active: true
+          })
+        }
+      }
+
+      return [...preserved, ...newItems]
+    })
     markDirty()
   }
 
@@ -1266,36 +1348,96 @@ export function ProductColoursManager({
               </h4>
             </div>
             <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '4px 0 0' }}>
-              Toggle standard size chips to enable variations. Each size retains its own inventory count and SKU.
+              Choose standard sizes or select <strong>Free Size</strong>. Each colour retains its own independent inventory and SKU.
             </p>
           </div>
 
-          {/* Quick Toggle Standard Sizes */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {STANDARD_SIZES.map((sz) => {
-              const isEnabled = activeVariants.some(v => v.size.trim().toLowerCase() === sz.toLowerCase())
-              return (
-                <button
-                  key={sz}
-                  type="button"
-                  onClick={() => handleToggleSize(sz)}
-                  style={{
-                    padding: '5px 12px',
-                    fontSize: '11.5px',
-                    fontWeight: 600,
-                    borderRadius: '3px',
-                    border: isEnabled ? '1px solid var(--ink)' : '1px solid var(--border)',
-                    background: isEnabled ? 'var(--ink)' : '#ffffff',
-                    color: isEnabled ? '#ffffff' : 'var(--ink)',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  {isEnabled ? `✓ ${sz}` : `+ ${sz}`}
-                </button>
-              )
-            })}
+          {/* Quick Preset Buttons: Free Size vs Standard Sizes */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => handleSetFreeSize(false)}
+              className="button button-outline"
+              style={{
+                fontSize: '11px',
+                padding: '5px 12px',
+                fontWeight: 600,
+                background: activeVariants.length === 1 && isFreeSize(activeVariants[0].size) ? 'var(--ink)' : '#ffffff',
+                color: activeVariants.length === 1 && isFreeSize(activeVariants[0].size) ? '#ffffff' : 'var(--ink)',
+                border: '1px solid var(--ink)'
+              }}
+              title="Set this colour to a single Free Size variant"
+            >
+              ✦ Free Size ({currentColour})
+            </button>
+
+            {configuredColours.length > 1 && (
+              <button
+                type="button"
+                onClick={() => handleSetFreeSize(true)}
+                className="button button-outline"
+                style={{
+                  fontSize: '11px',
+                  padding: '5px 12px',
+                  fontWeight: 600,
+                  border: '1px solid var(--border)',
+                  background: variants.length > 0 && variants.every(v => isFreeSize(v.size)) ? '#f1f5f9' : '#ffffff',
+                  color: 'var(--ink)'
+                }}
+                title="Apply Free Size to all configured colours at once"
+              >
+                Apply Free Size to All Colours ({configuredColours.length})
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => handleSetStandardSizes(false)}
+              className="button button-outline"
+              style={{
+                fontSize: '11px',
+                padding: '5px 12px',
+                border: '1px solid var(--border)',
+                background: '#ffffff',
+                color: 'var(--muted)'
+              }}
+              title="Reset this colour to standard S, M, L, XL sizes"
+            >
+              Standard S–XL
+            </button>
           </div>
+        </div>
+
+        {/* Size Selection Chips (Free Size + Standard Sizes) */}
+        <div style={{ marginBottom: '16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', marginRight: '4px' }}>
+            Available Sizes:
+          </span>
+          {ALL_QUICK_SIZES.map((sz) => {
+            const isEnabled = activeVariants.some(v => v.size.trim().toLowerCase() === sz.toLowerCase())
+            const isFs = isFreeSize(sz)
+            return (
+              <button
+                key={sz}
+                type="button"
+                onClick={() => handleToggleSize(sz)}
+                style={{
+                  padding: isFs ? '5px 14px' : '5px 11px',
+                  fontSize: '11.5px',
+                  fontWeight: isFs ? 700 : 600,
+                  letterSpacing: isFs ? '0.5px' : 'normal',
+                  borderRadius: '3px',
+                  border: isEnabled ? '1px solid var(--ink)' : '1px solid var(--border)',
+                  background: isEnabled ? 'var(--ink)' : (isFs ? '#f8fafc' : '#ffffff'),
+                  color: isEnabled ? '#ffffff' : (isFs ? 'var(--ink)' : 'var(--muted)'),
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {isEnabled ? `✓ ${formatSizeDisplay(sz)}` : `+ ${formatSizeDisplay(sz)}`}
+              </button>
+            )
+          })}
         </div>
 
         {/* Compact Size Cards */}
@@ -1343,20 +1485,22 @@ export function ProductColoursManager({
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          width: '36px',
+                          minWidth: '36px',
+                          padding: isFreeSize(variant.size) ? '0 10px' : '0',
                           height: '36px',
-                          background: '#f1f5f9',
+                          background: isFreeSize(variant.size) ? 'var(--ink)' : '#f1f5f9',
                           borderRadius: '3px',
-                          fontSize: '14px',
+                          fontSize: isFreeSize(variant.size) ? '11px' : '14px',
                           fontWeight: 700,
-                          color: 'var(--ink)'
+                          letterSpacing: isFreeSize(variant.size) ? '0.5px' : 'normal',
+                          color: isFreeSize(variant.size) ? '#ffffff' : 'var(--ink)'
                         }}
                       >
-                        {variant.size}
+                        {formatSizeDisplay(variant.size)}
                       </span>
                       <div>
                         <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>
-                          {currentColour} / {variant.size}
+                          {currentColour} / {formatSizeDisplay(variant.size)}
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'monospace' }}>
                           {variant.sku}

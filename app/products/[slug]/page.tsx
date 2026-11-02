@@ -19,6 +19,28 @@ export async function generateStaticParams() {
   return slugs.map((slug) => ({ slug }))
 }
 
+function toAbsoluteUrl(url?: string | null): string {
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    return `${SITE_URL}/brand/seno-mark-512.png`
+  }
+  const clean = url.trim()
+  if (clean.startsWith('http://') || clean.startsWith('https://')) {
+    return clean
+  }
+  return `${SITE_URL}${clean.startsWith('/') ? clean : `/${clean}`}`
+}
+
+function cleanProductDescription(desc?: string | null): string {
+  if (!desc || typeof desc !== 'string') {
+    return 'Considered clothing and objects for everyday life. Explore this product at SENO.'
+  }
+  const stripped = desc
+    .replace(/<[^>]*>/g, '')
+    .replace(/\{[^}]*\}/g, '')
+    .trim()
+  return stripped || 'Considered clothing and objects for everyday life. Explore this product at SENO.'
+}
+
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { slug } = await params
   const product = await getCachedProduct(slug)
@@ -32,33 +54,46 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
   const productUrl = `${SITE_URL}/products/${product.slug}`
   const primaryImage = product.images[0] || product.image
+  const absoluteImageUrl = toAbsoluteUrl(primaryImage)
+  const cleanDesc = cleanProductDescription(product.description)
+  const shortDesc = cleanDesc.length > 160 ? `${cleanDesc.slice(0, 157)}...` : cleanDesc
+
+  const metaTitle = `${product.name} | SENO`
 
   return {
-    title: product.name,
-    description: product.description.slice(0, 160),
+    title: metaTitle,
+    description: shortDesc,
     alternates: {
       canonical: productUrl,
     },
     openGraph: {
-      title: `${product.name} — SENO`,
-      description: product.description,
+      title: metaTitle,
+      description: cleanDesc,
       url: productUrl,
       siteName: SITE_NAME,
       images: [
         {
-          url: primaryImage,
-          width: 1000,
-          height: 1333,
-          alt: product.name,
+          url: absoluteImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${product.name} — SENO Luxury`,
+          type: 'image/jpeg',
         },
       ],
       type: 'website',
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${product.name} — SENO`,
-      description: product.description.slice(0, 160),
-      images: [primaryImage],
+      title: metaTitle,
+      description: shortDesc,
+      images: [absoluteImageUrl],
+    },
+    other: {
+      'product:price:amount': String(product.price),
+      'product:price:currency': 'INR',
+      'product:availability': product.soldOut ? 'out of stock' : 'in stock',
+      'product:condition': 'new',
+      'product:brand': 'SENO',
     },
   }
 }

@@ -10,6 +10,7 @@ import { AccountShell } from '@/components/account/AccountShell'
 import { OrderStatusTimeline } from '@/components/admin/OrderStatusTimeline'
 import { PrintReceiptTrigger } from '@/components/receipt/PrintReceiptTrigger'
 import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
+import { formatSizeDisplay } from '@/lib/variants-shared'
 
 const humanStatusNarratives: Record<string, string> = {
   unfulfilled: 'Your order was received and authenticated. Awaiting processing.',
@@ -164,7 +165,7 @@ export default function OrderDetailPage() {
                       {item.product_name}
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '6px' }}>
-                      SKU: <span style={{ fontFamily: 'monospace' }}>{item.sku}</span> · Size: {item.variant_details?.size || 'Standard'} {item.variant_details?.colour && item.variant_details.colour !== 'Default' ? `· Colour: ${item.variant_details.colour}` : ''}
+                      SKU: <span style={{ fontFamily: 'monospace' }}>{item.sku}</span> · Size: {formatSizeDisplay(item.variant_details?.size) || 'Standard'} {item.variant_details?.colour && item.variant_details.colour !== 'Default' ? `· Colour: ${item.variant_details.colour}` : ''}
                     </div>
                     <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
                       Status: <strong style={{ color: 'var(--ink)', textTransform: 'capitalize' }}>{item.fulfillment_status}</strong>

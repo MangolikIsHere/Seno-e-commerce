@@ -31,6 +31,7 @@ import { money, parseReturnPolicy } from '@/lib/catalog'
 import { ProductColoursManager } from '@/components/ProductColoursManager'
 import { extractColourHexesFromDetails } from '@/lib/colours'
 import { parseRevisionFeedback, AFFECTED_FIELDS, AffectedFieldKey } from '@/lib/revisionFeedback'
+import { FREE_SIZE_CANONICAL, isFreeSize, formatSizeDisplay, getSizeSkuSegment } from '@/lib/variants-shared'
 
 type Step = 1 | 2 | 3 | 4 | 5
 type ImageItem = { url: string; display_order?: number; is_primary?: boolean; colour?: string | null; is_colour_primary?: boolean }
@@ -211,11 +212,36 @@ export function ProductForm({
     setVariants(newVariants)
   }
 
+  const handleAddFreeSize = (forAllColours: boolean = false) => {
+    const baseSlug = (slug || slugify(name) || 'ITEM').toUpperCase().slice(0, 8)
+    const distinctColours = Array.from(new Set(variants.map(v => (v.colour || '').trim()).filter(Boolean)))
+    const targetColours = (forAllColours || distinctColours.length > 0)
+      ? (distinctColours.length > 0 ? distinctColours : ['Black'])
+      : [variants[0]?.colour || 'Black']
+
+    const newVariants: VariantItem[] = targetColours.map(colour => {
+      const colCode = colour.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3) || 'STD'
+      const existing = variants.find(v => (v.colour || '').trim().toLowerCase() === colour.toLowerCase() && isFreeSize(v.size))
+        || variants.find(v => (v.colour || '').trim().toLowerCase() === colour.toLowerCase())
+      return {
+        id: existing?.id,
+        size: FREE_SIZE_CANONICAL,
+        colour,
+        sku: existing?.sku && existing.sku.includes('-FS') ? existing.sku : `${baseSlug}-${colCode}-FS`,
+        quantity: existing ? existing.quantity : '10',
+        price_override: existing?.price_override ?? null,
+        is_active: true
+      }
+    })
+
+    setVariants(newVariants)
+  }
+
   const handleAutoSkus = () => {
     const basePrefix = (slug || slugify(name) || 'SNO').toUpperCase().slice(0, 6)
     setVariants(curr => curr.map(v => {
       const col = (v.colour || 'STD').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3)
-      const sz = (v.size || 'OS').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4)
+      const sz = getSizeSkuSegment(v.size)
       return {
         ...v,
         sku: `${basePrefix}-${col}-${sz}`
@@ -1035,10 +1061,32 @@ export function ProductForm({
               <button
                 type="button"
                 className="button button-outline"
+                onClick={() => handleAddFreeSize(false)}
+                style={{ fontSize: '11px', padding: '8px 14px', fontWeight: 600, border: '1px solid var(--ink)', background: variants.some(v => isFreeSize(v.size)) ? 'var(--ink)' : '#fff', color: variants.some(v => isFreeSize(v.size)) ? '#fff' : 'var(--ink)' }}
+                title="Create a Free Size variant for product"
+              >
+                <Sparkles size={13} /> Quick Add Free Size
+              </button>
+
+              {variants.length > 0 && Array.from(new Set(variants.map(v => (v.colour || '').trim()).filter(Boolean))).length > 1 && (
+                <button
+                  type="button"
+                  className="button button-outline"
+                  onClick={() => handleAddFreeSize(true)}
+                  style={{ fontSize: '11px', padding: '8px 14px' }}
+                  title="Configure all colours to Free Size"
+                >
+                  Apply Free Size to All Colours
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="button button-outline"
                 onClick={handleAddStandardSizes}
                 style={{ fontSize: '11px', padding: '8px 14px' }}
               >
-                <Sparkles size={13} /> Quick Add XS–XL
+                Quick Add XS–XL
               </button>
 
               <button
@@ -1260,13 +1308,20 @@ export function ProductForm({
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
+                      alignItems: 'center',
                       borderBottom: '1px solid var(--border)',
                       padding: '8px 0',
                       fontSize: '12px'
                     }}
                   >
                     <span>
-                      <strong>{variant.size}</strong> &middot; {variant.colour} <span style={{ color: 'var(--muted)', fontFamily: 'monospace' }}>({variant.sku})</span>
+                      <strong style={{ fontWeight: 600 }}>{formatSizeDisplay(variant.size)}</strong>
+                      {isFreeSize(variant.size) && (
+                        <span style={{ fontSize: '9px', background: '#fef3c7', color: '#92400e', padding: '2px 5px', borderRadius: '2px', fontWeight: 700, marginLeft: '6px' }}>
+                          FREE SIZE
+                        </span>
+                      )}
+                      {' '}&middot; {variant.colour} <span style={{ color: 'var(--muted)', fontFamily: 'monospace' }}>({variant.sku})</span>
                     </span>
                     <strong>{variant.quantity} in stock</strong>
                   </div>
@@ -1347,20 +1402,55 @@ export function ProductForm({
               </div>
 
               <div style={{ display: 'grid', gap: '8px', fontSize: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: name && slug ? '#15803d' : '#9a3412' }}>
-                  <CheckCircle2 size={13} /> Name & URL configured
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: name && slug ? '#15803d' : '#9a3412' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle2 size={13} /> Name & URL configured
+                  </div>
+                  {(!name || !slug) && (
+                    <button type="button" onClick={() => goTo(1)} style={{ fontSize: '11px', color: '#92400e', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                      Fix in Step 1 →
+                    </button>
+                  )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: categoryId ? '#15803d' : '#9a3412' }}>
-                  <CheckCircle2 size={13} /> Department assigned
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: categoryId ? '#15803d' : '#9a3412' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle2 size={13} /> Department assigned
+                  </div>
+                  {!categoryId && (
+                    <button type="button" onClick={() => goTo(1)} style={{ fontSize: '11px', color: '#92400e', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                      Fix in Step 1 →
+                    </button>
+                  )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: images.length > 0 ? '#15803d' : '#9a3412' }}>
-                  <CheckCircle2 size={13} /> {images.length} photography assets ready
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: images.length > 0 ? '#15803d' : '#9a3412' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle2 size={13} /> {images.length} photography assets ready
+                  </div>
+                  {images.length === 0 && (
+                    <button type="button" onClick={() => goTo(2)} style={{ fontSize: '11px', color: '#92400e', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                      Fix in Step 2 →
+                    </button>
+                  )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: numPrice > 0 ? '#15803d' : '#9a3412' }}>
-                  <CheckCircle2 size={13} /> Selling price set ({money(numPrice)})
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: numPrice > 0 ? '#15803d' : '#9a3412' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle2 size={13} /> Selling price set ({money(numPrice)})
+                  </div>
+                  {numPrice <= 0 && (
+                    <button type="button" onClick={() => goTo(3)} style={{ fontSize: '11px', color: '#92400e', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                      Fix in Step 3 →
+                    </button>
+                  )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: variants.length > 0 ? '#15803d' : '#9a3412' }}>
-                  <CheckCircle2 size={13} /> {variants.length} variations ({totalStock} total units)
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: variants.length > 0 ? '#15803d' : '#9a3412' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle2 size={13} /> {variants.length} variations ({totalStock} total units)
+                  </div>
+                  {variants.length === 0 && (
+                    <button type="button" onClick={() => goTo(4)} style={{ fontSize: '11px', color: '#92400e', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                      Fix in Step 4 →
+                    </button>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#15803d' }}>
                   <CheckCircle2 size={13} /> Return Policy: {isReturnable ? `${returnWindowDays}-Day Returns` : 'Final Sale'}

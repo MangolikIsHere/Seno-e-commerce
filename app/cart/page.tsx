@@ -11,6 +11,7 @@ import { SenoImage } from '@/components/SenoImage'
 import { evaluateCartDiscount } from '@/lib/promotions'
 import { PromotionEvaluationResult } from '@/lib/promotions-shared'
 import { CheckoutPolicyModal } from '@/components/CheckoutPolicyModal'
+import { formatSizeDisplay } from '@/lib/variants-shared'
 
 export default function CartPage() {
   const {
@@ -258,7 +259,7 @@ export default function CartPage() {
                       {item.product.name}
                     </Link>
                     <span style={{ fontSize: '11.5px', color: 'var(--muted)', marginBottom: '8px' }}>
-                      Size: <strong style={{ color: 'var(--ink)' }}>{item.size}</strong> {item.colour && item.colour !== 'Default' ? ` · Colour: ${item.colour}` : ''}
+                      Size: <strong style={{ color: 'var(--ink)' }}>{formatSizeDisplay(item.size)}</strong> {item.colour && item.colour !== 'Default' ? ` · Colour: ${item.colour}` : ''}
                     </span>
                     <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', marginBottom: '14px' }}>
                       {money(item.unit_price)}
