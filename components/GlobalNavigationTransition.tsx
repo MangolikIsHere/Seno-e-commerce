@@ -62,20 +62,21 @@ export function GlobalNavigationTransition() {
         }
 
         const destKey = destination.pathname + destination.search
-        // If we're already showing the loader for this exact destination,
-        // don't reset the timer — prevents rapid-click timer resets from
-        // extending the feedback window on each subsequent click.
-        if (navigatingToRef.current === destKey) return
+        // If we're already navigating to this exact destination,
+        // prevent duplicate click from triggering Next.js AbortController cancellation.
+        if (navigatingToRef.current === destKey) {
+          event.preventDefault()
+          return
+        }
 
         if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current)
         navigatingToRef.current = destKey
         setIsNavigating(true)
-        // Fallback: only clears feedback if the browser keeps the current document
-        // after a cancelled or failed client navigation. It never delays navigation.
-        // The nav loader has pointer-events: none on all elements so it cannot block
-        // clicks regardless of how long it's visible. 1500ms gives adequate coverage
-        // for slow RSC payloads without causing false-stuck state.
-        fallbackTimerRef.current = setTimeout(clearNavigationFeedback, 1500)
+        // Fallback: safety timeout to clear feedback if a navigation is cancelled
+        // or blocked by external factors. Uses 10,000ms so cellular/mobile network
+        // latencies never cause premature disappearance mid-flight. When the page
+        // loads, routeChanged immediately clears feedback instantaneously.
+        fallbackTimerRef.current = setTimeout(clearNavigationFeedback, 10000)
       } catch {
         // Invalid URLs are left to the browser's normal handling.
       }

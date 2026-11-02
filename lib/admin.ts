@@ -761,47 +761,50 @@ export async function getAdminOverviewStats(): Promise<AdminOverviewStats> {
   if (!isAdmin) throw new Error('Unauthorized')
   const supabase = getAdminSupabase()
 
-  // 1. Orders
-  let orders: any[] | null = null
-  const { data: initialOrders, error: ordersError } = await supabase
-    .from('orders')
-    .select('id, order_number, status, payment_status, total_amount, created_at, is_archived, profiles(full_name, email)')
-    .order('created_at', { ascending: false })
-
-  if (ordersError && ordersError.message?.includes('is_archived')) {
-    const fallback = await supabase
+  // Run Orders, Sellers, and Products queries in parallel for high-speed dashboard loading
+  const ordersPromise = (async () => {
+    const { data: initialOrders, error: ordersError } = await supabase
       .from('orders')
-      .select('id, order_number, status, payment_status, total_amount, created_at, profiles(full_name, email)')
+      .select('id, order_number, status, payment_status, total_amount, created_at, is_archived, profiles(full_name, email)')
       .order('created_at', { ascending: false })
-    orders = fallback.data
-  } else {
-    orders = initialOrders
-  }
 
-  const rawOrders = orders || []
-  // Only count operational (active / non-archived) orders in active dashboard metrics
-  const allOrders = rawOrders.filter(o => !o.is_archived)
-  const paidOrders = allOrders.filter(o => o.payment_status === 'paid')
-  const totalRevenue = paidOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
-  const pendingOrders = allOrders.filter(o => o.status === 'pending' || o.payment_status === 'unpaid')
+    if (ordersError && ordersError.message?.includes('is_archived')) {
+      const fallback = await supabase
+        .from('orders')
+        .select('id, order_number, status, payment_status, total_amount, created_at, profiles(full_name, email)')
+        .order('created_at', { ascending: false })
+      return fallback.data || []
+    }
+    return initialOrders || []
+  })()
 
-  // 2. Sellers
-  const { data: sellers } = await supabase
+  const sellersPromise = supabase
     .from('sellers')
     .select('id, store_name, slug, seller_type, seller_status, commission_rate, contact_email, created_at')
     .order('created_at', { ascending: false })
 
-  const allSellers = sellers || []
-  const approvedSellers = allSellers.filter(s => s.seller_status === 'approved')
-  const pendingSellers = allSellers.filter(s => s.seller_status === 'pending')
-
-  // 3. Products
-  const { data: products } = await supabase
+  const productsPromise = supabase
     .from('products')
     .select('id, name, slug, price, approval_status, is_active, created_at, sellers(store_name)')
     .order('created_at', { ascending: false })
 
-  const allProducts = products || []
+  const [rawOrders, sellersRes, productsRes] = await Promise.all([
+    ordersPromise,
+    sellersPromise,
+    productsPromise
+  ])
+
+  // Only count operational (active / non-archived) orders in active dashboard metrics
+  const allOrders = rawOrders.filter((o: any) => !o.is_archived)
+  const paidOrders = allOrders.filter(o => o.payment_status === 'paid')
+  const totalRevenue = paidOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
+  const pendingOrders = allOrders.filter(o => o.status === 'pending' || o.payment_status === 'unpaid')
+
+  const allSellers = sellersRes.data || []
+  const approvedSellers = allSellers.filter(s => s.seller_status === 'approved')
+  const pendingSellers = allSellers.filter(s => s.seller_status === 'pending')
+
+  const allProducts = productsRes.data || []
   const approvedProducts = allProducts.filter(p => p.approval_status === 'approved')
   const pendingProducts = allProducts.filter(p => p.approval_status === 'submitted')
 

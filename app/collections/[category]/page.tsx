@@ -98,21 +98,18 @@ export default async function CategoryPage({ params }: PageProps) {
   const resolvedParams = await params
   const slug = resolvedParams.category.toLowerCase()
 
-  const categories = await getActiveCategories()
+  const [categories, initialProducts] = await Promise.all([
+    getActiveCategories(),
+    getCollectionProducts(slug, { sort: 'Featured' })
+  ])
+
   const matched = categories.find((category) => category.slug === slug)
   let title = matched?.name.toUpperCase() || 'ALL PRODUCTS'
-  let queryCategory = slug
   if (slug === 'new-arrivals') {
     title = 'NEW ARRIVALS'
-    queryCategory = 'new-arrivals'
   } else if (slug === 'bestsellers') {
     title = 'BESTSELLERS'
-    queryCategory = 'bestsellers'
-  } else if (matched) {
-    queryCategory = matched.name
   }
-
-  const initialProducts = await getCollectionProducts(queryCategory, { sort: 'Featured' })
 
   const itemListJsonLd = {
     '@context': 'https://schema.org',

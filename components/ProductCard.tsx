@@ -69,7 +69,6 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
       <div className="product-visual-wrapper" style={{ display: 'block', position: 'relative' }}>
         <Link
           href={productHref}
-          prefetch={false}
           style={{ display: 'block' }}
           data-return-context={returnContext || undefined}
           onClick={handleProductLinkClick}
@@ -166,7 +165,6 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
       <div className="product-details-info" style={{ marginTop: '12px' }}>
         <Link 
           href={productHref} 
-          prefetch={false}
           style={{ display: 'block', textDecoration: 'none' }} 
           data-return-context={returnContext || undefined}
           onClick={handleProductLinkClick}
@@ -222,7 +220,6 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
 
         <Link 
           href={productHref} 
-          prefetch={false}
           style={{ display: 'block', textDecoration: 'none' }} 
           data-return-context={returnContext || undefined}
           onClick={handleProductLinkClick}

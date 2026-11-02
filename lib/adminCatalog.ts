@@ -10,6 +10,14 @@ import { buildProductColourImageMap, prepareColourDetailsPayload, normalizeColou
 import fs from 'fs'
 import path from 'path'
 
+async function getSafeSupabase() {
+  try {
+    return await createClient()
+  } catch {
+    return getAdminSupabase()
+  }
+}
+
 export interface AdminProductImage {
   id?: string
   url: string
@@ -113,7 +121,7 @@ function internalSlugify(text: string): string {
  * Generate a guaranteed unique slug for a product.
  */
 export async function generateUniqueSlug(name: string, currentProductId?: string): Promise<string> {
-  const supabase = await createClient()
+  const supabase = await getSafeSupabase()
   const baseSlug = internalSlugify(name) || 'product'
   let candidate = baseSlug
   let counter = 1
@@ -142,7 +150,7 @@ export async function generateUniqueSlug(name: string, currentProductId?: string
  * Fetch metadata needed for product creation (categories & collections).
  */
 export async function getCatalogMetadata() {
-  const supabase = await createClient()
+  const supabase = await getSafeSupabase()
 
   const [catRes, colRes] = await Promise.all([
     supabase.from('categories').select('*').eq('is_active', true).order('display_order', { ascending: true }),
@@ -158,7 +166,7 @@ export async function getCatalogMetadata() {
 async function requireActiveCategory(categoryId: string | null | undefined) {
   if (!categoryId) throw new Error('A valid active category is required.')
 
-  const supabase = await createClient()
+  const supabase = await getSafeSupabase()
   const { data, error } = await supabase
     .from('categories')
     .select('id')
@@ -624,39 +632,44 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
     throw new Error(prodErr.message)
   }
 
-  // 3. Sync Collections
-  await supabase.from('collection_products').delete().eq('product_id', id)
-  if (input.collection_ids && input.collection_ids.length > 0) {
-    const cpRows = input.collection_ids.map((collId, idx) => ({
-      collection_id: collId,
-      product_id: id,
-      display_order: idx
-    }))
-    await supabase.from('collection_products').insert(cpRows)
-  }
-
-  // 4. Sync Images with colour assignment & single-primary guarantee
-  await supabase.from('product_images').delete().eq('product_id', id)
-  if (input.images && input.images.length > 0) {
-    let primaryIndex = input.images.findIndex(img => img.is_primary)
-    if (primaryIndex < 0) primaryIndex = 0
-
-    const fullRows = input.images.map((img, idx) => ({
-      product_id: id,
-      url: img.url,
-      alt_text: img.alt_text || input.name,
-      display_order: idx,
-      is_primary: idx === primaryIndex,
-      colour: img.colour?.trim() || null,
-      is_colour_primary: !!img.is_colour_primary
-    }))
-
-    const { error: imgErr } = await supabase.from('product_images').insert(fullRows)
-    if (imgErr) {
-      const baseRows = fullRows.map(({ colour, is_colour_primary, ...base }) => base)
-      await supabase.from('product_images').insert(baseRows)
+  // 3 & 4. Sync Collections and Images in parallel
+  const syncCollections = async () => {
+    await supabase.from('collection_products').delete().eq('product_id', id)
+    if (input.collection_ids && input.collection_ids.length > 0) {
+      const cpRows = input.collection_ids.map((collId, idx) => ({
+        collection_id: collId,
+        product_id: id,
+        display_order: idx
+      }))
+      await supabase.from('collection_products').insert(cpRows)
     }
   }
+
+  const syncImages = async () => {
+    await supabase.from('product_images').delete().eq('product_id', id)
+    if (input.images && input.images.length > 0) {
+      let primaryIndex = input.images.findIndex(img => img.is_primary)
+      if (primaryIndex < 0) primaryIndex = 0
+
+      const fullRows = input.images.map((img, idx) => ({
+        product_id: id,
+        url: img.url,
+        alt_text: img.alt_text || input.name,
+        display_order: idx,
+        is_primary: idx === primaryIndex,
+        colour: img.colour?.trim() || null,
+        is_colour_primary: !!img.is_colour_primary
+      }))
+
+      const { error: imgErr } = await supabase.from('product_images').insert(fullRows)
+      if (imgErr) {
+        const baseRows = fullRows.map(({ colour, is_colour_primary, ...base }) => base)
+        await supabase.from('product_images').insert(baseRows)
+      }
+    }
+  }
+
+  await Promise.all([syncCollections(), syncImages()])
 
   // 5. Sync Variants & Inventory via Authoritative Reconciler
   if (input.variants) {

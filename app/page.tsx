@@ -3,9 +3,10 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
 import { SenoImage } from '@/components/SenoImage'
-import { getNewArrivals, getBestsellers, getCollectionProducts } from '@/lib/catalog'
+import { getCollectionProducts } from '@/lib/catalog'
+import { getCachedNewArrivals, getCachedBestsellers } from '@/lib/catalog-server'
 import { getActiveCategories } from '@/lib/categories'
-import { getFeaturedHeroPromotions, getActivePromotions } from '@/lib/promotions'
+import { getActivePromotions } from '@/lib/promotions'
 import { isProductEligibleForPromotion, getPromotionBadgeText } from '@/lib/promotions-shared'
 import { HeroCarousel } from '@/components/HeroCarousel'
 import { getCachedActiveHeroSlides } from '@/lib/hero-slides'
@@ -69,24 +70,25 @@ export const metadata: Metadata = {
 }
 
 export default async function HomePage() {
-  let categories: any[] = []
   let categoryFetchError: string | null = null
 
-  const [newArrivals, bestsellers, cosmeticsProducts, featuredPromotions, activePromotions, heroSlides] = await Promise.all([
-    getNewArrivals(8),
-    getBestsellers(8),
+  const [newArrivals, bestsellers, cosmeticsProducts, activePromotions, heroSlides, categoriesResult] = await Promise.all([
+    getCachedNewArrivals(8),
+    getCachedBestsellers(8),
     getCollectionProducts('cosmetics', { sort: 'Newest' }).then(p => p.slice(0, 8)),
-    getFeaturedHeroPromotions(),
     getActivePromotions(),
     getCachedActiveHeroSlides(),
+    getActiveCategories().catch(err => {
+      categoryFetchError = err?.message || 'Database error'
+      console.error('[HomePage] Non-critical category fetch notice:', err?.message || err)
+      return []
+    }),
   ])
 
-  try {
-    categories = await getActiveCategories()
-  } catch (err: any) {
-    categoryFetchError = err?.message || 'Database error'
-    console.error('[HomePage] Non-critical category fetch notice:', err?.message || err)
-  }
+  const categories = categoriesResult || []
+  const featuredPromotions = activePromotions
+    .filter(promo => promo.show_on_homepage_hero)
+    .slice(0, 4)
 
   function getProductBadge(product: any): string | undefined {
     for (const promo of activePromotions) {

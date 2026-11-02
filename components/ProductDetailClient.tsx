@@ -862,16 +862,6 @@ export function ProductDetailClient({
               <Heart size={18} fill={wishlisted ? 'currentColor' : 'none'} />
             </button>
 
-            <button
-              type="button"
-              className="wishlist-toggle-icon-btn"
-              onClick={() => setShareModalOpen(true)}
-              title="Share piece"
-              aria-label={`Share ${product.name}`}
-            >
-              <Share2 size={17} />
-            </button>
-
             {wishlistNotice && (
               <span className="product-action-feedback" role="status" aria-live="polite">
                 {wishlisted ? 'REMOVED FROM WISHLIST' : 'SAVED TO WISHLIST'}
