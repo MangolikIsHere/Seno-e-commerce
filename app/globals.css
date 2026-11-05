@@ -9570,3 +9570,1261 @@ all and (display-mode: minimal-ui) {
 .seno-android-app .mobile-drawer-install-link {
   display: none !important;
 }
+
+/* ==========================================================================
+   DEDICATED PWA INSTALLATION & SHARING LANDING PAGE (/install)
+   ========================================================================== */
+.install-page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 5% 100px;
+}
+
+.install-toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  background: var(--charcoal);
+  color: #ffffff;
+  border: 1px solid var(--champagne-gold);
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
+  animation: slideUpToast 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+@keyframes slideUpToast {
+  from {
+    transform: translate(-50%, 20px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+.install-hero-section {
+  position: relative;
+  background: linear-gradient(180deg, var(--warm-ivory-subtle) 0%, var(--warm-ivory) 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 56px 24px 64px;
+  text-align: center;
+  margin-bottom: 56px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.install-hero-glow {
+  position: absolute;
+  top: -50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 500px;
+  height: 350px;
+  background: radial-gradient(ellipse at center, rgba(215, 174, 112, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.install-hero-inner {
+  position: relative;
+  z-index: 2;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.install-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.install-eyebrow-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--champagne-soft);
+  border: 1px solid var(--champagne-border);
+  color: #8A6834;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+.install-badge-star {
+  color: var(--champagne-gold);
+}
+
+.install-status-pill.installed {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: var(--sage-green-soft);
+  color: #3E5A35;
+  border: 1px solid rgba(129, 148, 122, 0.4);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border-radius: 2px;
+}
+
+.install-hero-headline {
+  font-family: Georgia, serif;
+  font-size: clamp(32px, 5.5vw, 54px);
+  font-weight: 400;
+  letter-spacing: -1.5px;
+  color: var(--ink);
+  margin: 0 0 16px;
+  line-height: 1.1;
+}
+
+.install-hero-subtext {
+  font-size: clamp(14px, 2.2vw, 16px);
+  line-height: 1.65;
+  color: var(--muted);
+  max-width: 620px;
+  margin: 0 auto 36px;
+}
+
+/* App Card Preview */
+.install-app-card {
+  max-width: 480px;
+  margin: 0 auto 36px;
+  background: var(--surface);
+  border: 1px solid var(--champagne-border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(41, 39, 36, 0.06);
+}
+
+.install-app-icon-frame {
+  width: 68px;
+  height: 68px;
+  border-radius: 16px;
+  background: #171717;
+  border: 1.5px solid var(--champagne-gold);
+  padding: 6px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.install-app-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.install-card-meta-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.install-card-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.install-app-title {
+  font-family: Georgia, serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+  margin: 0;
+}
+
+.install-app-ver {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #8A6834;
+  text-transform: uppercase;
+}
+
+.install-app-tagline {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin: 3px 0 7px;
+  line-height: 1.35;
+}
+
+.install-app-metrics {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.metric-val {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.metric-dot {
+  color: var(--line);
+}
+
+/* Actions Group */
+.install-actions-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.install-primary-action-btn {
+  width: 100%;
+  max-width: 420px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.install-primary-action-btn.install-btn {
+  background: linear-gradient(135deg, var(--terracotta) 0%, #A25838 50%, #8E4426 100%);
+  color: #ffffff;
+  border: 1px solid rgba(215, 174, 112, 0.45);
+  box-shadow: 0 4px 18px rgba(184, 120, 88, 0.38);
+}
+
+.install-primary-action-btn.install-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #C7754E 0%, #AF5F3C 50%, #9A4A29 100%);
+  box-shadow: 0 6px 26px rgba(184, 120, 88, 0.52);
+  transform: translateY(-1.5px);
+}
+
+.install-primary-action-btn.open-btn {
+  background: linear-gradient(135deg, var(--sage-green) 0%, #5F745A 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 18px rgba(129, 148, 122, 0.38);
+}
+
+.install-primary-action-btn.open-btn:hover {
+  background: linear-gradient(135deg, #8E9F88 0%, #687D62 100%);
+  transform: translateY(-1.5px);
+}
+
+.install-secondary-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 420px;
+}
+
+.install-share-action-btn,
+.install-whatsapp-action-btn,
+.install-copy-link-btn {
+  flex: 1;
+  min-width: 110px;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--radius-xs);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.18s ease;
+}
+
+.install-share-action-btn:hover {
+  border-color: var(--terracotta);
+  color: var(--terracotta);
+  background: var(--terracotta-soft);
+}
+
+.install-whatsapp-action-btn:hover {
+  border-color: #25D366;
+  color: #1E8C44;
+  background: #F0FBF4;
+}
+
+.install-copy-link-btn:hover {
+  border-color: var(--ink);
+}
+
+.install-platform-note {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+/* 2. Platform Instructions */
+.install-guide-section {
+  margin-bottom: 72px;
+}
+
+.install-section-header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.install-section-title {
+  font-family: Georgia, serif;
+  font-size: clamp(26px, 4vw, 38px);
+  font-weight: 400;
+  letter-spacing: -0.8px;
+  color: var(--ink);
+  margin: 6px 0 10px;
+}
+
+.install-section-subtitle {
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 580px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+.install-platform-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.install-tab-btn {
+  padding: 10px 22px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--radius-xs);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.install-tab-btn.active {
+  background: var(--charcoal);
+  color: #ffffff;
+  border-color: var(--charcoal);
+  box-shadow: 0 4px 14px rgba(41, 39, 36, 0.22);
+}
+
+.install-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 800px) {
+  .install-steps-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.install-step-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 30px 24px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.install-step-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.step-number {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  font-family: Georgia, serif;
+  font-size: 28px;
+  font-weight: 400;
+  color: rgba(215, 174, 112, 0.4);
+}
+
+.step-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: var(--warm-ivory-subtle);
+  border: 1px solid var(--terracotta-border);
+  color: var(--terracotta);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.step-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 8px;
+  letter-spacing: -0.2px;
+}
+
+.step-desc {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
+}
+
+.step-desc strong {
+  color: var(--ink);
+}
+
+/* 3. Luxury Benefits */
+.install-benefits-section {
+  margin-bottom: 72px;
+}
+
+.install-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .install-benefits-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .install-benefits-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.benefit-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 28px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.benefit-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--champagne-soft);
+  border: 1px solid var(--champagne-border);
+  color: #8A6834;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.benefit-card-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+
+.benefit-card-desc {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* 4. Editorial Banner */
+.install-editorial-banner {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  padding: 72px 8%;
+  margin-bottom: 72px;
+  min-height: 380px;
+  display: flex;
+  align-items: center;
+}
+
+.editorial-banner-img-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.editorial-banner-img {
+  object-fit: cover;
+}
+
+.editorial-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(23, 23, 23, 0.88) 0%, rgba(23, 23, 23, 0.6) 60%, rgba(23, 23, 23, 0.4) 100%);
+}
+
+.editorial-banner-content {
+  position: relative;
+  z-index: 2;
+  max-width: 580px;
+  color: #ffffff;
+}
+
+.editorial-banner-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.2px;
+  color: var(--champagne-gold);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.editorial-banner-title {
+  font-family: Georgia, serif;
+  font-size: clamp(26px, 4vw, 36px);
+  font-weight: 400;
+  line-height: 1.25;
+  margin: 0 0 16px;
+  color: #ffffff;
+}
+
+.editorial-banner-text {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #d1cfc9;
+  margin: 0 0 28px;
+}
+
+.editorial-banner-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.banner-cta {
+  max-width: 240px;
+  height: 48px;
+}
+
+.banner-share {
+  min-width: 180px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.banner-share:hover {
+  background: #ffffff;
+  color: var(--ink);
+}
+
+/* 5. FAQ Section */
+.install-faq-section {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.install-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.install-faq-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 22px 24px;
+}
+
+.faq-q {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+
+.faq-a {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ==========================================================================
+   DEDICATED PWA INSTALLATION & SHARING LANDING PAGE (/install)
+   ========================================================================== */
+.install-page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 5% 100px;
+}
+
+.install-toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  background: var(--charcoal);
+  color: #ffffff;
+  border: 1px solid var(--champagne-gold);
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
+  animation: slideUpToast 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+@keyframes slideUpToast {
+  from {
+    transform: translate(-50%, 20px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+.install-hero-section {
+  position: relative;
+  background: linear-gradient(180deg, var(--warm-ivory-subtle) 0%, var(--warm-ivory) 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 56px 24px 64px;
+  text-align: center;
+  margin-bottom: 56px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.install-hero-glow {
+  position: absolute;
+  top: -50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 500px;
+  height: 350px;
+  background: radial-gradient(ellipse at center, rgba(215, 174, 112, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.install-hero-inner {
+  position: relative;
+  z-index: 2;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.install-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.install-eyebrow-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--champagne-soft);
+  border: 1px solid var(--champagne-border);
+  color: #8A6834;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+.install-badge-star {
+  color: var(--champagne-gold);
+}
+
+.install-status-pill.installed {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: var(--sage-green-soft);
+  color: #3E5A35;
+  border: 1px solid rgba(129, 148, 122, 0.4);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border-radius: 2px;
+}
+
+.install-hero-headline {
+  font-family: Georgia, serif;
+  font-size: clamp(32px, 5.5vw, 54px);
+  font-weight: 400;
+  letter-spacing: -1.5px;
+  color: var(--ink);
+  margin: 0 0 16px;
+  line-height: 1.1;
+}
+
+.install-hero-subtext {
+  font-size: clamp(14px, 2.2vw, 16px);
+  line-height: 1.65;
+  color: var(--muted);
+  max-width: 620px;
+  margin: 0 auto 36px;
+}
+
+/* App Card Preview */
+.install-app-card {
+  max-width: 480px;
+  margin: 0 auto 36px;
+  background: var(--surface);
+  border: 1px solid var(--champagne-border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(41, 39, 36, 0.06);
+}
+
+.install-app-icon-frame {
+  width: 68px;
+  height: 68px;
+  border-radius: 16px;
+  background: #171717;
+  border: 1.5px solid var(--champagne-gold);
+  padding: 6px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.install-app-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.install-card-meta-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.install-card-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.install-app-title {
+  font-family: Georgia, serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+  margin: 0;
+}
+
+.install-app-ver {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #8A6834;
+  text-transform: uppercase;
+}
+
+.install-app-tagline {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin: 3px 0 7px;
+  line-height: 1.35;
+}
+
+.install-app-metrics {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.metric-val {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.metric-dot {
+  color: var(--line);
+}
+
+/* Actions Group */
+.install-actions-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.install-primary-action-btn {
+  width: 100%;
+  max-width: 420px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.install-primary-action-btn.install-btn {
+  background: linear-gradient(135deg, var(--terracotta) 0%, #A25838 50%, #8E4426 100%);
+  color: #ffffff;
+  border: 1px solid rgba(215, 174, 112, 0.45);
+  box-shadow: 0 4px 18px rgba(184, 120, 88, 0.38);
+}
+
+.install-primary-action-btn.install-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #C7754E 0%, #AF5F3C 50%, #9A4A29 100%);
+  box-shadow: 0 6px 26px rgba(184, 120, 88, 0.52);
+  transform: translateY(-1.5px);
+}
+
+.install-primary-action-btn.open-btn {
+  background: linear-gradient(135deg, var(--sage-green) 0%, #5F745A 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 18px rgba(129, 148, 122, 0.38);
+}
+
+.install-primary-action-btn.open-btn:hover {
+  background: linear-gradient(135deg, #8E9F88 0%, #687D62 100%);
+  transform: translateY(-1.5px);
+}
+
+.install-secondary-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 420px;
+}
+
+.install-share-action-btn,
+.install-whatsapp-action-btn,
+.install-copy-link-btn {
+  flex: 1;
+  min-width: 110px;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--radius-xs);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.18s ease;
+}
+
+.install-share-action-btn:hover {
+  border-color: var(--terracotta);
+  color: var(--terracotta);
+  background: var(--terracotta-soft);
+}
+
+.install-whatsapp-action-btn:hover {
+  border-color: #25D366;
+  color: #1E8C44;
+  background: #F0FBF4;
+}
+
+.install-copy-link-btn:hover {
+  border-color: var(--ink);
+}
+
+.install-platform-note {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+/* 2. Platform Instructions */
+.install-guide-section {
+  margin-bottom: 72px;
+}
+
+.install-section-header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.install-section-title {
+  font-family: Georgia, serif;
+  font-size: clamp(26px, 4vw, 38px);
+  font-weight: 400;
+  letter-spacing: -0.8px;
+  color: var(--ink);
+  margin: 6px 0 10px;
+}
+
+.install-section-subtitle {
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 580px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+.install-platform-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.install-tab-btn {
+  padding: 10px 22px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--radius-xs);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.install-tab-btn.active {
+  background: var(--charcoal);
+  color: #ffffff;
+  border-color: var(--charcoal);
+  box-shadow: 0 4px 14px rgba(41, 39, 36, 0.22);
+}
+
+.install-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 800px) {
+  .install-steps-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.install-step-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 30px 24px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.install-step-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.step-number {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  font-family: Georgia, serif;
+  font-size: 28px;
+  font-weight: 400;
+  color: rgba(215, 174, 112, 0.4);
+}
+
+.step-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: var(--warm-ivory-subtle);
+  border: 1px solid var(--terracotta-border);
+  color: var(--terracotta);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.step-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 8px;
+  letter-spacing: -0.2px;
+}
+
+.step-desc {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
+}
+
+.step-desc strong {
+  color: var(--ink);
+}
+
+/* 3. Luxury Benefits */
+.install-benefits-section {
+  margin-bottom: 72px;
+}
+
+.install-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .install-benefits-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .install-benefits-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.benefit-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 28px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.benefit-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--champagne-soft);
+  border: 1px solid var(--champagne-border);
+  color: #8A6834;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.benefit-card-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+
+.benefit-card-desc {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* 4. Editorial Banner */
+.install-editorial-banner {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  padding: 72px 8%;
+  margin-bottom: 72px;
+  min-height: 380px;
+  display: flex;
+  align-items: center;
+}
+
+.editorial-banner-img-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.editorial-banner-img {
+  object-fit: cover;
+}
+
+.editorial-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(23, 23, 23, 0.88) 0%, rgba(23, 23, 23, 0.6) 60%, rgba(23, 23, 23, 0.4) 100%);
+}
+
+.editorial-banner-content {
+  position: relative;
+  z-index: 2;
+  max-width: 580px;
+  color: #ffffff;
+}
+
+.editorial-banner-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.2px;
+  color: var(--champagne-gold);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.editorial-banner-title {
+  font-family: Georgia, serif;
+  font-size: clamp(26px, 4vw, 36px);
+  font-weight: 400;
+  line-height: 1.25;
+  margin: 0 0 16px;
+  color: #ffffff;
+}
+
+.editorial-banner-text {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #d1cfc9;
+  margin: 0 0 28px;
+}
+
+.editorial-banner-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.banner-cta {
+  max-width: 240px;
+  height: 48px;
+}
+
+.banner-share {
+  min-width: 180px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.banner-share:hover {
+  background: #ffffff;
+  color: var(--ink);
+}
+
+/* 5. FAQ Section */
+.install-faq-section {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.install-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.install-faq-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 22px 24px;
+}
+
+.faq-q {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+
+.faq-a {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted);
+  margin: 0;
+}

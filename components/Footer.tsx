@@ -57,6 +57,7 @@ export function Footer({ categories = [] }: { categories?: { name: string; slug:
             <li><Link href="/cart">Shopping Bag</Link></li>
             <li><Link href="/seller/register">Sell with SENO</Link></li>
             <FooterInstallButton />
+            <li><Link href="/install" className="footer-install-page-link" style={{ color: 'var(--champagne-gold)' }}>Share &amp; Install App</Link></li>
           </ul>
         </div>
 

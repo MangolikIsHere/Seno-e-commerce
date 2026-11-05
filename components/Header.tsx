@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Search, User, Heart, ShoppingBag, Menu, X, ArrowRight } from 'lucide-react'
+import { Search, User, Heart, ShoppingBag, Menu, X, ArrowRight, Share2 } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
 import { NotificationBell } from '@/components/NotificationBell'
 import { HeaderInstallButton, HeaderDrawerInstallLink } from '@/components/PwaInstallPrompt'
@@ -210,6 +210,18 @@ export function Header({
               {/* PWA APP INSTALL LINK */}
               <div className="mobile-drawer-section mobile-drawer-install-section" style={{ paddingBottom: "12px", borderBottom: "1px solid var(--line)" }}>
                 <HeaderDrawerInstallLink onClose={() => setMobileMenuOpen(false)} />
+                <Link
+                  href="/install"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="mobile-drawer-link"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px', padding: '10px 14px', background: 'var(--warm-ivory)', border: '1px solid var(--champagne-border)', borderRadius: '3px', fontSize: '11px', fontWeight: 600, color: 'var(--ink)' }}
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <Share2 size={13} style={{ color: 'var(--terracotta)' }} />
+                    <span>SHARE &amp; INSTALL SENO APP</span>
+                  </span>
+                  <ArrowRight size={13} style={{ color: 'var(--muted)' }} />
+                </Link>
               </div>
 
               {/* SHOP SECTION */}
