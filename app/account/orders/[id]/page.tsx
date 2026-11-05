@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { ArrowLeft, MapPin, ShieldCheck, Printer, PackageCheck, Truck, HelpCircle, Video } from 'lucide-react'
 import { getCustomerOrderById, Order } from '@/lib/orders'
 import { money } from '@/lib/catalog'
+import { formatExpectedDeliveryDate } from '@/lib/deliveryDate'
 import { AccountShell } from '@/components/account/AccountShell'
 import { OrderStatusTimeline } from '@/components/admin/OrderStatusTimeline'
 import { PrintReceiptTrigger } from '@/components/receipt/PrintReceiptTrigger'
@@ -134,6 +135,15 @@ export default function OrderDetailPage() {
           </div>
 
           <OrderStatusTimeline status={order.status} paymentStatus={order.payment_status} />
+
+          {order.expected_delivery_date && (
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Truck size={18} style={{ color: '#8a7356' }} />
+              <span style={{ fontSize: '13px', color: 'var(--ink)' }}>
+                <strong>{order.status === 'delivered' ? 'Delivered on' : 'Expected Delivery'}:</strong> {formatExpectedDeliveryDate(order.expected_delivery_date, { includeYear: true })}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Two Column Breakdown */}
@@ -170,6 +180,12 @@ export default function OrderDetailPage() {
                     <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
                       Status: <strong style={{ color: 'var(--ink)', textTransform: 'capitalize' }}>{item.fulfillment_status}</strong>
                     </div>
+                    {item.estimated_delivery_date && (
+                      <div style={{ fontSize: '11px', color: '#8a7356', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Truck size={12} />
+                        <span>Est. Delivery: {formatExpectedDeliveryDate(item.estimated_delivery_date)}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>

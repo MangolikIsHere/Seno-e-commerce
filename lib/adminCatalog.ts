@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { invalidateProductCache } from '@/lib/catalog-server'
 import { reconcileProductVariants } from '@/lib/variantReconciliation'
 import { buildProductColourImageMap, prepareColourDetailsPayload, normalizeColourKey } from '@/lib/colours'
+import { normalizeDeliveryDays } from '@/lib/deliveryDate'
 import fs from 'fs'
 import path from 'path'
 
@@ -51,6 +52,7 @@ export interface CreateProductInput {
   default_weight_grams: number
   shipping_method?: 'weight_based' | 'custom'
   custom_delivery_charge?: number | null
+  expected_delivery_days?: number | string | null
   return_policy?: {
     is_returnable: boolean
     return_window_days: number
@@ -377,6 +379,7 @@ export async function getAdminProductById(id: string) {
 
   return {
     ...data,
+    expected_delivery_days: data.expected_delivery_days != null ? Number(data.expected_delivery_days) : 7,
     variants,
     images,
     colour_images: colourImages,
@@ -474,6 +477,7 @@ export async function createAdminProduct(input: CreateProductInput) {
     default_weight_grams: Number(input.default_weight_grams || 500),
     shipping_method: shippingMethod,
     custom_delivery_charge: shippingMethod === 'custom' ? customDeliveryCharge : null,
+    expected_delivery_days: normalizeDeliveryDays(input.expected_delivery_days),
     is_featured: !!input.is_featured,
     is_new: input.is_new !== undefined ? !!input.is_new : true,
     is_bestseller: !!input.is_bestseller,
@@ -482,11 +486,30 @@ export async function createAdminProduct(input: CreateProductInput) {
     published_at: new Date().toISOString()
   }
 
-  const { data: newProduct, error: prodErr } = await supabase
+  let newProduct: any = null
+  let prodErr: any = null
+
+  const insertRes = await supabase
     .from('products')
     .insert(productPayload)
     .select()
     .single()
+
+  newProduct = insertRes.data
+  prodErr = insertRes.error
+
+  // If column does not exist on remote DB yet, gracefully retry without it
+  if (prodErr && (prodErr.code === '42703' || prodErr.message?.includes('expected_delivery_days'))) {
+    console.warn('[AdminCatalog] expected_delivery_days column not in remote DB yet; retrying insert without it')
+    const { expected_delivery_days, ...safePayload } = productPayload
+    const retryRes = await supabase
+      .from('products')
+      .insert(safePayload)
+      .select()
+      .single()
+    newProduct = retryRes.data
+    prodErr = retryRes.error
+  }
 
   if (prodErr || !newProduct) {
     console.error('Failed to insert product:', prodErr)
@@ -615,6 +638,7 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
     default_weight_grams: Number(input.default_weight_grams || 500),
     shipping_method: shippingMethod,
     custom_delivery_charge: shippingMethod === 'custom' ? customDeliveryCharge : null,
+    expected_delivery_days: normalizeDeliveryDays(input.expected_delivery_days),
     is_featured: !!input.is_featured,
     is_new: !!input.is_new,
     is_bestseller: !!input.is_bestseller,
@@ -622,10 +646,20 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
     updated_at: new Date().toISOString()
   }
 
-  const { error: prodErr } = await supabase
+  let { error: prodErr } = await supabase
     .from('products')
     .update(updates)
     .eq('id', id)
+
+  if (prodErr && (prodErr.code === '42703' || prodErr.message?.includes('expected_delivery_days'))) {
+    console.warn('[AdminCatalog] expected_delivery_days column not in remote DB yet; retrying update without it')
+    const { expected_delivery_days, ...safeUpdates } = updates
+    const retryRes = await supabase
+      .from('products')
+      .update(safeUpdates)
+      .eq('id', id)
+    prodErr = retryRes.error
+  }
 
   if (prodErr) {
     console.error('Failed to update product:', prodErr)
@@ -786,7 +820,7 @@ export async function uploadImageAction(formData: FormData): Promise<{ url: stri
         return { url: urlData.publicUrl }
       }
     }
-    
+
     console.error('Supabase storage upload failed:', uploadErr)
     return { url: '', error: 'Failed to upload image to storage bucket.' }
   } catch (err: any) {

@@ -73,6 +73,7 @@ export interface Product {
   defaultWeightGrams: number
   shippingMethod: 'weight_based' | 'custom'
   customDeliveryCharge?: number
+  expectedDeliveryDays?: number
   image: string
   hoverImage: string
   images: string[]
@@ -161,7 +162,7 @@ function mapProductRow(row: any): Product {
     }
   }
   const color = colors.length > 0 ? colors[0] : 'Default'
-  
+
   const totalInventory = variants.reduce((sum: number, v: Variant) => sum + v.inventoryQuantity, 0)
   const soldOut = row.is_sold_out || (variants.length > 0 && totalInventory === 0) || variants.length === 0
 
@@ -205,6 +206,7 @@ function mapProductRow(row: any): Product {
     defaultWeightGrams: Number(row.default_weight_grams),
     shippingMethod: row.shipping_method === 'custom' ? 'custom' : 'weight_based',
     customDeliveryCharge: row.custom_delivery_charge == null ? undefined : Number(row.custom_delivery_charge),
+    expectedDeliveryDays: row.expected_delivery_days != null ? Number(row.expected_delivery_days) : 7,
     image: resolvedMainImage,
     hoverImage,
     images: finalImages,
@@ -245,28 +247,52 @@ const selectQuery = `
   product_variants(id, size, colour, sku, price_override, weight_grams_override, is_active, inventory(quantity))
 `
 
+let _supportsDeliveryDays: boolean | null = null
+
+export async function getCatalogSelectFields(): Promise<string> {
+  if (_supportsDeliveryDays === true) {
+    return `${selectQuery}, expected_delivery_days`
+  }
+  if (_supportsDeliveryDays === false) {
+    return selectQuery
+  }
+  try {
+    const { error } = await supabase.from('products').select('expected_delivery_days').limit(1)
+    if (!error) {
+      _supportsDeliveryDays = true
+      return `${selectQuery}, expected_delivery_days`
+    }
+  } catch {
+    // ignore
+  }
+  _supportsDeliveryDays = false
+  return selectQuery
+}
+
 export const getProduct = cache(async (slug: string): Promise<Product | undefined> => {
+  const fields = await getCatalogSelectFields()
   const { data, error } = await supabase
     .from('products')
-    .select(selectQuery)
+    .select(fields)
     .eq('categories.is_active', true)
     .eq('slug', slug)
     .eq('is_active', true)
     .eq('approval_status', 'approved')
     .single()
-    
+
   if (error || !data) return undefined
   return mapProductRow(data)
 })
 
 export const getRelatedProducts = async (product: Product, limit = 4): Promise<Product[]> => {
   let matchedRows: any[] = []
+  const fields = await getCatalogSelectFields()
 
   // If product has a category_id, fetch related products from the same category first
   if (product.category_id) {
     const { data: catData } = await supabase
       .from('products')
-      .select(selectQuery)
+      .select(fields)
       .eq('categories.is_active', true)
       .eq('is_active', true)
       .eq('approval_status', 'approved')
@@ -287,7 +313,7 @@ export const getRelatedProducts = async (product: Product, limit = 4): Promise<P
 
     let fallbackQuery = supabase
       .from('products')
-      .select(selectQuery)
+      .select(fields)
       .eq('categories.is_active', true)
       .eq('is_active', true)
       .eq('approval_status', 'approved')
@@ -310,9 +336,10 @@ export const getRelatedProducts = async (product: Product, limit = 4): Promise<P
 }
 
 export const getNewArrivals = async (limit = 4): Promise<Product[]> => {
+  const fields = await getCatalogSelectFields()
   const { data, error } = await supabase
     .from('products')
-    .select(selectQuery)
+    .select(fields)
     .eq('categories.is_active', true)
     .eq('is_active', true)
     .eq('approval_status', 'approved')
@@ -325,9 +352,10 @@ export const getNewArrivals = async (limit = 4): Promise<Product[]> => {
 }
 
 export const getBestsellers = async (limit = 4): Promise<Product[]> => {
+  const fields = await getCatalogSelectFields()
   const { data, error } = await supabase
     .from('products')
-    .select(selectQuery)
+    .select(fields)
     .eq('categories.is_active', true)
     .eq('is_active', true)
     .eq('approval_status', 'approved')
@@ -349,9 +377,10 @@ export const getCollectionProducts = async (
     query?: string
   }
 ): Promise<Product[]> => {
+  const fields = await getCatalogSelectFields()
   const { data, error } = await supabase
     .from('products')
-    .select(selectQuery)
+    .select(fields)
     .eq('categories.is_active', true)
     .eq('is_active', true)
     .eq('approval_status', 'approved')
@@ -363,11 +392,11 @@ export const getCollectionProducts = async (
   if (category && category !== 'All' && category !== 'All products' && category !== '' && category !== 'all') {
     const normalizedCategory = category.toLowerCase()
     if (normalizedCategory === 'new arrivals' || normalizedCategory === 'new-arrivals') {
-       list = list.filter(p => p.isNew)
+      list = list.filter(p => p.isNew)
     } else if (normalizedCategory === 'bestsellers') {
-       list = list.filter(p => p.isBestseller)
+      list = list.filter(p => p.isBestseller)
     } else {
-       list = list.filter(p => p.category.toLowerCase() === normalizedCategory || (p.categorySlug && p.categorySlug.toLowerCase() === normalizedCategory))
+      list = list.filter(p => p.category.toLowerCase() === normalizedCategory || (p.categorySlug && p.categorySlug.toLowerCase() === normalizedCategory))
     }
   }
 
@@ -386,8 +415,8 @@ export const getCollectionProducts = async (
 
   if (options?.query && options.query.trim() !== '') {
     const q = options.query.toLowerCase().trim()
-    list = list.filter(p => 
-      p.name.toLowerCase().includes(q) || 
+    list = list.filter(p =>
+      p.name.toLowerCase().includes(q) ||
       p.category.toLowerCase().includes(q) ||
       p.description.toLowerCase().includes(q)
     )
@@ -412,9 +441,10 @@ export const searchProducts = async (queryStr: string, limit?: number): Promise<
   const cleanQuery = queryStr.trim().toLowerCase()
   if (!cleanQuery) return []
 
+  const fields = await getCatalogSelectFields()
   const { data, error } = await supabase
     .from('products')
-    .select(selectQuery)
+    .select(fields)
     .eq('categories.is_active', true)
     .eq('is_active', true)
     .eq('approval_status', 'approved')
@@ -458,14 +488,15 @@ export const searchProducts = async (queryStr: string, limit?: number): Promise<
 
 export const getProductsBySlugs = async (slugs: string[]): Promise<Product[]> => {
   if (!slugs || slugs.length === 0) return []
+  const fields = await getCatalogSelectFields()
   const { data, error } = await supabase
     .from('products')
-    .select(selectQuery)
+    .select(fields)
     .eq('categories.is_active', true)
     .eq('is_active', true)
     .eq('approval_status', 'approved')
     .in('slug', slugs)
-    
+
   if (error || !data) return []
   return data.map(mapProductRow)
 }

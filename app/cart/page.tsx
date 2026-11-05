@@ -12,6 +12,7 @@ import { evaluateCartDiscount } from '@/lib/promotions'
 import { PromotionEvaluationResult } from '@/lib/promotions-shared'
 import { CheckoutPolicyModal } from '@/components/CheckoutPolicyModal'
 import { formatSizeDisplay } from '@/lib/variants-shared'
+import { evaluateOrderDelivery, calculateExpectedDeliveryDate, formatDeliveryByDate } from '@/lib/deliveryDate'
 
 export default function CartPage() {
   const {
@@ -33,6 +34,7 @@ export default function CartPage() {
   const [promoResult, setPromoResult] = useState<PromotionEvaluationResult | null>(null)
   const [couponInput, setCouponInput] = useState('')
   const [couponError, setCouponError] = useState<string | null>(null)
+  const orderDelivery = evaluateOrderDelivery(cart)
 
   const handleProceedToCheckout = () => {
     try {
@@ -106,7 +108,8 @@ export default function CartPage() {
         </div>
       ) : (
         <>
-          <style dangerouslySetInnerHTML={{__html: `
+          <style dangerouslySetInnerHTML={{
+            __html: `
             .cart-layout {
               display: grid;
               grid-template-columns: 1fr 370px;
@@ -261,40 +264,44 @@ export default function CartPage() {
                     <span style={{ fontSize: '11.5px', color: 'var(--muted)', marginBottom: '8px' }}>
                       Size: <strong style={{ color: 'var(--ink)' }}>{formatSizeDisplay(item.size)}</strong> {item.colour && item.colour !== 'Default' ? ` · Colour: ${item.colour}` : ''}
                     </span>
-                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', marginBottom: '14px' }}>
-                      {money(item.unit_price)}
-                    </span>
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: 'auto', flexWrap: 'wrap' }}>
-                      <div className="quantity-stepper-box" style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', background: '#fff', borderRadius: '2px' }}>
-                        <button
-                          type="button"
-                          onClick={() => updateCartQty(item.variant_id, -1)}
-                          aria-label="Decrease quantity"
-                          style={{ minWidth: '40px', minHeight: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                        >
-                          <Minus size={13} />
-                        </button>
-                        <span style={{ minWidth: '32px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }}>{item.qty}</span>
-                        <button
-                          type="button"
-                          onClick={() => updateCartQty(item.variant_id, 1)}
-                          aria-label="Increase quantity"
-                          style={{ minWidth: '40px', minHeight: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                        >
-                          <Plus size={13} />
-                        </button>
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', marginBottom: '8px' }}>
+                        {money(item.unit_price)}
+                      </span>
+                      <div style={{ fontSize: '11.5px', color: '#c5a47e', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <Truck size={13} />
+                        <span>{formatDeliveryByDate(calculateExpectedDeliveryDate(item.product.expectedDeliveryDays ?? 7))}</span>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => removeFromCart(item.variant_id)}
-                        aria-label={`Remove ${item.product.name} from bag`}
-                        style={{ color: 'var(--muted)', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', minHeight: '38px', padding: '0 8px', cursor: 'pointer' }}
-                      >
-                        <Trash2 size={14} /> Remove
-                      </button>
-                    </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: 'auto', flexWrap: 'wrap' }}>
+                        <div className="quantity-stepper-box" style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', background: '#fff', borderRadius: '2px' }}>
+                          <button
+                            type="button"
+                            onClick={() => updateCartQty(item.variant_id, -1)}
+                            aria-label="Decrease quantity"
+                            style={{ minWidth: '40px', minHeight: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                          >
+                            <Minus size={13} />
+                          </button>
+                          <span style={{ minWidth: '32px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }}>{item.qty}</span>
+                          <button
+                            type="button"
+                            onClick={() => updateCartQty(item.variant_id, 1)}
+                            aria-label="Increase quantity"
+                            style={{ minWidth: '40px', minHeight: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                          >
+                            <Plus size={13} />
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.variant_id)}
+                          aria-label={`Remove ${item.product.name} from bag`}
+                          style={{ color: 'var(--muted)', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', minHeight: '38px', padding: '0 8px', cursor: 'pointer' }}
+                        >
+                          <Trash2 size={14} /> Remove
+                        </button>
+                      </div>
                   </div>
                 </div>
               ))}
@@ -396,6 +403,14 @@ export default function CartPage() {
                 {couponError && (
                   <p style={{ color: '#d32f2f', fontSize: '11px', margin: '6px 0 0' }}>{couponError}</p>
                 )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', margin: '14px 0', background: 'var(--surface-subtle)', padding: '10px 14px', borderRadius: '3px', border: '1px solid var(--border)' }}>
+                <span style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Truck size={14} style={{ color: '#c5a47e' }} />
+                  <span>Estimated Delivery</span>
+                </span>
+                <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{orderDelivery.formattedOverallDate}</span>
               </div>
 
               <div

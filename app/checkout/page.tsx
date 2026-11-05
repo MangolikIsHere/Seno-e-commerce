@@ -14,6 +14,7 @@ import { placeOrderAction, OrderAddress } from '@/lib/orders'
 import { evaluateCartDiscount } from '@/lib/promotions'
 import { PromotionEvaluationResult } from '@/lib/promotions-shared'
 import { formatSizeDisplay } from '@/lib/variants-shared'
+import { evaluateOrderDelivery, calculateExpectedDeliveryDate, formatDeliveryByDate } from '@/lib/deliveryDate'
 import {
   getPaymentConfigAction,
   createRazorpayOrderAction,
@@ -71,6 +72,7 @@ export default function CheckoutPage() {
   // Order notes & idempotency
   const [orderNotes, setOrderNotes] = useState('')
   const [idempotencyKey, setIdempotencyKey] = useState('')
+  const orderDelivery = evaluateOrderDelivery(cart)
 
   // Shipping configuration state
   const [shippingConfig, setShippingConfig] = useState<{ settings: ShippingSettings; rules: ShippingWeightRule[] }>({
@@ -997,6 +999,10 @@ export default function CheckoutPage() {
                       <div style={{ color: 'var(--muted)', fontSize: '11px' }}>
                         Qty: {item.qty} × {money(item.unit_price)}
                       </div>
+                      <div style={{ color: '#c5a47e', fontSize: '10.5px', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <Truck size={11} />
+                        <span>{formatDeliveryByDate(calculateExpectedDeliveryDate(item.product?.expectedDeliveryDays ?? 7))}</span>
+                      </div>
                     </div>
                     <div style={{ fontSize: '13px', fontWeight: 600 }}>
                       {money(item.unit_price * item.qty)}
@@ -1099,6 +1105,14 @@ export default function CheckoutPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '16px' }}>
                 <span style={{ color: 'var(--muted)' }}>Shipping Fee</span>
                 <span>{finalShippingFee === 0 ? 'FREE' : money(finalShippingFee)}</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px', marginBottom: '16px', background: 'var(--surface-subtle)', padding: '9px 12px', borderRadius: '3px', border: '1px solid var(--border)' }}>
+                <span style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Truck size={13} style={{ color: '#c5a47e' }} />
+                  <span>Expected Delivery</span>
+                </span>
+                <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{orderDelivery.formattedOverallDate}</span>
               </div>
 
               <div style={{

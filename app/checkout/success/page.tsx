@@ -3,9 +3,10 @@
 import React, { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { CheckCircle2, AlertCircle, Package, ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Package, ArrowRight, ShoppingBag, ShieldCheck, Truck } from 'lucide-react'
 import { money } from '@/lib/catalog'
 import { getCustomerOrderById, Order } from '@/lib/orders'
+import { formatExpectedDeliveryDate } from '@/lib/deliveryDate'
 
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams()
@@ -85,6 +86,24 @@ function CheckoutSuccessContent() {
           </div>
         </div>
 
+        {/* Expected Delivery Snapshot */}
+        {order?.expected_delivery_date && (
+          <div style={{ background: 'var(--surface-subtle, #f9f9f8)', border: '1px solid var(--border)', padding: '16px 20px', borderRadius: '4px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#fff', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Truck size={20} style={{ color: '#c5a47e' }} />
+            </div>
+            <div>
+              <span style={{ fontSize: '10.5px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'block' }}>Expected Delivery</span>
+              <strong style={{ fontSize: '15px', color: 'var(--ink)' }}>
+                {formatExpectedDeliveryDate(order.expected_delivery_date, { includeYear: true })}
+              </strong>
+              <span style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
+                Standard express transit across India. Tracking information will be emailed once dispatched.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Shipping address snapshot */}
         {order?.shipping_address && (
           <div style={{ marginBottom: '24px' }}>
@@ -112,6 +131,11 @@ function CheckoutSuccessContent() {
                     <span style={{ color: 'var(--muted)', fontSize: '11px', marginLeft: '8px' }}>
                       ({item.variant_details?.size || ''} {item.variant_details?.colour ? `/ ${item.variant_details.colour}` : ''}) × {item.quantity}
                     </span>
+                    {item.estimated_delivery_date && (
+                      <span style={{ display: 'block', fontSize: '11px', color: '#8a7356', marginTop: '2px' }}>
+                        Estimated Delivery: {formatExpectedDeliveryDate(item.estimated_delivery_date)}
+                      </span>
+                    )}
                   </div>
                   <span style={{ fontWeight: 600 }}>{money(Number(item.total_price))}</span>
                 </div>

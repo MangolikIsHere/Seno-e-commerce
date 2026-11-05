@@ -117,6 +117,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               <span className={`status-pill ${['cancelled', 'returned', 'delivery_failed'].includes(order.status) ? 'rejected' : order.status === 'delivered' ? 'approved' : ['shipped', 'dispatched', 'in_transit'].includes(order.status) ? 'shipped' : 'processing'}`}>
                 Fulfillment: {order.status?.toUpperCase()}
               </span>
+              {order.expected_delivery_date && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', color: '#8a7356', fontWeight: 500, background: '#fdf8f3', border: '1px solid #f3e8dc', padding: '2px 8px', borderRadius: '3px' }}>
+                  <Truck size={13} />
+                  <span>Expected Delivery: {formatDate(order.expected_delivery_date)}</span>
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -272,6 +278,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                                 </>
                               )}
                             </div>
+                            {item.estimated_delivery_date && (
+                              <div style={{ marginTop: '4px', fontSize: '11px', color: '#8a7356', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Truck size={12} />
+                                <span>Expected Delivery: {formatDate(item.estimated_delivery_date)}</span>
+                              </div>
+                            )}
                           </div>
 
                           <div style={{ textAlign: 'right', flexShrink: 0 }}>

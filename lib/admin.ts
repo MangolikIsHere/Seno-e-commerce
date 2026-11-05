@@ -3,8 +3,8 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getAdminSupabase } from '@/lib/supabaseAdmin'
-import { 
-  notifyOrderItemFulfillmentChanged, 
+import {
+  notifyOrderItemFulfillmentChanged,
   notifyRefundEvent,
   notifyOrderCancelled,
   notifySellerProductDecision,
@@ -12,13 +12,14 @@ import {
   notifySellerAccountStatusChanged,
   notifySellerRefund
 } from '@/lib/notifications/service'
-import { 
-  serializeRevisionFeedback, 
-  parseRevisionFeedback, 
-  appendRevisionHistory, 
+import {
+  serializeRevisionFeedback,
+  parseRevisionFeedback,
+  appendRevisionHistory,
   inferAffectedFields,
-  AffectedFieldKey 
+  AffectedFieldKey
 } from '@/lib/revisionFeedback'
+import { enrichOrderWithDeliverySnapshot } from '@/lib/deliveryDate'
 
 export async function checkIsAdmin() {
   try {
@@ -112,7 +113,7 @@ export async function cancelAdminOrderAction(formData: FormData) {
     throw new Error('Failed to cancel the order and release inventory.')
   }
 
-  notifyOrderCancelled(orderId, 'admin_cancelled').catch(() => {})
+  notifyOrderCancelled(orderId, 'admin_cancelled').catch(() => { })
 
   // Revalidate caches so inventory updates show immediately on storefront
   revalidatePath('/admin/orders')
@@ -209,8 +210,8 @@ export async function refundAdminOrderAction(formData: FormData) {
       .eq('id', orderId)
   }
 
-  notifyRefundEvent(orderId, 'refund_completed', refundAmount).catch(() => {})
-  notifySellerRefund(orderId, refundAmount).catch(() => {})
+  notifyRefundEvent(orderId, 'refund_completed', refundAmount).catch(() => { })
+  notifySellerRefund(orderId, refundAmount).catch(() => { })
 
   revalidatePath('/admin/orders')
   revalidatePath(`/admin/orders/${orderId}`)
@@ -268,10 +269,10 @@ export async function updateSellerStatus(sellerId: string, status: string, commi
 
   // Authoritative Notifications to Seller
   if (previousSeller && previousSeller.seller_status !== status) {
-    notifySellerAccountStatusChanged(sellerId, status).catch(() => {})
+    notifySellerAccountStatusChanged(sellerId, status).catch(() => { })
   }
   if (commissionRate !== undefined && previousSeller && Number(previousSeller.commission_rate) !== Number(commissionRate)) {
-    notifySellerCommissionChanged(sellerId, commissionRate, Number(previousSeller.commission_rate)).catch(() => {})
+    notifySellerCommissionChanged(sellerId, commissionRate, Number(previousSeller.commission_rate)).catch(() => { })
   }
 
   revalidatePath('/admin/sellers')
@@ -369,7 +370,7 @@ export async function proposeCommission(sellerId: string, rate: number, message?
 
   if (sellerError) throw new Error(sellerError.message)
 
-  notifySellerAccountStatusChanged(cleanId, 'commission_proposed', message).catch(() => {})
+  notifySellerAccountStatusChanged(cleanId, 'commission_proposed', message).catch(() => { })
 
   revalidatePath('/admin/sellers')
   revalidatePath(`/admin/sellers/${cleanId}`)
@@ -418,8 +419,8 @@ export async function getPendingProducts() {
 }
 
 export async function updateProductApproval(
-  productId: string, 
-  status: string, 
+  productId: string,
+  status: string,
   reason?: string,
   affectedFields?: AffectedFieldKey[],
   additionalNotes?: string
@@ -615,7 +616,7 @@ export async function getAdminOrderById(orderId: string) {
     .single()
 
   if (error) throw new Error(error.message)
-  return data
+  return enrichOrderWithDeliverySnapshot(data)
 }
 
 export async function updateAdminOrderFulfillment(formData: FormData): Promise<void> {
@@ -665,7 +666,7 @@ export async function updateAdminOrderFulfillment(formData: FormData): Promise<v
     throw new Error(error.message)
   }
 
-  notifyOrderItemFulfillmentChanged(orderItemId, status, trackingNumber, carrier).catch(() => {})
+  notifyOrderItemFulfillmentChanged(orderItemId, status, trackingNumber, carrier).catch(() => { })
 
   revalidatePath('/admin/orders')
   revalidatePath('/seller/orders')
@@ -729,7 +730,7 @@ export async function updateAdminSellerGroupFulfillment(formData: FormData): Pro
 
   if (updatedItems && updatedItems.length > 0) {
     for (const itm of updatedItems) {
-      notifyOrderItemFulfillmentChanged(itm.id, status, trackingNumber, carrier).catch(() => {})
+      notifyOrderItemFulfillmentChanged(itm.id, status, trackingNumber, carrier).catch(() => { })
     }
   }
 

@@ -26,6 +26,7 @@ import {
 import { money, Product } from '@/lib/catalog'
 import { getColourSwatchHex, normalizeColourKey } from '@/lib/colours'
 import { FREE_SIZE_CANONICAL, isFreeSize, formatSizeDisplay } from '@/lib/variants-shared'
+import { calculateExpectedDeliveryDate, formatDeliveryByDate } from '@/lib/deliveryDate'
 import { useStore } from '@/context/StoreContext'
 import { ProductCard } from '@/components/ProductCard'
 import { SizeGuideModal } from '@/components/SizeGuideModal'
@@ -110,6 +111,16 @@ export function ProductDetailClient({
   const [wishlistNotice, setWishlistNotice] = useState(false)
   const [copiedCoupon, setCopiedCoupon] = useState(false)
   const [backUrl, setBackUrl] = useState('/collections/all')
+
+  // Dynamic Expected Delivery Date (Asia/Kolkata calendar days)
+  const deliveryDays = product.expectedDeliveryDays ?? 7
+  const [deliveryDateText, setDeliveryDateText] = useState<string>(() => {
+    return formatDeliveryByDate(calculateExpectedDeliveryDate(deliveryDays))
+  })
+
+  useEffect(() => {
+    setDeliveryDateText(formatDeliveryByDate(calculateExpectedDeliveryDate(deliveryDays)))
+  }, [deliveryDays])
 
   // Mobile touch gesture tracking for swipeable gallery
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
@@ -239,8 +250,8 @@ export function ProductDetailClient({
   // Otherwise, use displayPrice.
   const effectiveSellingPrice = isUnconditionalPromo && applicablePromotion
     ? (applicablePromotion.type === 'percentage'
-        ? Math.round(displayPrice * (1 - applicablePromotion.discount_value / 100))
-        : Math.max(0, displayPrice - applicablePromotion.discount_value))
+      ? Math.round(displayPrice * (1 - applicablePromotion.discount_value / 100))
+      : Math.max(0, displayPrice - applicablePromotion.discount_value))
     : displayPrice
 
   // Determine original MRP reference:
@@ -302,7 +313,7 @@ export function ProductDetailClient({
       navigator.clipboard.writeText(code).then(() => {
         setCopiedCoupon(true)
         setTimeout(() => setCopiedCoupon(false), 2000)
-      }).catch(() => {})
+      }).catch(() => { })
     }
   }
 
@@ -554,7 +565,7 @@ export function ProductDetailClient({
                 <span>SHARE</span>
               </button>
             </div>
-            
+
             {/* 2. Product Title */}
             <h1 className="product-title-detail">{product.name}</h1>
 
@@ -564,7 +575,7 @@ export function ProductDetailClient({
                 <span className="product-price-current">
                   {money(effectiveSellingPrice)}
                 </span>
-                
+
                 {hasDiscount && (
                   <>
                     <span
@@ -844,10 +855,10 @@ export function ProductDetailClient({
                   {canAddToCart
                     ? 'ADD TO BAG'
                     : (product.soldOut || product.variants.length === 0
+                      ? 'OUT OF STOCK'
+                      : selectedVariant
                         ? 'OUT OF STOCK'
-                        : selectedVariant
-                          ? 'OUT OF STOCK'
-                          : 'SELECT OPTIONS')}
+                        : 'SELECT OPTIONS')}
                 </>
               )}
             </button>
@@ -887,14 +898,12 @@ export function ProductDetailClient({
               <Truck size={18} className="trust-card-icon" aria-hidden="true" />
               <div>
                 <strong className="trust-card-title">
-                  {product.shippingMethod === 'custom' && product.customDeliveryCharge !== undefined
-                    ? (product.customDeliveryCharge === 0 ? 'Complimentary Delivery' : `₹${product.customDeliveryCharge} Delivery`)
-                    : 'Complimentary Express Shipping'}
+                  {deliveryDateText}
                 </strong>
                 <span className="trust-card-desc">
                   {product.shippingMethod === 'custom' && product.customDeliveryCharge !== undefined
-                    ? 'Dispatched directly from studio workshop within 24–48 business hours.'
-                    : 'Free on orders above ₹1,999. Dispatches within 24–48 hours across India.'}
+                  ? (product.customDeliveryCharge === 0 ? 'Complimentary express studio delivery.' : `₹${product.customDeliveryCharge} flat consignment delivery across India.`)
+                    : 'Free on orders above ₹1,999. Dispatched within 24–48 hours across India.'}
                 </span>
               </div>
             </div>
@@ -972,7 +981,7 @@ export function ProductDetailClient({
               {openAccordion === 'Shipping' && (
                 <div className="accordion-content">
                   <p>
-                    Complimentary express shipping on all orders over ₹1,999 across India. Standard orders dispatched within 24–48 hours in signature museum-grade archival packaging.
+                    Complimentary express shipping on all orders over ₹1,999 across India. Standard orders dispatched within 24–48 hours in signature museum-grade archival packaging. Estimated arrival within {deliveryDays} calendar days ({deliveryDateText}).
                   </p>
                   <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
                     <strong style={{ fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>

@@ -47,6 +47,7 @@ import {
   formatSizeDisplay, 
   getSizeSkuSegment 
 } from '@/lib/variants-shared'
+import { normalizeDeliveryDays, calculateExpectedDeliveryDate, formatDeliveryByDate } from '@/lib/deliveryDate'
 
 function toClientSlug(text: string): string {
   return text
@@ -147,6 +148,9 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   )
   const [shippingMethod, setShippingMethod] = useState<'weight_based' | 'custom'>(initialData?.shipping_method === 'custom' ? 'custom' : 'weight_based')
   const [customDeliveryCharge, setCustomDeliveryCharge] = useState<number | string>(initialData?.custom_delivery_charge ?? '')
+  const [expectedDeliveryDays, setExpectedDeliveryDays] = useState<number | string>(
+    initialData?.expected_delivery_days ?? 7
+  )
   const [isActive, setIsActive] = useState<boolean>(initialData?.is_active !== undefined ? initialData.is_active : true)
   const [isNew, setIsNew] = useState<boolean>(initialData?.is_new !== undefined ? initialData.is_new : true)
   const [isBestseller, setIsBestseller] = useState<boolean>(initialData?.is_bestseller || false)
@@ -583,6 +587,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
           default_weight_grams: Number(defaultWeightGrams || 500),
           shipping_method: shippingMethod,
           custom_delivery_charge: shippingMethod === 'custom' ? Number(customDeliveryCharge) : null,
+          expected_delivery_days: normalizeDeliveryDays(expectedDeliveryDays),
           return_policy: {
             is_returnable: isReturnable,
             return_window_days: isReturnable ? Number(returnWindowDays) : 0,
@@ -1713,6 +1718,41 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                     />
                   )}
                 </div>
+              </div>
+
+              {/* Expected Delivery Duration */}
+              <div className="admin-form-field" style={{ marginTop: '20px' }}>
+                <label className="admin-form-label" htmlFor="admin-expected-delivery-days">
+                  Expected Delivery Time (Days) <span className="admin-required-badge">*</span>
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginTop: '6px' }}>
+                  <div style={{ position: 'relative', width: '160px' }}>
+                    <input
+                      id="admin-expected-delivery-days"
+                      type="number"
+                      min="1"
+                      max="60"
+                      value={expectedDeliveryDays}
+                      onChange={e => setExpectedDeliveryDays(e.target.value)}
+                      required
+                      className="admin-form-input"
+                      placeholder="7"
+                      style={{ paddingRight: '48px' }}
+                    />
+                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--muted)', pointerEvents: 'none' }}>
+                      days
+                    </span>
+                  </div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'var(--surface-subtle)', padding: '8px 14px', borderRadius: '3px', border: '1px solid var(--border)', fontSize: '12.5px' }}>
+                    <Truck size={15} style={{ color: '#c5a47e' }} />
+                    <span style={{ color: 'var(--ink)' }}>
+                      {formatDeliveryByDate(calculateExpectedDeliveryDate(expectedDeliveryDays))}
+                    </span>
+                  </div>
+                </div>
+                <span className="admin-form-helper" style={{ display: 'block', marginTop: '6px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.5 }}>
+                  Set how many calendar days this product typically takes to reach the customer. SENO automatically calculates the expected delivery date.
+                </span>
               </div>
             </div>
 

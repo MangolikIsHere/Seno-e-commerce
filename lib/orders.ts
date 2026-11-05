@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { revalidateStorefrontForOrder } from './storefront-revalidation'
 import { evaluateCartDiscount } from '@/lib/promotions'
 import { CartItem } from '@/context/StoreContext'
+import { calculateExpectedDeliveryDate, normalizeDeliveryDays, enrichOrderWithDeliverySnapshot } from '@/lib/deliveryDate'
 
 export interface OrderAddress {
   recipient_name: string
@@ -62,6 +63,7 @@ export interface OrderItem {
   tracking_number?: string | null
   carrier?: string | null
   estimated_delivery_date?: string | null
+  expected_delivery_days?: number | null
   created_at: string
   fulfillment_events?: FulfillmentEvent[]
   sellers?: {
@@ -76,14 +78,14 @@ export interface Order {
   order_number: string
   customer_id: string
   status:
-    | 'pending'
-    | 'confirmed'
-    | 'processing'
-    | 'partially_shipped'
-    | 'shipped'
-    | 'delivered'
-    | 'cancelled'
-    | 'refunded'
+  | 'pending'
+  | 'confirmed'
+  | 'processing'
+  | 'partially_shipped'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled'
+  | 'refunded'
   payment_status: 'unpaid' | 'authorized' | 'paid' | 'refund_processing' | 'failed' | 'refunded'
   payment_method?: string | null
   payment_reference?: string | null
@@ -100,6 +102,8 @@ export interface Order {
   promotion_id?: string | null
   promotion_code?: string | null
   promotion_snapshot?: any
+  expected_delivery_date?: string | null
+  expected_delivery_days?: number | null
   created_at: string
   order_items?: OrderItem[]
 }
@@ -127,6 +131,8 @@ export interface CreateOrderResult {
   discount_amount?: number
   total_amount?: number
   total_weight_grams?: number
+  expected_delivery_date?: string | null
+  expected_delivery_days?: number | null
   is_duplicate?: boolean
   error?: string
 }
@@ -323,127 +329,180 @@ export async function placeOrderAction(
     let finalDiscount = 0
     let finalShipping = Number(result.shipping_amount)
     let finalTotal = Number(result.total_amount)
+    let overallOrderDeliveryDate = calculateExpectedDeliveryDate(7).toISOString()
+    let calculatedMaxDays = 7
 
     if (result.success && result.order_id) {
-      // 4. Server-Authoritative Promotion & Discount Calculation
+      // 4. Server-Authoritative Delivery Snapshot & Promotion Calculation
       try {
-        const { data: orderItemRows, error: itemsQueryError } = await supabase
+        let orderItemRows: any[] | null = null
+        // First try selecting with expected_delivery_days
+        const { data: itemRowsWithDelivery, error: itemsQueryError } = await supabase
           .from('order_items')
-          .select('variant_id, quantity, unit_price, unit_weight_grams, product_id, products(id, name, slug, category_id, categories(name, slug), default_weight_grams, shipping_method, custom_delivery_charge)')
+          .select('id, variant_id, quantity, unit_price, unit_weight_grams, product_id, products(id, name, slug, category_id, categories(name, slug), default_weight_grams, shipping_method, custom_delivery_charge, expected_delivery_days)')
           .eq('order_id', result.order_id)
 
-        if (itemsQueryError) {
-          console.warn('[Orders] Notice querying items for discount evaluation:', itemsQueryError.message)
-        }
-
-        if (orderItemRows && orderItemRows.length > 0) {
-          const evalCartItems: CartItem[] = orderItemRows.map((row: any) => {
-            const prod = row.products || {}
-            const catName = prod.categories?.name || ''
-            const catSlug = prod.categories?.slug || ''
-            const unitWeight = Number(row.unit_weight_grams || prod.default_weight_grams || 500)
-            const shipMethod = (prod.shipping_method as any) || 'weight_based'
-            const customCharge = prod.custom_delivery_charge != null ? Number(prod.custom_delivery_charge) : undefined
-
-            return {
-              product: {
-                id: prod.id || row.product_id,
-                name: prod.name || 'Product',
-                slug: prod.slug || '',
-                category: catName,
-                category_id: prod.category_id,
-                description: prod.description || '',
-                price: Number(row.unit_price),
-                defaultWeightGrams: unitWeight,
-                shippingMethod: shipMethod,
-                customDeliveryCharge: customCharge,
-                image: '',
-                hoverImage: '',
-                images: [],
-                sizes: [],
-                colors: [],
-                color: '',
-                variants: [],
-                createdAt: '',
-                seller_id: ''
-              },
-              variant_id: row.variant_id,
-              seller_id: '',
-              sku: '',
-              unit_price: Number(row.unit_price),
-              unit_weight_grams: unitWeight,
-              shipping_method: shipMethod,
-              custom_delivery_charge: customCharge,
-              size: '',
-              colour: '',
-              qty: row.quantity
-            }
-          })
-
-          const discountEval = await evaluateCartDiscount({
-            cart: evalCartItems,
-            promotionCode: input.coupon_code || null,
-            shippingFee: Number(result.shipping_amount),
-            customerId: user.id
-          })
-
-          if (discountEval.discountAmount > 0 || discountEval.isFreeShipping) {
-            finalDiscount = discountEval.discountAmount
-            finalShipping = discountEval.isFreeShipping ? 0 : Number(result.shipping_amount)
-            finalTotal = Math.max(0, Number(result.subtotal_amount) - finalDiscount) + finalShipping
-
-            const promoUpdatePayload: Record<string, any> = {
-              discount_amount: finalDiscount,
-              shipping_amount: finalShipping,
-              total_amount: finalTotal,
-              notes: input.notes
-                ? `${input.notes}\n[Promotion: ${discountEval.appliedPromotion?.name || 'Discount'} (-₹${finalDiscount})]`
-                : `[Promotion: ${discountEval.appliedPromotion?.name || 'Discount'} (-₹${finalDiscount})]`
-            }
-
-            if (discountEval.appliedPromotion) {
-              promoUpdatePayload.promotion_id = discountEval.appliedPromotion.id
-              promoUpdatePayload.promotion_code = discountEval.appliedPromotion.coupon_code || null
-              promoUpdatePayload.promotion_snapshot = {
-                ...discountEval.appliedPromotion,
-                discount_label: discountEval.discountLabel,
-                discount_amount: finalDiscount,
-                discount_type: discountEval.promotionType,
-                complimentary_items_count: discountEval.complimentaryItemsCount,
-                applied_message: discountEval.message,
-                applied_submessage: discountEval.subMessage
-              }
-            }
-
-            await supabase
-              .from('orders')
-              .update(promoUpdatePayload)
-              .eq('id', result.order_id)
+          if (!itemsQueryError && itemRowsWithDelivery) {
+            orderItemRows = itemRowsWithDelivery
+          } else {
+            const { data: fallbackItemRows } = await supabase
+              .from('order_items')
+              .select('id, variant_id, quantity, unit_price, unit_weight_grams, product_id, products(id, name, slug, category_id, categories(name, slug), default_weight_grams, shipping_method, custom_delivery_charge)')
+              .eq('order_id', result.order_id)
+            orderItemRows = fallbackItemRows
           }
+
+          const itemDeliveryUpdates: Array<{ id: string; days: number; dateStr: string }> = []
+
+          if (orderItemRows && orderItemRows.length > 0) {
+            calculatedMaxDays = 1
+            for (const row of orderItemRows) {
+              const prod = row.products || {}
+              const itemDays = normalizeDeliveryDays(prod.expected_delivery_days)
+              if (itemDays > calculatedMaxDays) {
+                calculatedMaxDays = itemDays
+              }
+              const itemDate = calculateExpectedDeliveryDate(itemDays)
+              itemDeliveryUpdates.push({
+                id: row.id,
+                days: itemDays,
+                dateStr: itemDate.toISOString()
+              })
+            }
+            overallOrderDeliveryDate = calculateExpectedDeliveryDate(calculatedMaxDays).toISOString()
+
+            // Persist delivery snapshot to orders and order_items
+            try {
+              await supabase
+                .from('orders')
+                .update({
+                  expected_delivery_date: overallOrderDeliveryDate,
+                  expected_delivery_days: calculatedMaxDays
+                })
+                .eq('id', result.order_id)
+
+              for (const itemUp of itemDeliveryUpdates) {
+                await supabase
+                  .from('order_items')
+                  .update({
+                    expected_delivery_days: itemUp.days,
+                    estimated_delivery_date: itemUp.dateStr
+                  })
+                  .eq('id', itemUp.id)
+              }
+            } catch (deliverySaveErr) {
+              console.warn('[Orders] Notice persisting delivery snapshot:', deliverySaveErr)
+            }
+
+            const evalCartItems: CartItem[] = orderItemRows.map((row: any) => {
+              const prod = row.products || {}
+              const catName = prod.categories?.name || ''
+              const catSlug = prod.categories?.slug || ''
+              const unitWeight = Number(row.unit_weight_grams || prod.default_weight_grams || 500)
+              const shipMethod = (prod.shipping_method as any) || 'weight_based'
+              const customCharge = prod.custom_delivery_charge != null ? Number(prod.custom_delivery_charge) : undefined
+
+              return {
+                product: {
+                  id: prod.id || row.product_id,
+                  name: prod.name || 'Product',
+                  slug: prod.slug || '',
+                  category: catName,
+                  category_id: prod.category_id,
+                  description: prod.description || '',
+                  price: Number(row.unit_price),
+                  defaultWeightGrams: unitWeight,
+                  shippingMethod: shipMethod,
+                  customDeliveryCharge: customCharge,
+                  image: '',
+                  hoverImage: '',
+                  images: [],
+                  sizes: [],
+                  colors: [],
+                  color: '',
+                  variants: [],
+                  createdAt: '',
+                  seller_id: ''
+                },
+                variant_id: row.variant_id,
+                seller_id: '',
+                sku: '',
+                unit_price: Number(row.unit_price),
+                unit_weight_grams: unitWeight,
+                shipping_method: shipMethod,
+                custom_delivery_charge: customCharge,
+                size: '',
+                colour: '',
+                qty: row.quantity
+              }
+            })
+
+            const discountEval = await evaluateCartDiscount({
+              cart: evalCartItems,
+              promotionCode: input.coupon_code || null,
+              shippingFee: Number(result.shipping_amount),
+              customerId: user.id
+            })
+
+            if (discountEval.discountAmount > 0 || discountEval.isFreeShipping) {
+              finalDiscount = discountEval.discountAmount
+              finalShipping = discountEval.isFreeShipping ? 0 : Number(result.shipping_amount)
+              finalTotal = Math.max(0, Number(result.subtotal_amount) - finalDiscount) + finalShipping
+
+              const promoUpdatePayload: Record<string, any> = {
+                discount_amount: finalDiscount,
+                shipping_amount: finalShipping,
+                total_amount: finalTotal,
+                notes: input.notes
+                  ? `${input.notes}\n[Promotion: ${discountEval.appliedPromotion?.name || 'Discount'} (-₹${finalDiscount})]`
+                  : `[Promotion: ${discountEval.appliedPromotion?.name || 'Discount'} (-₹${finalDiscount})]`
+              }
+
+              if (discountEval.appliedPromotion) {
+                promoUpdatePayload.promotion_id = discountEval.appliedPromotion.id
+                promoUpdatePayload.promotion_code = discountEval.appliedPromotion.coupon_code || null
+                promoUpdatePayload.promotion_snapshot = {
+                  ...discountEval.appliedPromotion,
+                  discount_label: discountEval.discountLabel,
+                  discount_amount: finalDiscount,
+                  discount_type: discountEval.promotionType,
+                  complimentary_items_count: discountEval.complimentaryItemsCount,
+                  applied_message: discountEval.message,
+                  applied_submessage: discountEval.subMessage
+                }
+              }
+
+              await supabase
+                .from('orders')
+                .update(promoUpdatePayload)
+                .eq('id', result.order_id)
+            }
+          }
+        } catch (promoErr) {
+          console.error('Error applying authoritative discount to order:', promoErr)
         }
-      } catch (promoErr) {
-        console.error('Error applying authoritative discount to order:', promoErr)
+
+        await revalidateStorefrontForOrder(result.order_id, supabase)
       }
 
-      await revalidateStorefrontForOrder(result.order_id, supabase)
-    }
-
     return {
-      success: true,
-      order_id: result.order_id,
-      order_number: result.order_number,
-      subtotal_amount: Number(result.subtotal_amount),
-      shipping_amount: finalShipping,
-      discount_amount: finalDiscount,
-      total_amount: finalTotal,
-      total_weight_grams: Number(result.total_weight_grams),
-      is_duplicate: result.is_duplicate
+        success: true,
+        order_id: result.order_id,
+        order_number: result.order_number,
+        subtotal_amount: Number(result.subtotal_amount),
+        shipping_amount: finalShipping,
+        discount_amount: finalDiscount,
+        total_amount: finalTotal,
+        total_weight_grams: Number(result.total_weight_grams),
+        expected_delivery_date: overallOrderDeliveryDate,
+        expected_delivery_days: calculatedMaxDays,
+        is_duplicate: result.is_duplicate
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred during checkout.'
+      return { success: false, error: message }
     }
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'An unexpected error occurred during checkout.'
-    return { success: false, error: message }
   }
-}
 
 /**
  * Server action: fetches order history for the authenticated customer.
@@ -451,21 +510,21 @@ export async function placeOrderAction(
  * Excludes private reseller commission and payout data.
  */
 export async function getCustomerOrders(): Promise<{ orders: Order[]; error?: string }> {
-  try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
+    try {
+      const supabase = await createClient()
+      const {
+        data: { user },
+        error: authError
+      } = await supabase.auth.getUser()
 
-    if (authError || !user) {
-      return { orders: [], error: 'Authentication required.' }
-    }
+      if (authError || !user) {
+        return { orders: [], error: 'Authentication required.' }
+      }
 
-    // Customer-safe query: explicitly omits commission_rate, commission_amount, seller_payout_amount
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
+      // Customer-safe query: explicitly omits commission_rate, commission_amount, seller_payout_amount
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
         id,
         order_number,
         customer_id,
@@ -504,50 +563,50 @@ export async function getCustomerOrders(): Promise<{ orders: Order[]; error?: st
           created_at
         )
       `)
-      .eq('customer_id', user.id)
-      .or('payment_status.in.(paid,authorized,refunded,refund_processing),status.in.(confirmed,processing,partially_shipped,shipped,delivered)')
-      .order('created_at', { ascending: false })
+        .eq('customer_id', user.id)
+        .or('payment_status.in.(paid,authorized,refunded,refund_processing),status.in.(confirmed,processing,partially_shipped,shipped,delivered)')
+        .order('created_at', { ascending: false })
 
-    if (error) {
-      return { orders: [], error: error.message }
+      if (error) {
+        return { orders: [], error: error.message }
+      }
+
+      return { orders: ((data as any[]) || []).map(enrichOrderWithDeliverySnapshot) }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to retrieve order history.'
+      return { orders: [], error: message }
     }
-
-    return { orders: (data as unknown as Order[]) || [] }
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to retrieve order history.'
-    return { orders: [], error: message }
   }
-}
 
-/**
- * Server action: fetches a single order for the authenticated customer.
- * Supports canonical lookup by either database order UUID or public order_number.
- * Uses maybeSingle() to cleanly handle missing rows without PGRST116 coercion errors.
- */
-export async function getCustomerOrderById(
-  orderIdentifier: string
-): Promise<{ order: Order | null; error?: string }> {
-  try {
-    const cleanIdentifier = (orderIdentifier || '').trim()
-    if (!cleanIdentifier) {
-      return { order: null, error: 'Order reference required.' }
-    }
+  /**
+   * Server action: fetches a single order for the authenticated customer.
+   * Supports canonical lookup by either database order UUID or public order_number.
+   * Uses maybeSingle() to cleanly handle missing rows without PGRST116 coercion errors.
+   */
+  export async function getCustomerOrderById(
+    orderIdentifier: string
+  ): Promise<{ order: Order | null; error?: string }> {
+    try {
+      const cleanIdentifier = (orderIdentifier || '').trim()
+      if (!cleanIdentifier) {
+        return { order: null, error: 'Order reference required.' }
+      }
 
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
+      const supabase = await createClient()
+      const {
+        data: { user },
+        error: authError
+      } = await supabase.auth.getUser()
 
-    if (authError || !user) {
-      return { order: null, error: 'Authentication required.' }
-    }
+      if (authError || !user) {
+        return { order: null, error: 'Authentication required.' }
+      }
 
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanIdentifier)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanIdentifier)
 
-    let query = supabase
-      .from('orders')
-      .select(`
+      let query = supabase
+        .from('orders')
+        .select(`
         id,
         order_number,
         customer_id,
@@ -597,58 +656,58 @@ export async function getCustomerOrderById(
           )
         )
       `)
-      .eq('customer_id', user.id)
+        .eq('customer_id', user.id)
 
-    if (isUuid) {
-      query = query.eq('id', cleanIdentifier)
-    } else {
-      query = query.eq('order_number', cleanIdentifier.replace(/^#/, ''))
-    }
-
-    const { data, error } = await query.maybeSingle()
-
-    if (error) {
-      return { order: null, error: error.message }
-    }
-
-    if (!data) {
-      return { order: null, error: 'Order not found or unauthorized.' }
-    }
-
-    // Resolve sellers details from sellers_public for display
-    const rawOrder = data as any
-    if (rawOrder.order_items && rawOrder.order_items.length > 0) {
-      const sellerIds = Array.from(new Set(rawOrder.order_items.map((i: any) => i.seller_id).filter(Boolean))) as string[]
-      let sellerMap = new Map<string, { id?: string; store_name?: string; slug?: string }>()
-
-      if (sellerIds.length > 0) {
-        const { data: sellersData } = await supabase
-          .from('sellers_public')
-          .select('id, store_name, slug')
-          .in('id', sellerIds)
-
-        if (sellersData) {
-          sellerMap = new Map(sellersData.map((s: any) => [s.id, s]))
-        }
+      if (isUuid) {
+        query = query.eq('id', cleanIdentifier)
+      } else {
+        query = query.eq('order_number', cleanIdentifier.replace(/^#/, ''))
       }
 
-      for (const item of rawOrder.order_items) {
-        if (item.seller_id && sellerMap.has(item.seller_id)) {
-          const s = sellerMap.get(item.seller_id)
-          item.sellers = {
-            id: s?.id,
-            store_name: s?.store_name === 'SENO' ? 'SENO Official' : s?.store_name || 'SENO Official',
-            slug: s?.slug || 'seno-official'
+      const { data, error } = await query.maybeSingle()
+
+      if (error) {
+        return { order: null, error: error.message }
+      }
+
+      if (!data) {
+        return { order: null, error: 'Order not found or unauthorized.' }
+      }
+
+      // Resolve sellers details from sellers_public for display
+      const rawOrder = data as any
+      if (rawOrder.order_items && rawOrder.order_items.length > 0) {
+        const sellerIds = Array.from(new Set(rawOrder.order_items.map((i: any) => i.seller_id).filter(Boolean))) as string[]
+        let sellerMap = new Map<string, { id?: string; store_name?: string; slug?: string }>()
+
+        if (sellerIds.length > 0) {
+          const { data: sellersData } = await supabase
+            .from('sellers_public')
+            .select('id, store_name, slug')
+            .in('id', sellerIds)
+
+          if (sellersData) {
+            sellerMap = new Map(sellersData.map((s: any) => [s.id, s]))
           }
-        } else {
-          item.sellers = { store_name: 'SENO Official', slug: 'seno-official' }
+        }
+
+        for (const item of rawOrder.order_items) {
+          if (item.seller_id && sellerMap.has(item.seller_id)) {
+            const s = sellerMap.get(item.seller_id)
+            item.sellers = {
+              id: s?.id,
+              store_name: s?.store_name === 'SENO' ? 'SENO Official' : s?.store_name || 'SENO Official',
+              slug: s?.slug || 'seno-official'
+            }
+          } else {
+            item.sellers = { store_name: 'SENO Official', slug: 'seno-official' }
+          }
         }
       }
-    }
 
-    return { order: rawOrder as unknown as Order }
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to retrieve order.'
-    return { order: null, error: message }
+      return { order: enrichOrderWithDeliverySnapshot(rawOrder) }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to retrieve order.'
+      return { order: null, error: message }
+    }
   }
-}

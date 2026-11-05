@@ -363,6 +363,9 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                         <td>
                           <div style={{ fontSize: '13px', color: 'var(--ink)', fontWeight: 500 }}>{product.categories?.name || 'Uncategorized'}</div>
                           <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>{product.sellers?.store_name || 'SENO Official'}</div>
+                          <div style={{ fontSize: '11px', color: '#8a7356', marginTop: '3px' }}>
+                            🚚 {product.expected_delivery_days ?? 7}d delivery
+                          </div>
                         </td>
 
                         <td>
@@ -431,7 +434,7 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                                 isSoldOut: isSoldOut,
                                 is_sold_out: isSoldOut
                               }}
-                              onOptimisticUpdate={(id, val) => setOptimisticSoldOut(prev => ({...prev, [id]: val}))}
+                              onOptimisticUpdate={(id, val) => setOptimisticSoldOut(prev => ({ ...prev, [id]: val }))}
                             />
                           </div>
                         </td>
@@ -481,7 +484,7 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                           {money(Number(product.price))}
                         </div>
                         <div style={{ fontSize: '11px', color: isSoldOut ? '#ef4444' : 'var(--muted)', marginTop: '4px' }}>
-                          {isSoldOut ? 'Out of Stock' : `${product.totalStock} in stock`} · {product.variants?.length || 0} variant(s)
+                          {isSoldOut ? 'Out of Stock' : `${product.totalStock} in stock`} · {product.variants?.length || 0} variant(s) · 🚚 {product.expected_delivery_days ?? 7}d
                         </div>
                       </div>
                     </div>

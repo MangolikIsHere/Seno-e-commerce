@@ -9,11 +9,12 @@ import { reconcileProductVariants, ReconcileVariantInput } from '@/lib/variantRe
 import { revalidateCatalogPaths } from '@/lib/adminCatalog'
 import { getAdminSupabase } from '@/lib/supabaseAdmin'
 import { prepareColourDetailsPayload, normalizeColourKey } from '@/lib/colours'
-import { 
-  parseRevisionFeedback, 
-  formatRevisionSummary, 
+import { normalizeDeliveryDays, calculateExpectedDeliveryDate } from '@/lib/deliveryDate'
+import {
+  parseRevisionFeedback,
+  formatRevisionSummary,
   markLatestRevisionResubmitted,
-  extractRevisionHistory 
+  extractRevisionHistory
 } from '@/lib/revisionFeedback'
 
 export type SellerStatus = 'pending' | 'commission_proposed' | 'commission_negotiation' | 'approved' | 'suspended' | 'rejected'
@@ -79,7 +80,7 @@ export async function registerSeller(formData: FormData) {
 
   revalidatePath('/account')
   revalidatePath('/seller/dashboard')
-  
+
   return { seller: data as Seller }
 }
 
@@ -181,12 +182,12 @@ export async function acceptCommissionProposal(proposalId: string) {
 
   // Use service role to update restricted fields
   const adminSupabase = getAdminSupabase()
-  
+
   const { error: sellerError } = await adminSupabase
     .from('sellers')
-    .update({ 
-      seller_status: 'approved', 
-      commission_rate: proposal.proposed_rate 
+    .update({
+      seller_status: 'approved',
+      commission_rate: proposal.proposed_rate
     })
     .eq('id', seller.id)
 
@@ -210,7 +211,7 @@ export async function requestCommissionChange(proposalId: string, requestedRate:
   // Update proposal
   const { error: proposalError } = await supabase
     .from('commission_proposals')
-    .update({ 
+    .update({
       seller_requested_rate: requestedRate,
       seller_request_reason: reason,
       status: 'rejected_by_seller',
@@ -366,7 +367,7 @@ export async function toggleProductSoldOutAction(formData: FormData) {
   }
   revalidatePath('/') // catalog home
   invalidateProductCache(data.slug)
-  
+
   return { success: true }
 }
 
@@ -491,7 +492,7 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
   }
 
   const seller = await getMySellerRecord()
-  
+
   if (!seller) {
     throw new Error('No approved seller account is associated with your account.')
   }
@@ -518,6 +519,7 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
   const default_weight_grams = parseFloat(formData.get('weight') as string) || 500
   const shipping_method = formData.get('shipping_method') === 'custom' ? 'custom' : 'weight_based'
   const custom_delivery_charge = formData.get('custom_delivery_charge') ? parseFloat(formData.get('custom_delivery_charge') as string) : null
+  const expected_delivery_days = normalizeDeliveryDays(formData.get('expected_delivery_days') as string | null)
   const category_id = formData.get('category_id') as string
   const collection_ids = JSON.parse(String(formData.get('collection_ids') || '[]')) as string[]
 
@@ -641,24 +643,38 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
     }
 
     // Update Product
-    const { error: productError } = await supabase
+    const updatePayload: Record<string, any> = {
+      name,
+      slug,
+      description,
+      details: finalDetails,
+      price,
+      compare_at_price,
+      default_weight_grams,
+      category_id: category_id || null,
+      shipping_method,
+      custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null,
+      expected_delivery_days,
+      ...(nextApprovalStatus ? { approval_status: nextApprovalStatus } : {}),
+      ...(nextApprovalStatus === 'submitted' ? { rejection_reason: null } : {})
+    }
+
+    let { error: productError } = await supabase
       .from('products')
-      .update({
-        name,
-        slug,
-        description,
-        details: finalDetails,
-        price,
-        compare_at_price,
-        default_weight_grams,
-        category_id: category_id || null,
-        shipping_method,
-        custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null,
-        ...(nextApprovalStatus ? { approval_status: nextApprovalStatus } : {}),
-        ...(nextApprovalStatus === 'submitted' ? { rejection_reason: null } : {})
-      })
+      .update(updatePayload)
       .eq('id', productId)
       .eq('seller_id', seller.id)
+
+    if (productError && (productError.code === '42703' || productError.message?.includes('expected_delivery_days'))) {
+      console.warn('[Sellers] expected_delivery_days column not in remote DB yet; retrying update without it')
+      const { expected_delivery_days: _discard, ...safePayload } = updatePayload
+      const retryRes = await supabase
+        .from('products')
+        .update(safePayload)
+        .eq('id', productId)
+        .eq('seller_id', seller.id)
+      productError = retryRes.error
+    }
 
     if (productError) {
       const msg = productError.message
@@ -700,24 +716,40 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
     await reconcileProductVariants(supabase, productId, variants, { productSlug: slug })
   } else {
     // Insert Product
-    const { data: product, error: productError } = await supabase
+    const insertPayload: Record<string, any> = {
+      seller_id: seller.id,
+      name,
+      slug,
+      description,
+      details: detailsPayload,
+      price,
+      compare_at_price,
+      default_weight_grams,
+      category_id: category_id || null,
+      approval_status,
+      shipping_method,
+      custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null,
+      expected_delivery_days
+    }
+
+    let insertRes = await supabase
       .from('products')
-      .insert({
-        seller_id: seller.id,
-        name,
-        slug,
-        description,
-        details: detailsPayload,
-        price,
-        compare_at_price,
-        default_weight_grams,
-        category_id: category_id || null,
-        approval_status,
-        shipping_method,
-        custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null
-      })
+      .insert(insertPayload)
       .select()
       .single()
+
+    if (insertRes.error && (insertRes.error.code === '42703' || insertRes.error.message?.includes('expected_delivery_days'))) {
+      console.warn('[Sellers] expected_delivery_days column not in remote DB yet; retrying insert without it')
+      const { expected_delivery_days: _discard, ...safePayload } = insertPayload
+      insertRes = await supabase
+        .from('products')
+        .insert(safePayload)
+        .select()
+        .single()
+    }
+
+    const product = insertRes.data
+    const productError = insertRes.error
 
     if (productError || !product) {
       const msg = productError?.message || ''
@@ -850,7 +882,7 @@ export async function updateSellerVariantInventory(variantId: string, quantity: 
   if (slug) {
     revalidatePath(`/products/${slug}`)
   }
-  
+
   return { success: true, quantity: qty }
 }
 
@@ -935,6 +967,9 @@ export async function getSellerOrderById(orderId: string) {
 
   const order = data.orders as any
   const profile = Array.isArray(order?.profiles) ? order.profiles[0] : order?.profiles
+  const orderDate = order?.created_at || data.created_at
+  const itemDeliveryDate = data.estimated_delivery_date || calculateExpectedDeliveryDate(orderDate, 7).toISOString()
+  const expectedDeliveryDate = order?.expected_delivery_date || itemDeliveryDate
 
   return {
     id: data.id,
@@ -944,8 +979,9 @@ export async function getSellerOrderById(orderId: string) {
     fulfillment_status: data.fulfillment_status,
     tracking_number: data.tracking_number,
     carrier: data.carrier,
-    estimated_delivery_date: data.estimated_delivery_date,
-    created_at: order?.created_at || data.created_at,
+    estimated_delivery_date: itemDeliveryDate,
+    expected_delivery_date: expectedDeliveryDate,
+    created_at: orderDate,
     shipping_address: order?.shipping_address,
     customer_email: profile?.email || null,
     customer_name: profile?.full_name || null,
@@ -960,7 +996,7 @@ export async function getSellerOrderById(orderId: string) {
       fulfillment_status: data.fulfillment_status,
       tracking_number: data.tracking_number,
       carrier: data.carrier,
-      estimated_delivery_date: data.estimated_delivery_date,
+      estimated_delivery_date: itemDeliveryDate,
       image_url: null
     }],
     razorpay_order_id: order?.razorpay_order_id || null,
@@ -1138,7 +1174,7 @@ export async function cancelAndRefundOrderItemAction(orderItemId: string, reason
   // But wait, if it's already requested, we might want to check the event processing_status.
   // For safety, we will just attempt the API call. Razorpay handles idempotency via receipt if we pass it, 
   // but Razorpay refund API natively might not be idempotent on receipt alone for refunds, it's safer to check status.
-  
+
   // Let's check current processing status
   const { data: eventData } = await supabase
     .from('payment_events')
@@ -1161,7 +1197,7 @@ export async function cancelAndRefundOrderItemAction(orderItemId: string, reason
   const isMock = keyId.startsWith('rzp_test_seno_demo') || keySecret.startsWith('seno_demo')
 
   const amountPaise = Math.round(Number(refundable_amount) * 100)
-  
+
   let razorpayRefundId = null
   let refundStatus = 'failed'
   let errorMsg = null
@@ -1239,7 +1275,7 @@ export async function cancelAndRefundOrderItemAction(orderItemId: string, reason
 export async function setProductSoldOutAction(productId: string, isSoldOut: boolean): Promise<void> {
   const isAdmin = await checkIsAdmin()
   const seller = !isAdmin ? await getMySellerRecord() : await getPlatformSellerRecord()
-  
+
   if (!isAdmin && (!seller || seller.seller_status !== 'approved')) {
     throw new Error('Unauthorized: You must have an active seller account.')
   }
@@ -1260,7 +1296,7 @@ export async function setProductSoldOutAction(productId: string, isSoldOut: bool
   if (!isAdmin && seller && product.seller_id !== seller.id) {
     throw new Error('Unauthorized: You can only modify your own products.')
   }
-  
+
   const { error: updateError } = await adminSupabase
     .from('products')
     .update({ is_sold_out: isSoldOut })
@@ -1283,7 +1319,7 @@ export async function setProductSoldOutAction(productId: string, isSoldOut: bool
 export async function deleteProductAction(productId: string): Promise<{ deleted: boolean, archived: boolean }> {
   const isAdmin = await checkIsAdmin()
   const seller = !isAdmin ? await getMySellerRecord() : await getPlatformSellerRecord()
-  
+
   if (!isAdmin && (!seller || seller.seller_status !== 'approved')) {
     throw new Error('Unauthorized: You must have an active seller account.')
   }
@@ -1321,7 +1357,7 @@ export async function deleteProductAction(productId: string): Promise<{ deleted:
       .from('products')
       .update({ is_active: false })
       .eq('id', productId)
-      
+
     if (archiveError) {
       throw new Error(`Failed to archive product: ${archiveError.message}`)
     }

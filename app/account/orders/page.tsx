@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ShoppingBag, ChevronRight, Package, ArrowLeft, Clock } from 'lucide-react'
+import { ShoppingBag, ChevronRight, Package, ArrowLeft, Clock, Truck } from 'lucide-react'
 import { getCustomerOrders, Order } from '@/lib/orders'
 import { money } from '@/lib/catalog'
+import { formatExpectedDeliveryDate } from '@/lib/deliveryDate'
 import { AccountShell } from '@/components/account/AccountShell'
 import { PrintReceiptTrigger } from '@/components/receipt/PrintReceiptTrigger'
 import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
@@ -99,6 +100,14 @@ export default function AccountOrdersPage() {
                     <div>
                       <span className="account-order-item-num">Order #{order.order_number}</span>
                       <span className="account-order-item-date">Placed on {orderDate}</span>
+                      {order.expected_delivery_date && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', color: '#8a7356', fontWeight: 500, marginTop: '3px' }}>
+                          <Truck size={13} />
+                          <span>
+                            {order.status === 'delivered' ? 'Delivered' : 'Expected Delivery'}: {formatExpectedDeliveryDate(order.expected_delivery_date)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <span className={`status-pill ${order.status === 'delivered' ? 'approved' : order.status === 'cancelled' ? 'rejected' : 'processing'}`}>
                       {fulfillmentLabels[order.status] || order.status}

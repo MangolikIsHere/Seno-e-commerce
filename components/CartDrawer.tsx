@@ -3,19 +3,21 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { X, Plus, Minus, Trash2, Tag } from 'lucide-react'
+import { X, Plus, Minus, Trash2, Tag, Truck } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
 import { money } from '@/lib/catalog'
 import { SenoImage } from '@/components/SenoImage'
 import { evaluateCartDiscount } from '@/lib/promotions'
 import { PromotionEvaluationResult } from '@/lib/promotions-shared'
 import { CheckoutPolicyModal } from '@/components/CheckoutPolicyModal'
+import { evaluateOrderDelivery, calculateExpectedDeliveryDate, formatDeliveryByDate } from '@/lib/deliveryDate'
 
 export function CartDrawer() {
   const { cart, cartOpen, setCartOpen, updateCartQty, removeFromCart, subtotal, cartCount, totalWeightGrams, appliedCouponCode } = useStore()
   const router = useRouter()
   const [promoResult, setPromoResult] = useState<PromotionEvaluationResult | null>(null)
   const [policyModalOpen, setPolicyModalOpen] = useState(false)
+  const orderDelivery = evaluateOrderDelivery(cart)
 
   const handleProceedToCheckout = () => {
     try {
@@ -171,6 +173,10 @@ export function CartDrawer() {
                     <span className="cart-item-price" style={{ fontSize: '12.5px', fontWeight: 600, marginTop: '4px' }}>
                       {money(item.unit_price)}
                     </span>
+                    <span style={{ fontSize: '11px', color: '#c5a47e', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Truck size={12} />
+                      <span>{formatDeliveryByDate(calculateExpectedDeliveryDate(item.product.expectedDeliveryDays ?? 7))}</span>
+                    </span>
 
                     <div className="cart-item-controls" style={{ marginTop: '10px' }}>
                       <div className="quantity-stepper">
@@ -204,6 +210,13 @@ export function CartDrawer() {
 
             {/* Drawer Footer */}
             <div className="cart-drawer-footer">
+              <div className="subtotal-row" style={{ marginBottom: '8px' }}>
+                <span style={{ fontSize: '11.5px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Truck size={13} style={{ color: '#c5a47e' }} />
+                  <span>Estimated Delivery</span>
+                </span>
+                <span style={{ fontSize: '11.5px', color: 'var(--ink)', fontWeight: 500 }}>{orderDelivery.formattedOverallDate}</span>
+              </div>
               <div className="subtotal-row" style={{ marginBottom: '8px' }}>
                 <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>Estimated Weight</span>
                 <span style={{ fontSize: '11.5px', color: 'var(--ink)' }}>{(totalWeightGrams / 1000).toFixed(2)} kg</span>

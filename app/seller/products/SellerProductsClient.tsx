@@ -174,6 +174,9 @@ export function SellerProductsClient({ products, categories }: { products: any[]
                           {isEffectiveOutOfStock ? 'Out of stock' : product.low_stock ? `Low stock (${product.total_stock})` : `${product.total_stock} in stock`}
                         </span>
                       </div>
+                      <div style={{ fontSize: '11px', color: '#8a7356', marginTop: '4px' }}>
+                        🚚 {product.expected_delivery_days ?? 7}d delivery
+                      </div>
                     </div>
                   </div>
 
@@ -304,6 +307,9 @@ export function SellerProductsClient({ products, categories }: { products: any[]
                         <span style={{ fontSize: '12px', background: 'var(--surface-subtle)', padding: '2px 8px', borderRadius: '2px', border: '1px solid var(--border)' }}>
                           {product.categories?.name || 'Uncategorized'}
                         </span>
+                        <div style={{ fontSize: '11px', color: '#8a7356', marginTop: '4px' }}>
+                          🚚 {product.expected_delivery_days ?? 7}d delivery
+                        </div>
                       </td>
                       <td>
                         <strong style={{ fontSize: '13px' }}>{money(Number(product.price))}</strong>

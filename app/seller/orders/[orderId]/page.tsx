@@ -73,6 +73,12 @@ export default async function SellerOrderDetailPage({ params }: { params: Promis
               <div><div style={{ color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase' }}>Order date</div><div style={{ fontWeight: 600 }}>{formatDate(order.created_at)}</div></div>
               <div><div style={{ color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase' }}>Payment status</div><div style={{ fontWeight: 600 }}>{order.payment_status}</div></div>
               <div><div style={{ color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase' }}>Fulfillment</div><div style={{ fontWeight: 600 }}>{formatStateLabel(order.fulfillment_status)}</div></div>
+              {(order.expected_delivery_date || order.estimated_delivery_date) && (
+                <div>
+                  <div style={{ color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase' }}>Expected Delivery</div>
+                  <div style={{ fontWeight: 600, color: '#8a7356' }}>{formatDate(order.expected_delivery_date || order.estimated_delivery_date)}</div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -110,6 +116,12 @@ export default async function SellerOrderDetailPage({ params }: { params: Promis
                     <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px', overflowWrap: 'break-word' }}>
                       SKU: {item.sku} · Qty: {item.quantity} · Variant: {item.variant_details?.size || 'Default'}{item.variant_details?.colour ? ` / ${item.variant_details.colour}` : ''}
                     </div>
+                    {item.estimated_delivery_date && (
+                      <div style={{ fontSize: '11.5px', color: '#8a7356', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Truck size={12} />
+                        <span>Expected Delivery: {formatDate(item.estimated_delivery_date)}</span>
+                      </div>
+                    )}
                     <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '6px', overflowWrap: 'break-word' }}>Unit price: {money(Number(item.unit_price))}</div>
                   </div>
                   <div style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{money(Number(item.total_price))}</div>

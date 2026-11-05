@@ -32,6 +32,7 @@ import { ProductColoursManager } from '@/components/ProductColoursManager'
 import { extractColourHexesFromDetails } from '@/lib/colours'
 import { parseRevisionFeedback, AFFECTED_FIELDS, AffectedFieldKey } from '@/lib/revisionFeedback'
 import { FREE_SIZE_CANONICAL, isFreeSize, formatSizeDisplay, getSizeSkuSegment } from '@/lib/variants-shared'
+import { normalizeDeliveryDays, calculateExpectedDeliveryDate, formatDeliveryByDate } from '@/lib/deliveryDate'
 
 type Step = 1 | 2 | 3 | 4 | 5
 type ImageItem = { url: string; display_order?: number; is_primary?: boolean; colour?: string | null; is_colour_primary?: boolean }
@@ -97,6 +98,9 @@ export function ProductForm({
     initialData?.shipping_method === 'custom' ? 'custom' : 'weight_based'
   )
   const [customDeliveryCharge, setCustomDeliveryCharge] = useState(String(initialData?.custom_delivery_charge || ''))
+  const [expectedDeliveryDays, setExpectedDeliveryDays] = useState<string>(
+    String(initialData?.expected_delivery_days ?? '7')
+  )
   
   // Return & Exchange Policy
   const initialRp = parseReturnPolicy(initialData?.details)
@@ -315,6 +319,7 @@ export function ProductForm({
           ['weight', weight],
           ['shipping_method', shippingMethod],
           ['custom_delivery_charge', customDeliveryCharge],
+          ['expected_delivery_days', expectedDeliveryDays],
           ['is_returnable', isReturnable ? 'true' : 'false'],
           ['return_window_days', isReturnable ? returnWindowDays : '0'],
           ['return_policy_notes', returnPolicyNotes],
@@ -927,6 +932,74 @@ export function ProductForm({
                 <div className="form-helper-text">Customer will be billed this fixed amount for shipping this product.</div>
               </div>
             )}
+
+            {/* Expected Delivery Time */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '22px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <Truck size={16} color="var(--ink)" />
+                <label className="form-label" htmlFor="seller-expected-delivery-days" style={{ margin: 0 }}>
+                  Expected Delivery Time (Days) <span className="form-label-required">*</span>
+                </label>
+              </div>
+              <p style={{ margin: '0 0 14px', fontSize: '12px', color: 'var(--muted)' }}>
+                Set how many calendar days this product typically takes to reach the customer. SENO automatically calculates the expected delivery date.
+              </p>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                <div className="form-prefix-wrapper" style={{ width: '160px' }}>
+                  <input
+                    id="seller-expected-delivery-days"
+                    type="number"
+                    min="1"
+                    max="60"
+                    required
+                    className="input-field"
+                    placeholder="7"
+                    value={expectedDeliveryDays}
+                    onChange={event => setExpectedDeliveryDays(event.target.value)}
+                  />
+                  <span style={{ position: 'absolute', right: '14px', color: 'var(--muted)', fontSize: '12px', pointerEvents: 'none' }}>
+                    days
+                  </span>
+                </div>
+
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'var(--surface-subtle)', padding: '10px 16px', borderRadius: '3px', border: '1px solid var(--border)', fontSize: '12.5px' }}>
+                  <Truck size={15} style={{ color: '#c5a47e' }} />
+                  <span style={{ color: 'var(--ink)' }}>
+                    {formatDeliveryByDate(calculateExpectedDeliveryDate(expectedDeliveryDays))}
+                  </span>
+                </div>
+              </div>
+
+              {/* Delivery Duration Quick Presets */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Presets:</span>
+                {[
+                  ['3 Days (Express Workshop)', '3'],
+                  ['5 Days (Standard Studio)', '5'],
+                  ['7 Days (Standard Logistics)', '7'],
+                  ['10 Days (Custom Tailored)', '10'],
+                  ['14 Days (Made-to-Order)', '14']
+                ].map(([label, daysVal]) => (
+                  <button
+                    key={daysVal}
+                    type="button"
+                    onClick={() => setExpectedDeliveryDays(daysVal)}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      border: expectedDeliveryDays === daysVal ? '1px solid var(--ink)' : '1px solid var(--border)',
+                      background: expectedDeliveryDays === daysVal ? 'var(--surface-subtle)' : '#fff',
+                      borderRadius: '2px',
+                      color: expectedDeliveryDays === daysVal ? 'var(--ink)' : 'var(--muted)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Return & Exchange Policy */}
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: '22px' }}>

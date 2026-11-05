@@ -113,6 +113,11 @@ export function PrintableReceipt({
           <div style={{ display: 'inline-block', border: '1px solid #111', padding: '1px 6px', fontSize: '9px', fontWeight: 700, marginTop: '4px' }}>
             {humanizeStatus(order.status)}
           </div>
+          {order.expected_delivery_date && (
+            <div style={{ fontSize: '9px', color: '#333', marginTop: '3px' }}>
+              Exp. Delivery: {formatReceiptDate(order.expected_delivery_date)}
+            </div>
+          )}
         </div>
 
         {/* Customer & Destination */}
@@ -316,6 +321,11 @@ export function PrintableReceipt({
           >
             {humanizeStatus(order.status)}
           </div>
+          {order.expected_delivery_date && (
+            <div style={{ fontSize: '11.5px', color: '#555555', marginTop: '6px' }}>
+              Expected Delivery: <strong style={{ color: '#111111' }}>{formatReceiptDate(order.expected_delivery_date)}</strong>
+            </div>
+          )}
           <div style={{ fontSize: '11px', color: '#666666', marginTop: '6px' }}>
             Settlement: <strong style={{ color: '#111111' }}>{order.payment_status?.toUpperCase() || 'UNPAID'}</strong>
           </div>
