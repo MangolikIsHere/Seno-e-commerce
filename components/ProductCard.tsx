@@ -94,19 +94,19 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
             {/* Editorial Badges */}
             <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', flexDirection: 'column', gap: '4px', zIndex: 2 }}>
               {product.soldOut ? (
-                <span className="badge sold-out-badge" style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                <span className="badge sold-out-badge">
                   Sold Out
                 </span>
               ) : activePromoBadge ? (
-                <span className="badge promo-offer-badge" style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase', background: 'var(--ink)', color: '#fff', fontWeight: 600 }}>
+                <span className="badge promo-offer-badge">
                   {activePromoBadge}
                 </span>
               ) : product.isNew ? (
-                <span className="badge new-badge" style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                <span className="badge new-badge">
                   New Release
                 </span>
               ) : product.isSale ? (
-                <span className="badge sale-badge" style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                <span className="badge sale-badge">
                   Prive
                 </span>
               ) : null}
@@ -163,9 +163,9 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
 
       {/* Text section: navigates to product */}
       <div className="product-details-info" style={{ marginTop: '12px' }}>
-        <Link 
-          href={productHref} 
-          style={{ display: 'block', textDecoration: 'none' }} 
+        <Link
+          href={productHref}
+          style={{ display: 'block', textDecoration: 'none' }}
           data-return-context={returnContext || undefined}
           onClick={handleProductLinkClick}
         >
@@ -218,22 +218,27 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
           </div>
         )}
 
-        <Link 
-          href={productHref} 
-          style={{ display: 'block', textDecoration: 'none' }} 
+        <Link
+          href={productHref}
+          style={{ display: 'block', textDecoration: 'none' }}
           data-return-context={returnContext || undefined}
           onClick={handleProductLinkClick}
         >
-          <div className="product-price-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className="current-price" style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--ink)' }}>
-              {money(product.price)}
-            </span>
-            {product.compareAtPrice && product.compareAtPrice > product.price && (
-              <span className="compare-price" style={{ fontSize: '11px', textDecoration: 'line-through', color: 'var(--muted)' }}>
-                {money(product.compareAtPrice)}
+            <div className="product-price-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span className="current-price" style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--ink)' }}>
+                {money(product.price)}
               </span>
-            )}
-          </div>
+              {product.compareAtPrice && product.compareAtPrice > product.price && (
+              <>
+                <span className="compare-price" style={{ fontSize: '11px', textDecoration: 'line-through', color: 'var(--muted)' }}>
+                  {money(product.compareAtPrice)}
+                </span>
+                <span className="product-card-discount-tag" style={{ fontSize: '9.5px', fontWeight: 700, color: 'var(--terracotta)', background: 'var(--terracotta-soft)', border: '1px solid var(--terracotta-border)', padding: '1px 5px', borderRadius: '2px', letterSpacing: '0.4px' }}>
+                  {Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100)}% OFF
+                </span>
+              </>
+              )}
+            </div>
         </Link>
       </div>
 

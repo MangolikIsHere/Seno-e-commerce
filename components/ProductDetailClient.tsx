@@ -21,7 +21,8 @@ import {
   AlertTriangle,
   Copy,
   Sparkles,
-  Share2
+  Share2,
+  Zap
 } from 'lucide-react'
 import { money, Product } from '@/lib/catalog'
 import { getColourSwatchHex, normalizeColourKey } from '@/lib/colours'
@@ -657,27 +658,29 @@ export function ProductDetailClient({
                       {money(referenceMrp!)}
                     </span>
                     <span
-                      className="product-discount-badge"
+                      className="product-discount-tag"
                       aria-label={`${discountPercentage}% discount`}
                     >
-                      {discountPercentage}% OFF
+                      ({discountPercentage}% OFF)
                     </span>
                   </>
                 )}
               </div>
 
               <div className="product-savings-row">
+                <span className="product-tax-inclusive">MRP incl. of all taxes</span>
                 {hasDiscount && (
-                  <span
-                    className="product-savings-text"
-                    role="status"
-                    aria-label={`You save ${money(discountAmount)} on this item`}
-                  >
-                    <Sparkles size={13} aria-hidden="true" />
-                    You save {money(discountAmount)} ({discountPercentage}% off MRP)
-                  </span>
+                  <>
+                    <span className="product-savings-separator">•</span>
+                    <span
+                      className="product-savings-text"
+                      role="status"
+                      aria-label={`You save ${money(discountAmount)} on this item`}
+                    >
+                      Save {money(discountAmount)}
+                    </span>
+                  </>
                 )}
-                <span className="product-tax-inclusive">Inclusive of all taxes</span>
               </div>
 
               {isUnconditionalPromo && applicablePromotion && (
@@ -691,79 +694,50 @@ export function ProductDetailClient({
 
             {/* Promotional Messaging & Conditional Offer Banners */}
             {applicablePromotion && !isUnconditionalPromo && (
-              <div style={{ marginTop: '16px' }}>
-                {applicablePromotion.type === 'bogo' ? (
-                  <div className="product-promotion-card bogo">
-                    <span className="product-promotion-badge">
-                      <Sparkles size={11} aria-hidden="true" /> BUY 1 GET 1 FREE
-                    </span>
-                    <h3 className="product-promotion-headline">
-                      Buy 1, Get 1 Free on Curated Styles
-                    </h3>
-                    <p className="product-promotion-subtext">
-                      Add 2 eligible items from this collection to your bag. The lowest-priced piece is automatically 100% complimentary at checkout.
-                    </p>
+              <div className="luxury-promo-strip">
+                <div className="luxury-promo-header">
+                  <span className="luxury-promo-tag">EXCLUSIVE OFFER</span>
+                  <span className="luxury-promo-title">
+                    {applicablePromotion.type === 'bogo'
+                      ? 'Buy 1, Get 1 Complimentary'
+                      : applicablePromotion.coupon_code
+                        ? `Save ${applicablePromotion.type === 'percentage' ? `${applicablePromotion.discount_value}%` : `₹${applicablePromotion.discount_value}`}${applicablePromotion.min_cart_value ? ` above ₹${applicablePromotion.min_cart_value.toLocaleString('en-IN')}` : ''}`
+                        : applicablePromotion.min_cart_value
+                          ? `${applicablePromotion.type === 'percentage' ? `${applicablePromotion.discount_value}% OFF` : `₹${applicablePromotion.discount_value} OFF`} above ₹${applicablePromotion.min_cart_value.toLocaleString('en-IN')}`
+                          : `Save ${applicablePromotion.discount_value}% on multi-buy`}
+                  </span>
+                </div>
+                <p className="luxury-promo-desc">
+                  {applicablePromotion.type === 'bogo'
+                    ? 'Add 2 eligible items from this curation to your bag; lowest-priced piece is automatically complimentary.'
+                    : applicablePromotion.coupon_code
+                      ? `Apply voucher code ${applicablePromotion.coupon_code} at checkout.`
+                      : applicablePromotion.min_cart_value
+                        ? `Automatically applied once your bag total reaches ₹${applicablePromotion.min_cart_value.toLocaleString('en-IN')}.`
+                        : `Add ${applicablePromotion.min_quantity || 2}+ items to receive this benefit.`}
+                </p>
+                {applicablePromotion.coupon_code && (
+                  <div className="coupon-copy-row">
+                    <button
+                      type="button"
+                      className="coupon-copy-btn"
+                      onClick={() => handleCopyCoupon(applicablePromotion.coupon_code!)}
+                      title="Copy coupon code"
+                    >
+                      {copiedCoupon ? (
+                        <>
+                          <Check size={12} color="#8c7355" />
+                          <span style={{ color: '#8c7355' }}>COPIED</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={12} />
+                          <span>CODE: {applicablePromotion.coupon_code}</span>
+                        </>
+                      )}
+                    </button>
                   </div>
-                ) : applicablePromotion.coupon_code ? (
-                  <div className="product-promotion-card coupon">
-                    <span className="product-promotion-badge">
-                      <Sparkles size={11} aria-hidden="true" /> EXCLUSIVE PROMO CODE
-                    </span>
-                    <h3 className="product-promotion-headline">
-                      Save {applicablePromotion.type === 'percentage' ? `${applicablePromotion.discount_value}%` : `₹${applicablePromotion.discount_value}`}{applicablePromotion.min_cart_value ? ` on orders above ₹${applicablePromotion.min_cart_value.toLocaleString('en-IN')}` : ''}
-                    </h3>
-                    <p className="product-promotion-subtext">
-                      Apply voucher code at checkout to unlock your savings.
-                    </p>
-                    <div className="coupon-copy-row">
-                      <button
-                        type="button"
-                        className="coupon-copy-btn"
-                        onClick={() => handleCopyCoupon(applicablePromotion.coupon_code!)}
-                        title="Copy coupon code"
-                      >
-                        {copiedCoupon ? (
-                          <>
-                            <Check size={12} color="#166534" />
-                            <span style={{ color: '#166534' }}>COPIED!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy size={12} />
-                            <span>CODE: {applicablePromotion.coupon_code}</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                ) : applicablePromotion.min_cart_value ? (
-                  <div className="product-promotion-card">
-                    <span className="product-promotion-badge">
-                      <Sparkles size={11} aria-hidden="true" /> CART VALUE BENEFIT
-                    </span>
-                    <h3 className="product-promotion-headline">
-                      {applicablePromotion.type === 'percentage'
-                        ? `${applicablePromotion.discount_value}% OFF`
-                        : `₹${applicablePromotion.discount_value} OFF`}{' '}
-                      ABOVE ₹{applicablePromotion.min_cart_value.toLocaleString('en-IN')}
-                    </h3>
-                    <p className="product-promotion-subtext">
-                      Discount is automatically applied in your bag once your cart total meets the ₹{applicablePromotion.min_cart_value.toLocaleString('en-IN')} minimum.
-                    </p>
-                  </div>
-                ) : applicablePromotion.min_quantity && applicablePromotion.min_quantity > 1 ? (
-                  <div className="product-promotion-card">
-                    <span className="product-promotion-badge">
-                      <Sparkles size={11} aria-hidden="true" /> MULTI-BUY BENEFIT
-                    </span>
-                    <h3 className="product-promotion-headline">
-                      Buy {applicablePromotion.min_quantity}+ to get {applicablePromotion.discount_value}% OFF
-                    </h3>
-                    <p className="product-promotion-subtext">
-                      Add {applicablePromotion.min_quantity} or more qualifying items to your bag to receive this discount.
-                    </p>
-                  </div>
-                ) : null}
+                )}
               </div>
             )}
           </div>
@@ -876,23 +850,23 @@ export function ProductDetailClient({
                 </span>
               ) : selectedVariant.inventoryQuantity <= 5 ? (
                 <span className="stock-state lowstock" role="status">
-                  <span className="stock-dot" /> Only {selectedVariant.inventoryQuantity} {selectedVariant.inventoryQuantity === 1 ? 'piece' : 'pieces'} remaining — order soon
+                  <span className="stock-dot" /> Only {selectedVariant.inventoryQuantity} {selectedVariant.inventoryQuantity === 1 ? 'piece' : 'pieces'} remaining in studio stock
                 </span>
               ) : (
                 <span className="stock-state instock" role="status">
-                  <span className="stock-dot" /> In stock • Dispatched within 24–48 hours
+                  <span className="stock-dot" /> In stock • Ready to dispatch
                 </span>
               )
             ) : (
               <span className="stock-state prompt">
-                Select colour and size to view availability
+                Select colour and size to check availability
               </span>
             )}
           </div>
 
-          {/* 6 & 7. Quantity Selector, Add to Bag, Wishlist Actions */}
+          {/* 6 & 7. Quantity Selector, Add to Bag, Wishlist Actions & Buy Now */}
           <div className="product-action-panel" ref={actionPanelRef}>
-            <div className="action-row-main">
+            <div className="purchase-primary-row">
               <div className="quantity-stepper" aria-label="Quantity Selector">
                 <button
                   type="button"
@@ -946,20 +920,28 @@ export function ProductDetailClient({
               >
                 <Heart size={18} fill={wishlisted ? 'currentColor' : 'none'} />
               </button>
-
-              {/* Buy Now Direct Checkout Action */}
-              {canAddToCart && (
-                <button
-                  type="button"
-                  className="buy-now-btn"
-                  disabled={isSubmittingBuyNow}
-                  onClick={handleBuyNow}
-                >
-                  <span>{isSubmittingBuyNow ? 'PREPARING CHECKOUT...' : 'BUY NOW — DIRECT CHECKOUT'}</span>
-                  <span aria-hidden="true">→</span>
-                </button>
-              )}
             </div>
+
+            {/* Buy Now Direct Checkout Row */}
+            {canAddToCart && (
+              <button
+                type="button"
+                className="buy-now-btn"
+                disabled={isSubmittingBuyNow}
+                onClick={handleBuyNow}
+                aria-label="Buy now with direct checkout"
+              >
+                <span className="buy-now-content">
+                  <Zap size={14} className="buy-now-icon" fill="currentColor" />
+                  <span className="buy-now-label">
+                    {isSubmittingBuyNow ? 'OPENING INSTANT CHECKOUT...' : 'BUY NOW — DIRECT CHECKOUT'}
+                  </span>
+                </span>
+                <span className="buy-now-badge" aria-hidden="true">
+                  INSTANT
+                </span>
+              </button>
+            )}
 
             {wishlistNotice && (
               <span className="product-action-feedback" role="status" aria-live="polite">
@@ -971,9 +953,14 @@ export function ProductDetailClient({
           {/* 8. Delivery Information & Interactive Pincode Checker */}
           <div className="product-delivery-card">
             <div className="delivery-card-header">
-              <Truck size={17} className="delivery-icon" />
+              <div className="delivery-icon-wrap">
+                <Truck size={17} className="delivery-icon" />
+              </div>
               <div className="delivery-header-text">
-                <span className="delivery-title">EXPECTED DELIVERY</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="delivery-title">EXPECTED DELIVERY</span>
+                  <span className="delivery-speed-tag">EXPRESS DISPATCH</span>
+                </div>
                 <strong className="delivery-date-highlight">{deliveryDateText}</strong>
               </div>
             </div>
@@ -1026,60 +1013,7 @@ export function ProductDetailClient({
             </div>
           </div>
 
-          {/* Dynamic Return Policy Detail Badge */}
-          <div className={`product-trust-badge ${product.returnPolicy?.isReturnable ? 'returnable' : 'non-returnable'}`}>
-            <ShieldCheck size={16} style={{ flexShrink: 0, marginTop: '2px' }} aria-hidden="true" />
-            <div>
-              <strong className="badge-title">
-                {product.returnPolicy?.isReturnable
-                  ? `${product.returnPolicy.returnWindowDays}-Day SENO Quality Guarantee`
-                  : 'Studio Specialty Piece — Final Sale'}
-              </strong>
-              <span className="badge-subtitle">
-                {product.returnPolicy?.isReturnable
-                  ? product.returnPolicy.returnPolicyNotes || 'Complimentary reverse doorstep pickup across India. Garments must be unworn with original tags.'
-                  : 'This curated specialty piece cannot be returned or exchanged once dispatched.'}
-              </span>
-            </div>
-          </div>
-
-          {/* Seller Atelier Dossier Card */}
-          <div className="seller-dossier-card">
-            <div className="seller-dossier-header">
-              <div className="seller-dossier-avatar">
-                {(product.seller?.store_name || 'SENO')[0]?.toUpperCase()}
-              </div>
-              <div className="seller-dossier-meta">
-                <div className="seller-dossier-name-row">
-                  <span className="seller-dossier-name">{product.seller?.store_name || 'SENO Studio'}</span>
-                  <span className="seller-verified-badge">
-                    <ShieldCheck size={11} /> Verified Atelier
-                  </span>
-                </div>
-                <span className="seller-dossier-sub">Direct Designer Fulfillment • Quality Inspected</span>
-              </div>
-            </div>
-            <div className="seller-dossier-points">
-              <div className="dossier-point">
-                <Check size={12} className="point-icon" />
-                <span>100% Authentic Designer Silhouette</span>
-              </div>
-              <div className="dossier-point">
-                <Check size={12} className="point-icon" />
-                <span>Museum-Grade Archival Packaging</span>
-              </div>
-              <div className="dossier-point">
-                <Check size={12} className="point-icon" />
-                <span>
-                  {product.returnPolicy?.isReturnable
-                    ? `${product.returnPolicy.returnWindowDays}-Day Quality Guarantee & Easy Return Pickup`
-                    : 'Studio Inspected Quality Guarantee'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* 9. Product Description, Details, Materials, and Care Information Accordions */}
+          {/* 9. Product Details, Materials, Delivery, Returns & Atelier Accordions */}
           <div className="product-accordion-group">
             <div className="accordion-item">
               <button
@@ -1088,7 +1022,7 @@ export function ProductDetailClient({
                 onClick={() => setOpenAccordion(openAccordion === 'Details' ? '' : 'Details')}
                 aria-expanded={openAccordion === 'Details'}
               >
-                <span>DESCRIPTION & DETAILS</span>
+                <span>DESCRIPTION &amp; DETAILS</span>
                 <span aria-hidden="true">{openAccordion === 'Details' ? '−' : '+'}</span>
               </button>
               {openAccordion === 'Details' && (
@@ -1109,30 +1043,80 @@ export function ProductDetailClient({
               <button
                 type="button"
                 className="accordion-header"
+                onClick={() => setOpenAccordion(openAccordion === 'Care' ? '' : 'Care')}
+                aria-expanded={openAccordion === 'Care'}
+              >
+                <span>FABRIC &amp; MATERIALS</span>
+                <span aria-hidden="true">{openAccordion === 'Care' ? '−' : '+'}</span>
+              </button>
+              {openAccordion === 'Care' && (
+                <div className="accordion-content">
+                  <p>
+                    Crafted with premium fibers and considered finishing to ensure longevity and superior drape.
+                  </p>
+                  <ul>
+                    <li>Professional dry cleaning recommended for structured and embroidered silhouettes.</li>
+                    <li>For casual cotton and linen separates, hand wash gently in cold water with mild liquid detergent.</li>
+                    <li>Do not bleach or wring vigorously. Line dry flat in natural shade.</li>
+                    <li>Warm steam iron on reverse side to restore natural texture.</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div className="accordion-item">
+              <button
+                type="button"
+                className="accordion-header"
                 onClick={() => setOpenAccordion(openAccordion === 'Shipping' ? '' : 'Shipping')}
                 aria-expanded={openAccordion === 'Shipping'}
               >
-                <span>COMPLIMENTARY SHIPPING & PACKAGING</span>
+                <span>SHIPPING, DELIVERY &amp; PACKAGING</span>
                 <span aria-hidden="true">{openAccordion === 'Shipping' ? '−' : '+'}</span>
               </button>
               {openAccordion === 'Shipping' && (
                 <div className="accordion-content">
                   <p>
-                    Complimentary express shipping on all orders over ₹1,999 across India. Standard orders dispatched within 24–48 hours in signature museum-grade archival packaging. Estimated arrival within {deliveryDays} calendar days ({deliveryDateText}).
+                    Complimentary express shipping on all orders over ₹1,999 across India. Standard orders dispatched within 24–48 hours in signature museum-grade archival packaging.
                   </p>
-                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
-                    <strong style={{ fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Return &amp; Exchange Terms:
-                    </strong>{' '}
-                    {product.returnPolicy?.isReturnable ? (
-                      <span>
-                        Eligible for return and size exchange within <strong>{product.returnPolicy.returnWindowDays} days</strong> of delivery. {product.returnPolicy.returnPolicyNotes || 'All items must be in original condition with security ribbons and designer packaging intact.'}
-                      </span>
-                    ) : (
-                      <span>
-                        <strong>Final Sale:</strong> This item is strictly non-returnable and non-exchangeable once dispatched.
-                      </span>
-                    )}
+                  <p>
+                    Estimated arrival within <strong>{deliveryDays} calendar days</strong> ({deliveryDateText}) to verified delivery pin codes.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="accordion-item">
+              <button
+                type="button"
+                className="accordion-header"
+                onClick={() => setOpenAccordion(openAccordion === 'Returns' ? '' : 'Returns')}
+                aria-expanded={openAccordion === 'Returns'}
+              >
+                <span>RETURNS &amp; GUARANTEE</span>
+                <span aria-hidden="true">{openAccordion === 'Returns' ? '−' : '+'}</span>
+              </button>
+              {openAccordion === 'Returns' && (
+                <div className="accordion-content">
+                  <div style={{ marginBottom: '10px' }}>
+                    <strong style={{ display: 'block', color: 'var(--ink)', marginBottom: '4px' }}>
+                      {product.returnPolicy?.isReturnable
+                        ? `${product.returnPolicy.returnWindowDays}-Day SENO Quality Guarantee`
+                        : 'Studio Specialty Piece — Final Sale'}
+                    </strong>
+                    <p style={{ margin: 0 }}>
+                      {product.returnPolicy?.isReturnable
+                        ? product.returnPolicy.returnPolicyNotes || 'Complimentary reverse doorstep pickup across India. Garments must be unworn with original tags.'
+                        : 'This curated specialty piece cannot be returned or exchanged once dispatched.'}
+                    </p>
+                  </div>
+                  <div>
+                    <Link
+                      href="/return-refund-policy"
+                      style={{ fontSize: '11px', fontWeight: 600, color: 'var(--ink)', textDecoration: 'underline', letterSpacing: '0.5px' }}
+                    >
+                      READ COMPREHENSIVE RETURN &amp; REFUND POLICY →
+                    </Link>
                   </div>
                 </div>
               )}
@@ -1142,31 +1126,30 @@ export function ProductDetailClient({
               <button
                 type="button"
                 className="accordion-header"
-                onClick={() => setOpenAccordion(openAccordion === 'Care' ? '' : 'Care')}
-                aria-expanded={openAccordion === 'Care'}
+                onClick={() => setOpenAccordion(openAccordion === 'Atelier' ? '' : 'Atelier')}
+                aria-expanded={openAccordion === 'Atelier'}
               >
-                <span>FABRIC CARE & HANDLING</span>
-                <span aria-hidden="true">{openAccordion === 'Care' ? '−' : '+'}</span>
+                <span>ATELIER DETAILS &amp; AUTHENTICITY</span>
+                <span aria-hidden="true">{openAccordion === 'Atelier' ? '−' : '+'}</span>
               </button>
-              {openAccordion === 'Care' && (
+              {openAccordion === 'Atelier' && (
                 <div className="accordion-content">
-                  <p>
-                    To preserve the natural fibers, drape, and refined finish of your SENO garment:
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <strong style={{ color: 'var(--ink)', letterSpacing: '0.5px' }}>
+                      {product.seller?.store_name || 'SENO Studio'}
+                    </strong>
+                    <span style={{ fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase', color: '#8c7355', background: '#f7f4ed', padding: '1px 6px', borderRadius: '2px', border: '1px solid #e7ded3' }}>
+                      Verified Atelier
+                    </span>
+                  </div>
+                  <p style={{ margin: '0 0 10px' }}>
+                    Direct designer fulfillment. Every creation undergoes meticulous quality inspection before consignment dispatch.
                   </p>
                   <ul>
-                    <li>Professional dry cleaning recommended for structured and embroidered silhouettes.</li>
-                    <li>For casual cotton and linen separates, hand wash gently in cold water with mild liquid detergent.</li>
-                    <li>Do not bleach or wring vigorously. Line dry flat in natural shade.</li>
-                    <li>Warm steam iron on reverse side to restore texture.</li>
+                    <li>100% Authentic Designer Silhouette</li>
+                    <li>Museum-Grade Archival Presentation</li>
+                    <li>Inspected and authenticated by SENO Quality Standards</li>
                   </ul>
-                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
-                    <Link
-                      href="/return-refund-policy"
-                      style={{ fontSize: '11px', fontWeight: 600, color: 'var(--ink)', textDecoration: 'underline', letterSpacing: '0.5px' }}
-                    >
-                      READ COMPREHENSIVE RETURN & REFUND POLICY →
-                    </Link>
-                  </div>
                 </div>
               )}
             </div>
@@ -1306,6 +1289,19 @@ export function ProductDetailClient({
                 </>
               )}
             </button>
+
+            {canAddToCart && (
+              <button
+                type="button"
+                className="sticky-bar-buy-btn"
+                disabled={isSubmittingBuyNow}
+                onClick={handleBuyNow}
+                aria-label="Direct checkout"
+              >
+                <Zap size={12} fill="currentColor" />
+                <span>BUY NOW</span>
+              </button>
+            )}
           </div>
         </aside>
       )}

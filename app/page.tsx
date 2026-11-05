@@ -217,9 +217,9 @@ export default async function HomePage() {
 
       {/* 5. FEATURED OFFER SPOTLIGHT (Only if an active promotion exists) */}
       {activePromotions.length > 0 && (
-        <section className="section-padding featured-offer-spotlight" style={{ background: '#f8f6f0', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
+        <section className="section-padding featured-offer-spotlight" style={{ background: 'linear-gradient(135deg, var(--warm-ivory-subtle) 0%, var(--warm-ivory) 50%, var(--terracotta-soft) 100%)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
           <div style={{ maxWidth: '960px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '24px 0' }}>
-            <span className="section-kicker" style={{ color: 'var(--ink)' }}>LIMITED TIME OFFER</span>
+            <span className="section-kicker" style={{ color: 'var(--terracotta)' }}>LIMITED TIME OFFER</span>
             <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 'clamp(24px, 3.5vw, 36px)', fontWeight: 400, color: 'var(--ink)', margin: '8px 0 12px', letterSpacing: '-0.5px' }}>
               {activePromotions[0].hero_headline || activePromotions[0].name}
             </h2>
@@ -229,7 +229,7 @@ export default async function HomePage() {
             <Link
               href={`/offers/${activePromotions[0].slug}`}
               className="dark-btn"
-              style={{ padding: '14px 34px', fontSize: '11px', letterSpacing: '1.6px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+              style={{ padding: '14px 34px', fontSize: '11px', letterSpacing: '1.6px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'var(--terracotta)', borderColor: 'var(--terracotta)' }}
             >
               <span>{activePromotions[0].hero_cta_text || 'SHOP THE OFFER'}</span>
               <span>→</span>
@@ -246,18 +246,32 @@ export default async function HomePage() {
             alt="SENO The Beauty Edit — Curated cosmetic and skincare collection"
           />
         </div>
-        
+
         <div className="featured-edit-content">
-          <span className="section-kicker" style={{ color: 'var(--ink)' }}>CURATED BEAUTY</span>
+          <span className="section-kicker" style={{ color: 'var(--dusty-rose)' }}>CURATED BEAUTY</span>
           <h2>
             THE BEAUTY EDIT
           </h2>
           <p>
             Elevate your everyday routine with our curated selection of premium beauty essentials.
           </p>
-          <Link href="/collections/cosmetics" className="dark-btn" style={{ display: 'inline-flex', padding: '15px 32px', letterSpacing: '1px' }}>
-            SHOP COSMETICS <span>→</span>
-          </Link>
+            <Link
+              href="/collections/cosmetics"
+              className="dark-btn"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '15px 34px',
+                letterSpacing: '1.4px',
+                background: 'linear-gradient(135deg, var(--dusty-rose) 0%, #A95869 100%)',
+                borderColor: 'rgba(215, 174, 112, 0.4)',
+                color: '#ffffff',
+                boxShadow: '0 4px 16px rgba(201, 130, 145, 0.35)'
+              }}
+            >
+              <span>SHOP COSMETICS</span> <span>→</span>
+            </Link>
         </div>
       </section>
 
