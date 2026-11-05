@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { Search, User, Heart, ShoppingBag, Menu, X, ArrowRight } from 'lucide-react'
 import { useStore } from '@/context/StoreContext'
 import { NotificationBell } from '@/components/NotificationBell'
+import { HeaderInstallButton, HeaderDrawerInstallLink } from '@/components/PwaInstallPrompt'
 
 export function Header({
   categories = [],
@@ -94,6 +95,7 @@ export function Header({
           </div>
 
           <div className="top-right">
+            <HeaderInstallButton />
             <NotificationBell />
             <Link href="/account" className="header-action-btn">
               <User size={17} />
@@ -160,6 +162,7 @@ export function Header({
         </div>
 
         <div className="mobile-header-right">
+          <HeaderInstallButton isMobile />
           <div className="header-nav-notifications" data-header-nav="notifications">
             <NotificationBell isMobile />
           </div>
@@ -204,6 +207,11 @@ export function Header({
             </div>
 
             <div className="mobile-drawer-content">
+              {/* PWA APP INSTALL LINK */}
+              <div className="mobile-drawer-section mobile-drawer-install-section" style={{ paddingBottom: "12px", borderBottom: "1px solid var(--line)" }}>
+                <HeaderDrawerInstallLink onClose={() => setMobileMenuOpen(false)} />
+              </div>
+
               {/* SHOP SECTION */}
               <div className="mobile-drawer-section">
                 <span className="mobile-section-kicker">SHOP</span>

@@ -1,4 +1,4 @@
-process.env.NODE_ENV = 'development'
+;(process.env as any).NODE_ENV = 'development'
 
 import { chromium, type Browser, type Page } from 'playwright'
 import { createClient } from '@supabase/supabase-js'
@@ -530,9 +530,9 @@ async function runRealBrowserVerification() {
       `Admin parallel overview stats (orders, sellers, products) resolved in ${adminDuration}ms`, {
       durationMs: adminDuration,
       stats: {
-        totalOrders: stats.totalOrders,
-        pendingApprovals: stats.pendingApprovals,
-        activeSellers: stats.activeSellers
+        totalOrders: stats.totalOrdersCount,
+        pendingApprovals: stats.pendingProductsCount,
+        activeSellers: stats.approvedSellersCount
       }
     })
   } catch (err: any) {
@@ -590,7 +590,7 @@ async function runRealBrowserVerification() {
       category_id: original.category_id,
       collection_ids: sampleCollectionIds,
       images: testImages,
-      variants: originalVariants.map(v => ({
+      variants: originalVariants.map((v: any) => ({
         id: v.id,
         title: v.title,
         sku: v.sku,
@@ -602,11 +602,11 @@ async function runRealBrowserVerification() {
     }
 
     const updateStartTime = Date.now()
-    const updateRes = await updateAdminProduct(testProd.id, updatePayload)
+    const updateRes = await updateAdminProduct(testProd.id, updatePayload as any)
     const updateDuration = Date.now() - updateStartTime
 
-    if (updateRes.error) {
-      throw new Error(`updateAdminProduct failed: ${updateRes.error}`)
+    if ((updateRes as any).error) {
+      throw new Error(`updateAdminProduct failed: ${(updateRes as any).error}`)
     }
 
     const verifyProd = await getAdminProductById(testProd.id)
@@ -625,16 +625,15 @@ async function runRealBrowserVerification() {
       name: original.name,
       description: original.description || '',
       price: original.price,
-      mrp: original.mrp || undefined,
       category_id: original.category_id,
       collection_ids: originalCollections,
-      images: originalImages.map(img => ({
+      images: originalImages.map((img: any) => ({
         url: img.url,
         alt_text: img.alt_text || '',
         display_order: img.display_order,
         is_primary: img.is_primary
       })),
-      variants: originalVariants.map(v => ({
+      variants: originalVariants.map((v: any) => ({
         id: v.id,
         title: v.title,
         sku: v.sku,
@@ -643,7 +642,7 @@ async function runRealBrowserVerification() {
         price_override: v.price_override,
         inventory_count: v.inventory_count ?? 10
       }))
-    })
+    } as any)
 
     record('Admin Regression', 'Parallel Image & Collection Sync Integrity', 'PASSED',
       `Parallel sync completed in ${updateDuration}ms. Collections matched: ${collectionsMatch}, Images matched: ${imagesMatch}. Original state safely restored.`, {
