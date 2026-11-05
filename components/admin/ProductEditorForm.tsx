@@ -131,15 +131,10 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   const [variants, setVariants] = useState<AdminProductVariant[]>(
     initialData?.variants && initialData.variants.length > 0
       ? initialData.variants
-      : [
-          { size: 'S', colour: 'Black', sku: '', quantity: 10, is_active: true },
-          { size: 'M', colour: 'Black', sku: '', quantity: 10, is_active: true },
-          { size: 'L', colour: 'Black', sku: '', quantity: 10, is_active: true },
-          { size: 'XL', colour: 'Black', sku: '', quantity: 10, is_active: true }
-        ]
+      : []
   )
   const [matrixSizes, setMatrixSizes] = useState('S, M, L, XL')
-  const [matrixColours, setMatrixColours] = useState('Black, Washed Navy')
+  const [matrixColours, setMatrixColours] = useState('')
   const [matrixInitialStock, setMatrixInitialStock] = useState(10)
 
   // Step 5: Shipping & Merchandising Attributes
@@ -315,11 +310,13 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   const handleAddSingleVariant = () => {
     const currentBaseSlug = toClientSlug(slug || name || 'prod').toUpperCase()
     const sku = `SENO-${currentBaseSlug.slice(0, 4)}-VAR-${variants.length + 1}`
+    const existingColours = Array.from(new Set(variants.map(v => (v.colour || '').trim()).filter(Boolean)))
+    const activeCol = existingColours[0] || ''
     setVariants([
       ...variants,
       {
         size: 'M',
-        colour: 'Black',
+        colour: activeCol,
         sku,
         quantity: 10,
         is_active: true
@@ -331,11 +328,13 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   const handleAddFreeSizeVariant = () => {
     const currentBaseSlug = toClientSlug(slug || name || 'prod').toUpperCase()
     const sku = `SENO-${currentBaseSlug.slice(0, 4)}-FS-01`
+    const existingColours = Array.from(new Set(variants.map(v => (v.colour || '').trim()).filter(Boolean)))
+    const activeCol = existingColours[0] || ''
     setVariants([
       ...variants,
       {
         size: FREE_SIZE_CANONICAL,
-        colour: 'Black',
+        colour: activeCol,
         sku,
         quantity: 10,
         is_active: true

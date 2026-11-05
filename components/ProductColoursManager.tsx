@@ -17,7 +17,8 @@ import {
   Link as LinkIcon,
   ChevronDown,
   ChevronUp,
-  Info
+  Info,
+  Palette
 } from 'lucide-react'
 import { getColourSwatchHex, getStandardHexForColour, normalizeColourKey } from '@/lib/colours'
 import {
@@ -153,14 +154,10 @@ export function ProductColoursManager({
       addColour(c)
     }
 
-    if (list.length === 0) {
-      list.push('Black')
-    }
-
     return list
   }, [variants, images, effectiveColourHexes])
 
-  const [activeColour, setActiveColour] = useState<string>(configuredColours[0] || 'Black')
+  const [activeColour, setActiveColour] = useState<string>(configuredColours[0] || '')
   const [newColourInput, setNewColourInput] = useState('')
   const [newColourHex, setNewColourHex] = useState('#121212')
   const [showAddColourModal, setShowAddColourModal] = useState(false)
@@ -175,16 +172,18 @@ export function ProductColoursManager({
   // Ensure activeColour is valid
   const currentColour = configuredColours.includes(activeColour)
     ? activeColour
-    : configuredColours[0] || 'Black'
+    : (configuredColours[0] || '')
 
-  const activeColourKey = normalizeColourKey(currentColour)
-  const currentToneHex = getStandardHexForColour(currentColour, effectiveColourHexes[activeColourKey])
-  const isCustomToneSaved = !!effectiveColourHexes[activeColourKey]
+  const activeColourKey = currentColour ? normalizeColourKey(currentColour) : ''
+  const currentToneHex = currentColour ? getStandardHexForColour(currentColour, effectiveColourHexes[activeColourKey]) : '#121212'
+  const isCustomToneSaved = !!(currentColour && effectiveColourHexes[activeColourKey])
   const [activeHexInput, setActiveHexInput] = useState(currentToneHex)
 
   // Sync activeHexInput when colour changes
   React.useEffect(() => {
-    setActiveHexInput(getStandardHexForColour(currentColour, effectiveColourHexes[activeColourKey]))
+    if (currentColour) {
+      setActiveHexInput(getStandardHexForColour(currentColour, effectiveColourHexes[activeColourKey]))
+    }
   }, [activeColourKey, effectiveColourHexes, currentColour])
 
   // Filter images for the current active colour
@@ -274,10 +273,6 @@ export function ProductColoursManager({
   const handleRemoveColourGroup = (colourToRemove: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation()
     const key = normalizeColourKey(colourToRemove)
-    if (configuredColours.length <= 1) {
-      alert('A product must have at least one colour.')
-      return
-    }
 
     if (!confirm(`Remove the colour "${colourToRemove}" and all its assigned photos and size variations?`)) {
       return
@@ -292,7 +287,7 @@ export function ProductColoursManager({
     setInternalColourHexes(nextHexes)
 
     const remaining = configuredColours.filter(c => normalizeColourKey(c) !== key)
-    setActiveColour(remaining[0] || 'Black')
+    setActiveColour(remaining[0] || '')
     markDirty()
   }
 
@@ -680,57 +675,82 @@ export function ProductColoursManager({
         </div>
 
         {/* Compact Colour Chips */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-          {configuredColours.map((col) => {
-            const isSelected = normalizeColourKey(col) === activeColourKey
-            const hex = getColourSwatchHex(col, effectiveColourHexes[normalizeColourKey(col)])
-            const imgCount = images.filter(img => normalizeColourKey(img.colour) === normalizeColourKey(col)).length
-            const varCount = variants.filter(v => normalizeColourKey(v.colour) === normalizeColourKey(col)).length
+        {configuredColours.length === 0 ? (
+          <div style={{ padding: '36px 20px', textAlign: 'center', background: '#fafafa', border: '1px dashed var(--border)', borderRadius: '4px', width: '100%' }}>
+            <Palette size={26} color="var(--muted)" style={{ margin: '0 auto 10px', display: 'block' }} />
+            <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}>Available Colours</div>
+            <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '16px' }}>[No colours added]</div>
+            <button
+              type="button"
+              onClick={handleOpenAddColourModal}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '9px 18px',
+                background: 'var(--ink)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '2px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              <Plus size={14} /> Add Colour
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+            {configuredColours.map((col) => {
+              const isSelected = normalizeColourKey(col) === activeColourKey
+              const hex = getColourSwatchHex(col, effectiveColourHexes[normalizeColourKey(col)])
+              const imgCount = images.filter(img => normalizeColourKey(img.colour) === normalizeColourKey(col)).length
+              const varCount = variants.filter(v => normalizeColourKey(v.colour) === normalizeColourKey(col)).length
 
-            return (
-              <div
-                key={col}
-                onClick={() => setActiveColour(col)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '8px 12px',
-                  borderRadius: '4px',
-                  border: isSelected ? '2px solid var(--ink)' : '1px solid var(--border)',
-                  background: isSelected ? '#fafafa' : '#ffffff',
-                  cursor: 'pointer',
-                  boxShadow: isSelected ? '0 2px 4px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {/* Visual Swatch */}
-                <span
+              return (
+                <div
+                  key={col}
+                  onClick={() => setActiveColour(col)}
                   style={{
-                    width: '18px',
-                    height: '18px',
-                    borderRadius: '50%',
-                    backgroundColor: hex,
-                    border: hex.toLowerCase() === '#ffffff' || hex.toLowerCase() === '#fff' ? '1px solid #ccc' : '1px solid rgba(0,0,0,0.2)',
-                    flexShrink: 0
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    border: isSelected ? '2px solid var(--ink)' : '1px solid var(--border)',
+                    background: isSelected ? '#fafafa' : '#ffffff',
+                    cursor: 'pointer',
+                    boxShadow: isSelected ? '0 2px 4px rgba(0,0,0,0.06)' : 'none',
+                    transition: 'all 0.15s ease'
                   }}
-                />
+                >
+                  {/* Visual Swatch */}
+                  <span
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      borderRadius: '50%',
+                      backgroundColor: hex,
+                      border: hex.toLowerCase() === '#ffffff' || hex.toLowerCase() === '#fff' ? '1px solid #ccc' : '1px solid rgba(0,0,0,0.2)',
+                      flexShrink: 0
+                    }}
+                  />
 
-                {/* Name & Counts */}
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: isSelected ? 700 : 500, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>{col}</span>
-                    <span style={{ fontSize: '10px', fontFamily: 'monospace', color: 'var(--muted)', fontWeight: 400 }}>
-                      {getStandardHexForColour(col, effectiveColourHexes[normalizeColourKey(col)])}
-                    </span>
+                  {/* Name & Counts */}
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: isSelected ? 700 : 500, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>{col}</span>
+                      <span style={{ fontSize: '10px', fontFamily: 'monospace', color: 'var(--muted)', fontWeight: 400 }}>
+                        {getStandardHexForColour(col, effectiveColourHexes[normalizeColourKey(col)])}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '10.5px', color: imgCount === 0 ? '#b45309' : 'var(--muted)' }}>
+                      {imgCount > 0 ? `${imgCount} photo${imgCount === 1 ? '' : 's'}` : 'Photos needed'} &middot; {varCount} size{varCount === 1 ? '' : 's'}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '10.5px', color: imgCount === 0 ? '#b45309' : 'var(--muted)' }}>
-                    {imgCount > 0 ? `${imgCount} photo${imgCount === 1 ? '' : 's'}` : 'Photos needed'} &middot; {varCount} size{varCount === 1 ? '' : 's'}
-                  </div>
-                </div>
 
-                {/* Remove Colour Icon (if more than 1 colour) */}
-                {configuredColours.length > 1 && (
+                  {/* Remove Colour Icon */}
                   <button
                     type="button"
                     onClick={(e) => handleRemoveColourGroup(col, e)}
@@ -751,13 +771,14 @@ export function ProductColoursManager({
                   >
                     <Trash2 size={13} />
                   </button>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {/* Live Colour Tone & Swatch Editor for Active Colour */}
+        {currentColour ? (
         <div
           style={{
             marginTop: '16px',
@@ -883,8 +904,29 @@ export function ProductColoursManager({
             />
           </div>
         </div>
+        ) : null}
       </div>
 
+      {!currentColour ? (
+        <div
+          style={{
+            background: '#ffffff',
+            border: '1px dashed var(--border)',
+            borderRadius: '4px',
+            padding: '36px 20px',
+            textAlign: 'center'
+          }}
+        >
+          <Layers size={24} color="var(--muted)" style={{ margin: '0 auto 8px', display: 'block' }} />
+          <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', margin: '0 0 4px' }}>
+            Photos &amp; Sizing Configuration
+          </h4>
+          <p style={{ fontSize: '12.5px', color: 'var(--muted)', margin: 0 }}>
+            Please add or select a colour above to upload colour-specific photography and manage size inventory.
+          </p>
+        </div>
+      ) : (
+        <>
       {/* ============================================================ */}
       {/* STEP 2: PHOTOS FOR SELECTED COLOUR */}
       {/* ============================================================ */}
@@ -1649,6 +1691,8 @@ export function ProductColoursManager({
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* ============================================================ */}
       {/* MODAL 1: ADD COLOUR */}

@@ -174,8 +174,13 @@ export function ProductForm({
         setError('Each variant must have a unique size and colour combination.')
         return false
       }
-      if (variants.some(v => !v.size.trim() || !v.colour.trim() || !v.sku.trim() || !Number.isInteger(Number(v.quantity)) || Number(v.quantity) < 0)) {
-        setError('Please complete size, colour, SKU, and a valid quantity for all variants.')
+      if (variants.some(v => !v.size.trim() || !v.sku.trim() || !Number.isInteger(Number(v.quantity)) || Number(v.quantity) < 0)) {
+        setError('Please complete size, SKU, and a valid quantity for all variants.')
+        return false
+      }
+      const hasConfiguredColours = variants.some(v => (v.colour || '').trim().length > 0)
+      if (hasConfiguredColours && variants.some(v => !v.colour.trim())) {
+        setError('Please assign a colour to all variants.')
         return false
       }
     }
@@ -197,18 +202,19 @@ export function ProductForm({
   const handleAddStandardSizes = () => {
     const standardSizes = ['XS', 'S', 'M', 'L', 'XL']
     const baseSlug = (slug || slugify(name) || 'ITEM').toUpperCase().slice(0, 8)
-    const baseColour = variants[0]?.colour || 'Black'
+    const baseColour = variants[0]?.colour || ''
 
     const newVariants: VariantItem[] = standardSizes.map(size => {
       const existing = variants.find(v =>
         (v.size || '').trim().toLowerCase() === size.toLowerCase() &&
         (v.colour || '').trim().toLowerCase() === baseColour.toLowerCase()
       )
+      const colSegment = baseColour ? baseColour.toUpperCase().slice(0, 3) : 'STD'
       return {
         id: existing?.id,
         size,
         colour: baseColour,
-        sku: existing?.sku || `${baseSlug}-${baseColour.toUpperCase().slice(0, 3)}-${size}`,
+        sku: existing?.sku || `${baseSlug}-${colSegment}-${size}`,
         quantity: existing ? existing.quantity : '10'
       }
     })
@@ -220,8 +226,8 @@ export function ProductForm({
     const baseSlug = (slug || slugify(name) || 'ITEM').toUpperCase().slice(0, 8)
     const distinctColours = Array.from(new Set(variants.map(v => (v.colour || '').trim()).filter(Boolean)))
     const targetColours = (forAllColours || distinctColours.length > 0)
-      ? (distinctColours.length > 0 ? distinctColours : ['Black'])
-      : [variants[0]?.colour || 'Black']
+      ? (distinctColours.length > 0 ? distinctColours : [''])
+      : [variants[0]?.colour || '']
 
     const newVariants: VariantItem[] = targetColours.map(colour => {
       const colCode = colour.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3) || 'STD'
@@ -1292,7 +1298,12 @@ export function ProductForm({
                 <button
                   type="button"
                   className="button button-primary"
-                  onClick={() => setVariants([{ size: 'M', colour: 'Black', sku: `${slug.toUpperCase() || 'PROD'}-BLK-M`, quantity: '10' }])}
+                  onClick={() => {
+                    const existingColours = Array.from(new Set(variants.map(v => (v.colour || '').trim()).filter(Boolean)))
+                    const col = existingColours[0] || ''
+                    const colSegment = col ? col.toUpperCase().slice(0, 3) : 'STD'
+                    setVariants([{ size: 'M', colour: col, sku: `${slug.toUpperCase() || 'PROD'}-${colSegment}-M`, quantity: '10' }])
+                  }}
                   style={{ fontSize: '11px', padding: '8px 16px' }}
                 >
                   <Plus size={13} /> Add Single Row

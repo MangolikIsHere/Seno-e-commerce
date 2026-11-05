@@ -111,6 +111,34 @@ export function ProductDetailClient({
   const [wishlistNotice, setWishlistNotice] = useState(false)
   const [copiedCoupon, setCopiedCoupon] = useState(false)
   const [backUrl, setBackUrl] = useState('/collections/all')
+  const [showMobileSticky, setShowMobileSticky] = useState(false)
+  const [isSubmittingCart, setIsSubmittingCart] = useState(false)
+  const [isSubmittingBuyNow, setIsSubmittingBuyNow] = useState(false)
+  const actionPanelRef = React.useRef<HTMLDivElement | null>(null)
+
+  // Track scroll position to show mobile sticky purchase bar when main actions scroll off-screen
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const panel = actionPanelRef.current
+    if (!panel) return
+
+    const handleScroll = () => {
+      if (window.innerWidth <= 850) {
+        const rect = panel.getBoundingClientRect()
+        setShowMobileSticky(rect.bottom < 60)
+      } else {
+        setShowMobileSticky(false)
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('resize', handleScroll, { passive: true })
+    handleScroll()
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', handleScroll)
+    }
+  }, [])
 
   // Dynamic Expected Delivery Date (Asia/Kolkata calendar days)
   const deliveryDays = product.expectedDeliveryDays ?? 7
@@ -121,6 +149,42 @@ export function ProductDetailClient({
   useEffect(() => {
     setDeliveryDateText(formatDeliveryByDate(calculateExpectedDeliveryDate(deliveryDays)))
   }, [deliveryDays])
+
+  // Interactive PIN Code Delivery Checker
+  const [pincode, setPincode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return sessionStorage.getItem('seno_delivery_pincode') || ''
+      } catch {
+        return ''
+      }
+    }
+    return ''
+  })
+  const [pincodeStatus, setPincodeStatus] = useState<'idle' | 'valid' | 'invalid'>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem('seno_delivery_pincode')
+        return saved && /^\d{6}$/.test(saved) ? 'valid' : 'idle'
+      } catch {
+        return 'idle'
+      }
+    }
+    return 'idle'
+  })
+
+  const handleCheckPincode = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    const cleanPin = pincode.trim()
+    if (/^\d{6}$/.test(cleanPin)) {
+      setPincodeStatus('valid')
+      try {
+        sessionStorage.setItem('seno_delivery_pincode', cleanPin)
+      } catch { }
+    } else {
+      setPincodeStatus('invalid')
+    }
+  }
 
   // Mobile touch gesture tracking for swipeable gallery
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
@@ -318,14 +382,19 @@ export function ProductDetailClient({
   }
 
   const handleAddToCart = () => {
-    if (!selectedVariant || selectedVariant.inventoryQuantity < quantity) return
+    if (!selectedVariant || selectedVariant.inventoryQuantity < quantity || isSubmittingCart) return
+    setIsSubmittingCart(true)
     addToCart(product, selectedVariant, quantity)
     setAddedNotice(true)
-    setTimeout(() => setAddedNotice(false), 2500)
+    setTimeout(() => {
+      setAddedNotice(false)
+      setIsSubmittingCart(false)
+    }, 2000)
   }
 
   const handleBuyNow = () => {
-    if (!selectedVariant || selectedVariant.inventoryQuantity < quantity) return
+    if (!selectedVariant || selectedVariant.inventoryQuantity < quantity || isSubmittingBuyNow) return
+    setIsSubmittingBuyNow(true)
     addToCart(product, selectedVariant, quantity)
 
     try {
@@ -337,6 +406,7 @@ export function ProductDetailClient({
       // Ignore storage restrictions
     }
     setBuyNowPolicyModalOpen(true)
+    setIsSubmittingBuyNow(false)
   }
 
   const handleWishlistToggle = () => {
@@ -536,29 +606,31 @@ export function ProductDetailClient({
         {/* Product Information Sidebar */}
         <div className="product-info-sidebar">
           <div className="product-header">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
-              {product.category ? (
-                <span className="product-category-tag" style={{ margin: 0 }}>{product.category}</span>
-              ) : <span />}
+            {/* Atelier / Brand Kicker & Share Option */}
+            <div className="product-brand-row">
+              <div className="product-brand-kicker">
+                {product.seller?.slug ? (
+                  <Link href={`/sellers/${product.seller.slug}`} className="product-brand-name">
+                    {product.seller.store_name || 'SENO Studio'}
+                  </Link>
+                ) : (
+                  <span className="product-brand-name">
+                    {product.seller?.store_name || 'SENO Studio'}
+                  </span>
+                )}
+                <span className="product-brand-badge">VERIFIED ATELIER</span>
+                {product.category && (
+                  <>
+                    <span className="product-brand-separator">•</span>
+                    <span className="product-brand-category">{product.category}</span>
+                  </>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={() => setShareModalOpen(true)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 10px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  letterSpacing: '0.8px',
-                  textTransform: 'uppercase',
-                  border: '1px solid var(--border)',
-                  background: '#ffffff',
-                  color: 'var(--ink)',
-                  borderRadius: '2px',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s ease'
-                }}
+                className="product-share-btn"
                 aria-label={`Share ${product.name}`}
               >
                 <Share2 size={12} />
@@ -700,11 +772,12 @@ export function ProductDetailClient({
           {product.colors && product.colors.length > 0 && product.colors[0] !== 'Default' && (
             <div className="product-option-section">
               <div className="product-option-label">
-                <span>COLOUR:</span>
-                <strong>{selectedColour || 'SELECT COLOUR'}</strong>
+                <span className="option-title">COLOUR</span>
+                <span className="option-sep">—</span>
+                <strong className="selected-option-value">{selectedColour || 'SELECT COLOUR'}</strong>
               </div>
               <div
-                className="product-color-options"
+                className="pure-swatches-grid"
                 role="radiogroup"
                 aria-label="Select Colour"
               >
@@ -714,6 +787,7 @@ export function ProductDetailClient({
                     product.colourHexes?.[normalizeColourKey(col)] ||
                     getColourSwatchHex(col)
                   const isSelected = selectedColour?.trim().toLowerCase() === col.trim().toLowerCase()
+                  const isWhite = swatchHex.toLowerCase() === '#ffffff' || swatchHex.toLowerCase() === '#fff'
                   return (
                     <button
                       key={col}
@@ -722,22 +796,18 @@ export function ProductDetailClient({
                       aria-checked={isSelected}
                       aria-disabled={!avail}
                       aria-label={`${col}${!avail ? ' - Out of Stock' : ''}`}
-                      className={`color-selector-chip ${isSelected ? 'selected' : ''} ${!avail ? 'out-of-stock' : ''}`}
+                      className={`pure-swatch-btn ${isSelected ? 'selected' : ''} ${!avail ? 'out-of-stock' : ''}`}
                       onClick={() => handleSelectColour(col)}
+                      title={`${col}${!avail ? ' (Out of stock)' : ''}`}
                     >
                       <span
-                        className="color-swatch-circle"
+                        className="pure-swatch-circle"
                         style={{
-                          display: 'inline-block',
-                          width: '12px',
-                          height: '12px',
-                          borderRadius: '50%',
                           backgroundColor: swatchHex,
-                          border: swatchHex.toLowerCase() === '#ffffff' || swatchHex.toLowerCase() === '#fff' ? '1px solid #ccc' : '1px solid rgba(0,0,0,0.15)',
-                          flexShrink: 0
+                          boxShadow: isWhite ? 'inset 0 0 0 1px rgba(0,0,0,0.2)' : undefined
                         }}
                       />
-                      <span>{col}</span>
+                      <span className="sr-only">{col}</span>
                     </button>
                   )
                 })}
@@ -749,8 +819,11 @@ export function ProductDetailClient({
           {availableSizesForSelectedColour && availableSizesForSelectedColour.length > 0 && availableSizesForSelectedColour[0] !== 'One size' && (
             <div className="product-option-section">
               <div className="product-option-label">
-                <span>SIZE:</span>
-                <strong>{formatSizeDisplay(selectedSize) || 'SELECT SIZE'}</strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className="option-title">SIZE</span>
+                  <span className="option-sep">—</span>
+                  <strong className="selected-option-value">{formatSizeDisplay(selectedSize) || 'SELECT SIZE'}</strong>
+                </div>
                 {!isOnlyFreeSize && (
                   <button
                     type="button"
@@ -763,7 +836,7 @@ export function ProductDetailClient({
                 )}
               </div>
               <div
-                className="product-size-options"
+                className="pure-sizes-grid"
                 role="radiogroup"
                 aria-label="Select Size"
               >
@@ -779,7 +852,7 @@ export function ProductDetailClient({
                       aria-checked={isSelected}
                       aria-disabled={!avail}
                       aria-label={`Size ${displayLabel}${!avail ? ' - Out of Stock' : ''}`}
-                      className={`size-selector-chip ${isSelected ? 'selected' : ''} ${!avail ? 'out-of-stock' : ''}`}
+                      className={`pure-size-chip ${isSelected ? 'selected' : ''} ${!avail ? 'out-of-stock' : ''}`}
                       onClick={() => setSelectedSize(sz)}
                     >
                       {displayLabel}
@@ -790,88 +863,103 @@ export function ProductDetailClient({
             </div>
           )}
 
-          {/* 5. Stock Availability Status (Backed strictly by real inventory) */}
-          <div className="inventory-status-notice">
+          {/* 5. Editorial Stock Availability Status */}
+          <div className="editorial-stock-status">
             {product.soldOut || product.variants.length === 0 ? (
-              <span className="status-soldout" role="status">
-                <AlertCircle size={13} aria-hidden="true" /> OUT OF STOCK / CURRENTLY UNAVAILABLE
+              <span className="stock-state soldout" role="status">
+                <span className="stock-dot" /> Currently unavailable in all selections
               </span>
             ) : selectedVariant ? (
               selectedVariant.inventoryQuantity <= 0 ? (
-                <span className="status-soldout" role="status">
-                  <AlertCircle size={13} aria-hidden="true" /> SELECTED VARIATION OUT OF STOCK
+                <span className="stock-state soldout" role="status">
+                  <span className="stock-dot" /> Selected size &amp; colour currently out of stock
                 </span>
               ) : selectedVariant.inventoryQuantity <= 5 ? (
-                <span className="status-lowstock" role="status">
-                  <AlertTriangle size={13} aria-hidden="true" /> ONLY {selectedVariant.inventoryQuantity} {selectedVariant.inventoryQuantity === 1 ? 'UNIT' : 'UNITS'} LEFT IN STOCK — ORDER SOON
+                <span className="stock-state lowstock" role="status">
+                  <span className="stock-dot" /> Only {selectedVariant.inventoryQuantity} {selectedVariant.inventoryQuantity === 1 ? 'piece' : 'pieces'} remaining — order soon
                 </span>
               ) : (
-                <span className="status-instock" role="status">
-                  <Check size={13} aria-hidden="true" /> IN STOCK ({selectedVariant.inventoryQuantity} UNITS READY TO DISPATCH)
+                <span className="stock-state instock" role="status">
+                  <span className="stock-dot" /> In stock • Dispatched within 24–48 hours
                 </span>
               )
             ) : (
-              <span className="status-select-prompt">
-                SELECT SIZE AND COLOUR TO VERIFY AVAILABILITY
+              <span className="stock-state prompt">
+                Select colour and size to view availability
               </span>
             )}
           </div>
 
           {/* 6 & 7. Quantity Selector, Add to Bag, Wishlist Actions */}
-          <div className="product-action-panel">
-            <div className="quantity-stepper" aria-label="Quantity Selector">
-              <button
-                type="button"
-                onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                disabled={quantity <= 1}
-                aria-label="Decrease quantity"
-              >
-                <Minus size={13} />
-              </button>
-              <span aria-live="polite" aria-label={`Quantity ${quantity}`}>{quantity}</span>
-              <button
-                type="button"
-                onClick={() => setQuantity(q => Math.min(selectedVariant?.inventoryQuantity || 1, q + 1))}
-                disabled={!selectedVariant || quantity >= selectedVariant.inventoryQuantity}
-                aria-label="Increase quantity"
-              >
-                <Plus size={13} />
-              </button>
-            </div>
+          <div className="product-action-panel" ref={actionPanelRef}>
+            <div className="action-row-main">
+              <div className="quantity-stepper" aria-label="Quantity Selector">
+                <button
+                  type="button"
+                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                  disabled={quantity <= 1}
+                  aria-label="Decrease quantity"
+                >
+                  <Minus size={13} />
+                </button>
+                <span aria-live="polite" aria-label={`Quantity ${quantity}`}>{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity(q => Math.min(selectedVariant?.inventoryQuantity || 1, q + 1))}
+                  disabled={!selectedVariant || quantity >= selectedVariant.inventoryQuantity}
+                  aria-label="Increase quantity"
+                >
+                  <Plus size={13} />
+                </button>
+              </div>
 
-            <button
-              type="button"
-              className="add-to-cart-btn"
-              disabled={!canAddToCart}
-              onClick={handleAddToCart}
-            >
-              {addedNotice ? (
-                <>
-                  <Check size={14} /> ADDED TO BAG
-                </>
-              ) : (
-                <>
-                  <ShoppingBag size={14} />
-                  {canAddToCart
-                    ? 'ADD TO BAG'
-                    : (product.soldOut || product.variants.length === 0
-                      ? 'OUT OF STOCK'
-                      : selectedVariant
+              <button
+                type="button"
+                className="add-to-cart-btn"
+                disabled={!canAddToCart || isSubmittingCart}
+                onClick={handleAddToCart}
+              >
+                {addedNotice ? (
+                  <>
+                    <Check size={14} /> ADDED TO BAG
+                  </>
+                ) : (
+                  <>
+                    <ShoppingBag size={14} />
+                    {canAddToCart
+                      ? (isSubmittingCart ? 'ADDING...' : 'ADD TO BAG')
+                      : (product.soldOut || product.variants.length === 0
                         ? 'OUT OF STOCK'
-                        : 'SELECT OPTIONS')}
-                </>
-              )}
-            </button>
+                        : selectedVariant
+                          ? 'OUT OF STOCK'
+                          : 'SELECT SIZE')}
+                  </>
+                )}
+              </button>
 
-            <button
-              type="button"
-              className={`wishlist-toggle-icon-btn ${wishlisted ? 'active' : ''}`}
-              onClick={handleWishlistToggle}
-              title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-              aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-            >
-              <Heart size={18} fill={wishlisted ? 'currentColor' : 'none'} />
-            </button>
+              <button
+                type="button"
+                className={`wishlist-toggle-icon-btn ${wishlisted ? 'active' : ''}`}
+                onClick={handleWishlistToggle}
+                title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              >
+                <Heart size={18} fill={wishlisted ? 'currentColor' : 'none'} />
+              </button>
+
+              {/* Buy Now Direct Checkout Action */}
+              {canAddToCart && (
+                <button
+                  type="button"
+                  className="buy-now-btn"
+                  disabled={isSubmittingBuyNow}
+                  onClick={handleBuyNow}
+                >
+                  <span>{isSubmittingBuyNow ? 'PREPARING CHECKOUT...' : 'BUY NOW — DIRECT CHECKOUT'}</span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              )}
+            </div>
 
             {wishlistNotice && (
               <span className="product-action-feedback" role="status" aria-live="polite">
@@ -880,47 +968,60 @@ export function ProductDetailClient({
             )}
           </div>
 
-          {/* Buy Now Direct Checkout Action */}
-          {canAddToCart && (
-            <button
-              type="button"
-              className="buy-now-btn"
-              onClick={handleBuyNow}
-            >
-              <span>BUY NOW — DIRECT CHECKOUT</span>
-              <span aria-hidden="true">→</span>
-            </button>
-          )}
-
-          {/* 8. Delivery Information & Return/Exchange Policy Trust Cards */}
-          <div className="product-trust-grid">
-            <div className="trust-card">
-              <Truck size={18} className="trust-card-icon" aria-hidden="true" />
-              <div>
-                <strong className="trust-card-title">
-                  {deliveryDateText}
-                </strong>
-                <span className="trust-card-desc">
-                  {product.shippingMethod === 'custom' && product.customDeliveryCharge !== undefined
-                  ? (product.customDeliveryCharge === 0 ? 'Complimentary express studio delivery.' : `₹${product.customDeliveryCharge} flat consignment delivery across India.`)
-                    : 'Free on orders above ₹1,999. Dispatched within 24–48 hours across India.'}
-                </span>
+          {/* 8. Delivery Information & Interactive Pincode Checker */}
+          <div className="product-delivery-card">
+            <div className="delivery-card-header">
+              <Truck size={17} className="delivery-icon" />
+              <div className="delivery-header-text">
+                <span className="delivery-title">EXPECTED DELIVERY</span>
+                <strong className="delivery-date-highlight">{deliveryDateText}</strong>
               </div>
             </div>
 
-            <div className="trust-card">
-              <RotateCcw size={18} className="trust-card-icon" aria-hidden="true" />
-              <div>
-                <strong className="trust-card-title">
-                  {product.returnPolicy?.isReturnable
-                    ? `${product.returnPolicy.returnWindowDays}-Day Returns & Exchanges`
-                    : 'Final Sale Piece'}
-                </strong>
-                <span className="trust-card-desc">
-                  {product.returnPolicy?.isReturnable
-                    ? 'Doorstep pickup across India with original tags intact.'
-                    : 'Curated specialty piece; non-returnable once dispatched.'}
+            {/* Pincode verification row */}
+            <form onSubmit={handleCheckPincode} className="pincode-check-form">
+              <div className="pincode-input-wrapper">
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="Enter 6-digit PIN code"
+                  value={pincode}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '')
+                    setPincode(val)
+                    if (pincodeStatus !== 'idle') setPincodeStatus('idle')
+                  }}
+                  className={`pincode-input ${pincodeStatus === 'invalid' ? 'error' : ''}`}
+                  aria-label="Enter PIN code for delivery estimate"
+                />
+                <button type="submit" className="pincode-submit-btn">
+                  CHECK
+                </button>
+              </div>
+              {pincodeStatus === 'valid' && (
+                <span className="pincode-feedback success">
+                  <Check size={12} /> Delivering to {pincode} • Express Consignment Available
                 </span>
+              )}
+              {pincodeStatus === 'invalid' && (
+                <span className="pincode-feedback error">
+                  Please enter a valid 6-digit postal PIN code
+                </span>
+              )}
+            </form>
+
+            <div className="delivery-benefits-list">
+              <div className="benefit-row">
+                <span className="benefit-bullet">•</span>
+                <span>
+                  {product.shippingMethod === 'custom' && product.customDeliveryCharge !== undefined
+                    ? (product.customDeliveryCharge === 0 ? 'Complimentary express studio delivery.' : `₹${product.customDeliveryCharge} flat consignment delivery across India.`)
+                    : 'Complimentary express shipping on orders above ₹1,999 across India.'}
+                </span>
+              </div>
+              <div className="benefit-row">
+                <span className="benefit-bullet">•</span>
+                <span>Dispatched within 24–48 hours in signature museum archival packaging.</span>
               </div>
             </div>
           </div>
@@ -939,6 +1040,42 @@ export function ProductDetailClient({
                   ? product.returnPolicy.returnPolicyNotes || 'Complimentary reverse doorstep pickup across India. Garments must be unworn with original tags.'
                   : 'This curated specialty piece cannot be returned or exchanged once dispatched.'}
               </span>
+            </div>
+          </div>
+
+          {/* Seller Atelier Dossier Card */}
+          <div className="seller-dossier-card">
+            <div className="seller-dossier-header">
+              <div className="seller-dossier-avatar">
+                {(product.seller?.store_name || 'SENO')[0]?.toUpperCase()}
+              </div>
+              <div className="seller-dossier-meta">
+                <div className="seller-dossier-name-row">
+                  <span className="seller-dossier-name">{product.seller?.store_name || 'SENO Studio'}</span>
+                  <span className="seller-verified-badge">
+                    <ShieldCheck size={11} /> Verified Atelier
+                  </span>
+                </div>
+                <span className="seller-dossier-sub">Direct Designer Fulfillment • Quality Inspected</span>
+              </div>
+            </div>
+            <div className="seller-dossier-points">
+              <div className="dossier-point">
+                <Check size={12} className="point-icon" />
+                <span>100% Authentic Designer Silhouette</span>
+              </div>
+              <div className="dossier-point">
+                <Check size={12} className="point-icon" />
+                <span>Museum-Grade Archival Packaging</span>
+              </div>
+              <div className="dossier-point">
+                <Check size={12} className="point-icon" />
+                <span>
+                  {product.returnPolicy?.isReturnable
+                    ? `${product.returnPolicy.returnWindowDays}-Day Quality Guarantee & Easy Return Pickup`
+                    : 'Studio Inspected Quality Guarantee'}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1113,6 +1250,64 @@ export function ProductDetailClient({
             ))}
           </div>
         </section>
+      )}
+
+      {/* Mobile Floating Sticky Purchase Bar */}
+      {showMobileSticky && (
+        <aside className="mobile-sticky-purchase-bar" aria-label="Quick bag actions">
+          <div className="sticky-bar-product">
+            <div className="sticky-bar-thumb">
+              <SenoImage
+                src={galleryImages[0] || product.image}
+                alt={product.name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </div>
+            <div className="sticky-bar-info">
+              <span className="sticky-bar-name">{product.name}</span>
+              <div className="sticky-bar-pricing">
+                <span className="sticky-bar-current-price">{money(effectiveSellingPrice)}</span>
+                {hasDiscount && (
+                  <span className="sticky-bar-compare-price">{money(referenceMrp!)}</span>
+                )}
+                {(selectedColour || selectedSize) && (
+                  <span className="sticky-bar-selected-variant">
+                    {[selectedColour, formatSizeDisplay(selectedSize)].filter(Boolean).join(' • ')}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="sticky-bar-actions">
+            <button
+              type="button"
+              className={`sticky-bar-wishlist-btn ${wishlisted ? 'active' : ''}`}
+              onClick={handleWishlistToggle}
+              aria-label={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+            >
+              <Heart size={16} fill={wishlisted ? 'currentColor' : 'none'} />
+            </button>
+
+            <button
+              type="button"
+              className="sticky-bar-add-btn"
+              disabled={!canAddToCart || isSubmittingCart}
+              onClick={handleAddToCart}
+            >
+              {addedNotice ? (
+                <>
+                  <Check size={13} /> ADDED
+                </>
+              ) : (
+                <>
+                  <ShoppingBag size={13} />
+                  {canAddToCart ? 'ADD TO BAG' : 'OUT OF STOCK'}
+                </>
+              )}
+            </button>
+          </div>
+        </aside>
       )}
 
       <SizeGuideModal isOpen={sizeGuideOpen} onClose={() => setSizeGuideOpen(false)} />

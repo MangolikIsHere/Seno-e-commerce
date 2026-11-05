@@ -279,11 +279,11 @@ export function usePwaInstall() {
       canInstall: false,
       popupOpen: false,
       triggerInstall: async (): Promise<InstallOutcome> => 'unavailable',
-      dismissPopup: () => {},
+      dismissPopup: () => { },
       showIosGuide: false,
-      closeIosGuide: () => {},
+      closeIosGuide: () => { },
       showDesktopGuide: false,
-      closeDesktopGuide: () => {},
+      closeDesktopGuide: () => { },
     }
   }
   return context
@@ -316,7 +316,7 @@ export function HeaderInstallButton({ isMobile = false }: { isMobile?: boolean }
         title="Install SENO App"
       >
         <span className="install-icon-gold-badge">
-          <Download size={17} strokeWidth={2.2} />
+          <Download size={18} strokeWidth={1.8} />
         </span>
       </button>
     )
@@ -331,7 +331,7 @@ export function HeaderInstallButton({ isMobile = false }: { isMobile?: boolean }
       title="Install SENO App on your device"
     >
       <span className="install-icon-gold-badge">
-        <Download size={15} strokeWidth={2.2} />
+        <Download size={14} strokeWidth={2} />
       </span>
       <span className="header-install-text">INSTALL</span>
     </button>

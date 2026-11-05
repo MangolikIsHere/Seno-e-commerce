@@ -94,6 +94,10 @@ export interface Product {
   isNew?: boolean
   isBestseller?: boolean
   isSale?: boolean
+  seller?: {
+    store_name?: string
+    slug?: string
+  } | null
   createdAt: string
 }
 
@@ -222,6 +226,10 @@ function mapProductRow(row: any): Product {
     isNew: row.is_new,
     isBestseller: row.is_bestseller,
     isSale: !!row.compare_at_price && Number(row.compare_at_price) > Number(row.price),
+    seller: row.sellers ? {
+      store_name: row.sellers.store_name,
+      slug: row.sellers.slug
+    } : null,
     createdAt: row.created_at,
   }
 }
@@ -243,6 +251,7 @@ const selectQuery = `
   is_bestseller,
   created_at,
   categories!inner(name, slug, is_active),
+  sellers(store_name, slug),
   product_images(url, is_primary, display_order),
   product_variants(id, size, colour, sku, price_override, weight_grams_override, is_active, inventory(quantity))
 `
