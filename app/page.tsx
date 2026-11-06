@@ -2,6 +2,7 @@ import React from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
+import { ProductCarousel } from '@/components/ProductCarousel'
 import { SenoImage } from '@/components/SenoImage'
 import { getCollectionProducts } from '@/lib/catalog'
 import { getCachedNewArrivals, getCachedBestsellers } from '@/lib/catalog-server'
@@ -99,6 +100,11 @@ export default async function HomePage() {
     return undefined
   }
 
+  const promotionBadges: Record<string, string | undefined> = {}
+  for (const product of [...newArrivals, ...bestsellers, ...cosmeticsProducts]) {
+    promotionBadges[product.id] = getProductBadge(product)
+  }
+
   const categoryPresentation: Record<string, { subtitle: string; className?: string }> = {
     'ethnic-traditional-wear': {
       subtitle: 'Heritage silhouettes & modern craft',
@@ -151,20 +157,41 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <div className="product-rail" aria-label="New arrivals" tabIndex={0}>
-          {newArrivals.map(product => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              promotionBadge={getProductBadge(product)}
-              returnContext="/#new-arrivals"
-            />
-          ))}
-        </div>
+        <ProductCarousel
+          products={newArrivals}
+          ariaLabel="New arrivals"
+          returnContext="/#new-arrivals"
+          promotionBadges={promotionBadges}
+          sectionId="new-arrivals"
+        />
       </section>
 
-      {/* 3. SHOP BY CATEGORY */}
-      <section className="section-padding category-section">
+      {/* 3. BESTSELLERS — IMMEDIATELY AFTER NEW ARRIVALS */}
+      <section className="section-padding bestseller-section" id="bestsellers">
+        <div className="section-header-flex">
+          <div>
+            <span className="section-kicker bestseller-kicker" style={{ color: 'var(--champagne-gold, #D7AE70)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--champagne-gold, #D7AE70)', display: 'inline-block' }}></span>
+              ESSENTIAL STAPLES
+            </span>
+            <h2 className="section-title">Bestsellers</h2>
+          </div>
+          <Link href="/collections/bestsellers" className="view-all-link bestseller-view-all">
+            VIEW ALL <span aria-hidden="true">→</span>
+          </Link>
+        </div>
+
+        <ProductCarousel
+          products={bestsellers}
+          ariaLabel="Bestsellers"
+          returnContext="/#bestsellers"
+          promotionBadges={promotionBadges}
+          sectionId="bestsellers"
+        />
+      </section>
+
+      {/* 4. SHOP BY CATEGORY — AFTER BESTSELLERS */}
+      <section className="section-padding category-section" id="shop-by-category">
         <div className="section-header-flex">
           <div>
             <span className="section-kicker">THE SEASONAL WARDROBE</span>
@@ -191,28 +218,6 @@ export default async function HomePage() {
             </p>
           </div>
         ) : null}
-      </section>
-
-      {/* 4. BESTSELLERS */}
-      <section className="section-padding bestseller-section" id="bestsellers">
-        <div className="section-header-flex">
-          <div>
-            <span className="section-kicker">ESSENTIAL STAPLES</span>
-            <h2 className="section-title">Bestsellers</h2>
-          </div>
-          <Link href="/collections/bestsellers" className="view-all-link">VIEW ALL <span aria-hidden="true">→</span></Link>
-        </div>
-
-        <div className="product-rail" aria-label="Bestsellers" tabIndex={0}>
-          {bestsellers.map(product => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              promotionBadge={getProductBadge(product)}
-              returnContext="/#bestsellers"
-            />
-          ))}
-        </div>
       </section>
 
       {/* 5. FEATURED OFFER SPOTLIGHT (Only if an active promotion exists) */}
@@ -278,16 +283,13 @@ export default async function HomePage() {
       {/* 6b. BEAUTY PRODUCTS RAIL */}
       {cosmeticsProducts.length > 0 && (
         <section className="section-padding" id="beauty-edit" style={{ paddingTop: '24px' }}>
-          <div className="product-rail" aria-label="Beauty Edit" tabIndex={0}>
-            {cosmeticsProducts.map(product => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                promotionBadge={getProductBadge(product)}
-                returnContext="/#beauty-edit"
-              />
-            ))}
-          </div>
+          <ProductCarousel
+            products={cosmeticsProducts}
+            ariaLabel="Beauty Edit"
+            returnContext="/#beauty-edit"
+            promotionBadges={promotionBadges}
+            sectionId="beauty-edit"
+          />
         </section>
       )}
 

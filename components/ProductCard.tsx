@@ -37,6 +37,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
       (!activeColour || (v.colour || '').trim().toLowerCase() === activeColour.trim().toLowerCase()) &&
       v.inventoryQuantity > 0
     ) || product.variants?.find(v => v.inventoryQuantity > 0)
+
     if (availableVariant) {
       addToCart(product, availableVariant, 1, false)
       setAdded(true)
@@ -49,7 +50,13 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
     : null
 
   const primaryImg = colourPrimaryImg || product.image
-  const secondaryImg = product.hoverImage && product.hoverImage !== product.image ? product.hoverImage : null
+  const secondaryImg =
+    product.hoverImage && product.hoverImage !== product.image
+      ? product.hoverImage
+      : (product.images && product.images.length > 1
+        ? product.images.find(img => img !== primaryImg) || null
+        : null)
+
   const productHref = activeColour
     ? `/products/${product.slug}?colour=${encodeURIComponent(activeColour)}`
     : `/products/${product.slug}`
@@ -65,7 +72,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
 
   return (
     <article className="product-card group" style={{ position: 'relative' }}>
-      {/* Image section: navigates to product */}
+      {/* Visual media container: navigates to product */}
       <div className="product-visual-wrapper" style={{ display: 'block', position: 'relative' }}>
         <Link
           href={productHref}
@@ -74,7 +81,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
           onClick={handleProductLinkClick}
           aria-label={product.name ? `${product.name}${activeColour ? ` in ${activeColour}` : ''}` : 'SENO garment'}
         >
-          <div className="product-visual" style={{ position: 'relative', overflow: 'hidden', aspectRatio: '3 / 4', background: 'var(--card-bg)' }}>
+          <div className="product-visual">
             <SenoImage
               src={primaryImg}
               alt={product.name ? `${product.name}${activeColour ? ` in ${activeColour}` : ''}` : 'SENO garment'}
@@ -92,7 +99,7 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
             )}
 
             {/* Editorial Badges */}
-            <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', flexDirection: 'column', gap: '4px', zIndex: 2 }}>
+            <div className="product-card-badges-container" style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', flexDirection: 'column', gap: '5px', zIndex: 2 }}>
               {product.soldOut ? (
                 <span className="badge sold-out-badge">
                   Sold Out
@@ -101,20 +108,24 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
                 <span className="badge promo-offer-badge">
                   {activePromoBadge}
                 </span>
+              ) : product.isBestseller ? (
+                <span className="badge bestseller-badge">
+                  Bestseller
+                </span>
               ) : product.isNew ? (
                 <span className="badge new-badge">
-                  New Release
+                  New Arrival
                 </span>
               ) : product.isSale ? (
                 <span className="badge sale-badge">
-                  Prive
+                  Sale
                 </span>
               ) : null}
             </div>
           </div>
         </Link>
 
-        {/* Quick Add - Positioned cleanly over visual as a sibling to Link */}
+        {/* Quick Add Button — Elevated pill on bottom of visual */}
         {!product.soldOut && (
           <button
             className="quick-add-btn"
@@ -125,15 +136,17 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
           >
             {added ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                <Check size={12} /> ADDED
+                <Check size={12} strokeWidth={2.5} /> ADDED
               </span>
             ) : (
-              <span>ADD +</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <span>+ QUICK ADD</span>
+              </span>
             )}
           </button>
         )}
 
-        {/* Wishlist - Positioned cleanly over visual as a sibling to Link */}
+        {/* Wishlist Button — Top Right */}
         <button
           className={`wishlist-btn ${wishlisted ? 'liked' : ''}`}
           aria-label={wishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
@@ -141,13 +154,13 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
           type="button"
           data-no-navigation="true"
         >
-          <Heart size={15} fill={wishlisted ? 'currentColor' : 'none'} />
+          <Heart size={15} fill={wishlisted ? 'currentColor' : 'none'} strokeWidth={1.8} />
         </button>
 
-        {/* Share Button - Positioned cleanly over visual as a sibling to Link */}
+        {/* Share Button — Top Right underneath Wishlist */}
         <button
-          className="wishlist-btn"
-          style={{ top: '44px' }}
+          className="wishlist-btn share-btn"
+          style={{ top: '48px' }}
           aria-label={`Share ${product.name}`}
           onClick={(e) => {
             e.preventDefault()
@@ -157,31 +170,33 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
           type="button"
           data-no-navigation="true"
         >
-          <Share2 size={13} />
+          <Share2 size={13} strokeWidth={1.8} />
         </button>
       </div>
 
-      {/* Text section: navigates to product */}
-      <div className="product-details-info" style={{ marginTop: '12px' }}>
+      {/* Information Area: Category, Title, Swatches, Pricing */}
+      <div className="product-details-info">
         <Link
           href={productHref}
           style={{ display: 'block', textDecoration: 'none' }}
           data-return-context={returnContext || undefined}
           onClick={handleProductLinkClick}
         >
-          <span className="product-category-label" style={{ fontSize: '9.5px', letterSpacing: '1.4px', textTransform: 'uppercase', color: 'var(--muted)' }}>
-            {product.category}
-          </span>
-          <h3 className="product-name-heading" style={{ fontSize: '13px', fontWeight: 500, margin: '4px 0 6px', color: 'var(--ink)' }}>
+          {product.category && (
+            <span className="product-category-label">
+              {product.category}
+            </span>
+          )}
+          <h3 className="product-name-heading">
             {product.name}
           </h3>
         </Link>
 
-        {/* Subtle Colour Swatches Indicator - Sibling to Link */}
+        {/* Colour Swatches Indicator */}
         {product.colors && product.colors.length > 1 && product.colors[0] !== 'Default' && (
           <div
             className="product-card-swatches"
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', margin: '4px 0 6px' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0 6px' }}
           >
             {product.colors.slice(0, 5).map(col => {
               const hex = product.colourGroups?.find(g => normalizeColourKey(g.colour) === normalizeColourKey(col))?.swatch ||
@@ -193,52 +208,59 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
                   key={col}
                   type="button"
                   title={col}
-                  onClick={() => setActiveColour(col)}
+                  aria-label={`Select colour ${col}`}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setActiveColour(col)
+                  }}
                   onMouseEnter={() => setActiveColour(col)}
                   style={{
-                    width: '10px',
-                    height: '10px',
+                    width: '12px',
+                    height: '12px',
                     borderRadius: '50%',
                     backgroundColor: hex,
-                    border: hex.toLowerCase() === '#ffffff' || hex.toLowerCase() === '#fff' ? '1px solid #ccc' : '1px solid rgba(0,0,0,0.15)',
+                    border: hex.toLowerCase() === '#ffffff' || hex.toLowerCase() === '#fff' ? '1px solid #dcd6cd' : '1px solid rgba(41, 39, 36, 0.18)',
                     padding: 0,
                     cursor: 'pointer',
-                    outline: isSelected ? '1px solid var(--ink)' : 'none',
-                    outlineOffset: '1px',
-                    transition: 'transform 0.15s ease'
+                    outline: isSelected ? '1.5px solid var(--ink)' : 'none',
+                    outlineOffset: '1.5px',
+                    transform: isSelected ? 'scale(1.15)' : 'scale(1)',
+                    transition: 'transform 0.15s ease, outline 0.15s ease'
                   }}
                 />
               )
             })}
             {product.colors.length > 5 && (
-              <span style={{ fontSize: '9.5px', color: 'var(--muted)' }}>
+              <span style={{ fontSize: '9.5px', color: 'var(--muted)', fontWeight: 500, marginLeft: '2px' }}>
                 +{product.colors.length - 5}
               </span>
             )}
           </div>
         )}
 
+        {/* Pricing Line */}
         <Link
           href={productHref}
-          style={{ display: 'block', textDecoration: 'none' }}
+          style={{ display: 'block', textDecoration: 'none', marginTop: '4px' }}
           data-return-context={returnContext || undefined}
           onClick={handleProductLinkClick}
         >
-            <div className="product-price-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span className="current-price" style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--ink)' }}>
-                {money(product.price)}
-              </span>
-              {product.compareAtPrice && product.compareAtPrice > product.price && (
+          <div className="product-price-row">
+            <span className="current-price">
+              {money(product.price)}
+            </span>
+            {product.compareAtPrice && product.compareAtPrice > product.price && (
               <>
-                <span className="compare-price" style={{ fontSize: '11px', textDecoration: 'line-through', color: 'var(--muted)' }}>
+                <span className="compare-price">
                   {money(product.compareAtPrice)}
                 </span>
-                <span className="product-card-discount-tag" style={{ fontSize: '9.5px', fontWeight: 700, color: 'var(--terracotta)', background: 'var(--terracotta-soft)', border: '1px solid var(--terracotta-border)', padding: '1px 5px', borderRadius: '2px', letterSpacing: '0.4px' }}>
+                <span className="product-card-discount-tag">
                   {Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100)}% OFF
                 </span>
               </>
-              )}
-            </div>
+            )}
+          </div>
         </Link>
       </div>
 
