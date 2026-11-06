@@ -2,13 +2,128 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
-import { HeroSlideRecord, DEFAULT_HERO_SLIDE } from '@/lib/hero-slides-shared'
+import { ChevronLeft, ChevronRight, Pause, Play, Film } from 'lucide-react'
+import { HeroSlideRecord, DEFAULT_HERO_SLIDE, resolveSlideMediaType } from '@/lib/hero-slides-shared'
 import { Promotion } from '@/lib/promotions-shared'
 
 export interface HeroCarouselProps {
   slides?: HeroSlideRecord[]
   featuredPromotions?: Promotion[] // Maintained for backward compatibility
+}
+
+/**
+ * Dedicated Video Sub-Component for MP4 / WebM Hero Slides
+ * Handles autoplay, mute, looping, mobile playsinline, and pausing when slide is inactive.
+ */
+function HeroVideoSlide({
+  slide,
+  isActive,
+  isFirst,
+  prefersReducedMotion,
+  isPaused
+}: {
+  slide: HeroSlideRecord
+  isActive: boolean
+  isFirst: boolean
+  prefersReducedMotion: boolean
+  isPaused: boolean
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false)
+  const [isVideoLoaded, setIsVideoLoaded] = useState(false)
+
+  const desktopVideo = slide.video_url || slide.image_url
+  const mobileVideo = slide.mobile_video_url || desktopVideo
+  const poster = slide.poster_url || (slide.image_url && !slide.image_url.toLowerCase().endsWith('.mp4') ? slide.image_url : undefined)
+
+  // Handle Play/Pause based on carousel state & motion preferences
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    if (isActive && !prefersReducedMotion && !isPaused) {
+      const playPromise = video.play()
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setAutoplayBlocked(false)
+          })
+          .catch(err => {
+            // Autoplay was prevented by browser policy (e.g. low power mode)
+            console.log('[HeroCarousel] Autoplay deferred:', err?.name)
+            setAutoplayBlocked(true)
+          })
+      }
+    } else {
+      video.pause()
+    }
+  }, [isActive, prefersReducedMotion, isPaused])
+
+  // Reset to beginning when slide is navigated into view
+  useEffect(() => {
+    const video = videoRef.current
+    if (video && isActive) {
+      try {
+        video.currentTime = 0
+      } catch {}
+    }
+  }, [isActive])
+
+  return (
+    <div className="hero-video-wrapper" style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
+      <video
+        ref={videoRef}
+        className="hero-video-element"
+        poster={poster}
+        muted
+        loop
+        playsInline
+        preload={isFirst || isActive ? 'auto' : 'none'}
+        controls={false}
+        disablePictureInPicture
+        onLoadedData={() => setIsVideoLoaded(true)}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: slide.image_focal_point || 'center',
+          display: 'block'
+        }}
+      >
+        {slide.mobile_video_url && (
+          <source src={slide.mobile_video_url} media="(max-width: 768px)" type="video/mp4" />
+        )}
+        <source src={desktopVideo} type="video/mp4" />
+        {/* Fallback image if video cannot be played */}
+        {poster && (
+          <img
+            src={poster}
+            alt={slide.image_alt || slide.title || 'SENO Campaign'}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        )}
+      </video>
+
+      {/* Autoplay blocked manual play pill fallback */}
+      {autoplayBlocked && (
+        <button
+          type="button"
+          onClick={() => {
+            const v = videoRef.current
+            if (v) {
+              v.play()
+              setAutoplayBlocked(false)
+            }
+          }}
+          className="hero-video-unblock-pill"
+          aria-label="Play promotional video"
+        >
+          <Play size={12} fill="currentColor" />
+          <span>PLAY VIDEO</span>
+        </button>
+      )}
+    </div>
+  )
 }
 
 export function HeroCarousel({
@@ -44,7 +159,8 @@ export function HeroCarousel({
         content_placement: 'bottom-left',
         overlay_opacity: 30,
         is_active: true,
-        display_priority: idx + 2
+        display_priority: idx + 2,
+        media_type: 'image'
       }))
       return [DEFAULT_HERO_SLIDE, ...promoSlides]
     }
@@ -98,14 +214,19 @@ export function HeroCarousel({
       return
     }
 
+    // Video slides can stay longer if needed (6 seconds vs 4 seconds)
+    const currentSlide = activeConfiguredSlides[currentIndex]
+    const mediaType = currentSlide ? resolveSlideMediaType(currentSlide) : 'image'
+    const duration = mediaType === 'video' ? 6000 : 4500
+
     timerRef.current = setInterval(() => {
       nextSlide()
-    }, 4000)
+    }, duration)
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [activeConfiguredSlides.length, isPaused, prefersReducedMotion, nextSlide])
+  }, [activeConfiguredSlides, currentIndex, isPaused, prefersReducedMotion, nextSlide])
 
   // Touch handlers for mobile swipe
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -168,6 +289,8 @@ export function HeroCarousel({
       <div className="hero-slides-wrapper" style={{ position: 'relative', width: '100%', height: '100%' }}>
         {activeConfiguredSlides.map((slide, idx) => {
           const isActive = idx === currentIndex
+          const mediaType = resolveSlideMediaType(slide)
+          const isVideo = mediaType === 'video'
           const headlineLines = (slide.headline || '').split('\n')
 
           // Dynamic placement mapping
@@ -191,7 +314,7 @@ export function HeroCarousel({
           return (
             <div
               key={slide.id}
-              className={`hero-slide-pane ${isActive ? 'active' : ''}`}
+              className={`hero-slide-pane ${isActive ? 'active' : ''} media-${mediaType}`}
               aria-hidden={!isActive}
               style={{
                 position: idx === 0 ? 'relative' : 'absolute',
@@ -204,28 +327,38 @@ export function HeroCarousel({
                 zIndex: isActive ? 1 : 0
               }}
             >
-              {/* Background Responsive Picture with Desktop / Mobile Source */}
+              {/* Media Element: Video OR Picture/GIF */}
               <div className="hero-image-wrapper">
-                <picture style={{ width: '100%', height: '100%', display: 'block' }}>
-                  {slide.mobile_image_url && (
-                    <source media="(max-width: 768px)" srcSet={slide.mobile_image_url} />
-                  )}
-                  <img
-                    src={slide.image_url}
-                    alt={slide.image_alt || slide.title || 'SENO Campaign'}
-                    loading={idx === 0 ? 'eager' : 'lazy'}
-                    decoding={idx === 0 ? 'sync' : 'async'}
-                    fetchPriority={idx === 0 ? 'high' : 'auto'}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      objectPosition: slide.image_focal_point || 'center',
-                      transform: isActive && !prefersReducedMotion ? 'scale(1)' : 'scale(1.02)',
-                      transition: 'transform 4s ease-out'
-                    }}
+                {isVideo ? (
+                  <HeroVideoSlide
+                    slide={slide}
+                    isActive={isActive}
+                    isFirst={idx === 0}
+                    prefersReducedMotion={prefersReducedMotion}
+                    isPaused={isPaused}
                   />
-                </picture>
+                ) : (
+                  <picture style={{ width: '100%', height: '100%', display: 'block' }}>
+                    {slide.mobile_image_url && (
+                      <source media="(max-width: 768px)" srcSet={slide.mobile_image_url} />
+                    )}
+                    <img
+                      src={slide.image_url}
+                      alt={slide.image_alt || slide.title || 'SENO Campaign'}
+                      loading={idx === 0 ? 'eager' : 'lazy'}
+                      decoding={idx === 0 ? 'sync' : 'async'}
+                      fetchPriority={idx === 0 ? 'high' : 'auto'}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        objectPosition: slide.image_focal_point || 'center',
+                        transform: isActive && !prefersReducedMotion ? 'scale(1)' : 'scale(1.02)',
+                        transition: 'transform 4s ease-out'
+                      }}
+                    />
+                  </picture>
+                )}
 
                 {/* Configurable Contrast Overlay */}
                 <div

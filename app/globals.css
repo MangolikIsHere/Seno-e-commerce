@@ -1491,8 +1491,6 @@ a {
   letter-spacing: 0.3px;
 }
 
-.compare-price {
-
   /* ==========================================================================
    ATELIER TRUST & VALUES STRIP
    ========================================================================== */
@@ -1620,8 +1618,7 @@ a {
    ========================================================================== */
   .category-tiles-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    grid-template-rows: auto auto;
+    grid-template-columns: repeat(12, 1fr);
     gap: 16px;
   }
 
@@ -1631,11 +1628,11 @@ a {
 
   .category-tile-card:nth-child(1),
   .category-tile-card:nth-child(2) {
-    grid-column: span 3;
+    grid-column: span 6;
   }
 
   .category-tile-card:nth-child(n + 3) {
-    grid-column: span 2;
+    grid-column: span 3;
   }
 
   @media (max-width: 900px) {
@@ -1696,45 +1693,52 @@ a {
   .category-tile-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.68) 0%, rgba(0, 0, 0, 0.02) 58%);
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.04) 62%);
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.16) 38%, transparent 68%);
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    padding: 24px;
+    padding: 20px 22px;
     color: #ffffff;
+    pointer-events: none;
+    transition: background 0.3s ease;
   }
 
-  .category-tile-badge {
-    display: inline-block;
-    align-self: flex-start;
-    padding: 3.5px 10px;
-    border-radius: 20px;
-    font-size: 8.5px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    border: 1px solid;
-    margin-bottom: 8px;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+  .category-tile-card:hover .category-tile-overlay {
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.22) 42%, transparent 72%);
   }
 
   .category-tile-title {
-    font-family: Georgia, serif;
-    font-size: clamp(17px, 2.2vw, 28px);
-    font-weight: 400;
-    margin: 0 0 4px;
-    letter-spacing: -0.5px;
+    font-family: Georgia, 'Playfair Display', serif;
+    font-size: clamp(16px, 1.8vw, 22px);
+    font-weight: 500;
+    margin: 0;
+    color: #ffffff;
+    letter-spacing: 0.3px;
+    line-height: 1.25;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
   }
 
-  .category-tile-subtitle {
-    font-size: 9.5px;
-    letter-spacing: 1.6px;
-    letter-spacing: 1.4px;
-    text-transform: uppercase;
-    opacity: 0.85;
-    opacity: 0.9;
+  .category-tile-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-size: 13px;
+    transition: transform 0.25s ease, background 0.25s ease;
+  }
+
+  .category-tile-card:hover .category-tile-arrow {
+    transform: translateX(3px);
+    background: rgba(255, 255, 255, 0.28);
   }
 
   @media (max-width: 640px) {
@@ -1744,29 +1748,11 @@ a {
       margin-right: -18px;
       padding-right: 18px;
     }
+  }
 
-    .category-tile-cta {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 9.5px;
-      font-weight: 600;
-      letter-spacing: 1.2px;
-      text-transform: uppercase;
-      margin-top: 8px;
-      color: #FFFFFF;
-      opacity: 0.9;
-      transition: transform 0.2s ease, opacity 0.2s ease;
-    }
-
-    .product-rail::-webkit-scrollbar {
-      display: none;
-    }
-
-    .category-tile-card:hover .category-tile-cta {
-      transform: translateX(3px);
-      opacity: 1;
-    }
+  .product-rail::-webkit-scrollbar {
+    display: none;
+  }
 
     /* ==========================================================================
    BRAND STATEMENT & ATELIER PHILOSOPHY
@@ -1832,27 +1818,23 @@ a {
 
       .category-tile-card:nth-child(n) {
         grid-column: span 1;
-        aspect-ratio: 1 / 1.2;
+        aspect-ratio: 1 / 1.18;
         flex: unset;
-        /* override any flex from old code if necessary */
-      }
-
-      /* 5th item spans both columns */
-      .category-tile-card:nth-child(5) {
-        grid-column: span 2;
-        aspect-ratio: 2 / 1.2;
       }
 
       .category-tile-overlay {
-        padding: 16px;
+        padding: 12px 14px;
       }
 
       .category-tile-title {
-        font-size: clamp(15px, 4vw, 20px);
+        font-size: 14px;
+        letter-spacing: 0.2px;
       }
 
-      .category-tile-subtitle {
-        font-size: 9px;
+      .category-tile-arrow {
+        width: 22px;
+        height: 22px;
+        font-size: 11px;
       }
     }
 

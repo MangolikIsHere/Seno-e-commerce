@@ -20,9 +20,11 @@ import {
   ImageIcon,
   Smartphone,
   Monitor,
-  Check
+  Check,
+  Film,
+  Play
 } from 'lucide-react'
-import type { HeroSlideRecord } from '@/lib/hero-slides-shared'
+import { HeroSlideRecord, resolveSlideMediaType, HeroMediaType } from '@/lib/hero-slides-shared'
 import {
   saveHeroSlideAction,
   deleteHeroSlideAction,
@@ -83,11 +85,19 @@ export function AdminHeroSlidesClient({ initialSlides }: AdminHeroSlidesClientPr
   const [formIsActive, setFormIsActive] = useState<boolean>(true)
   const [formPriority, setFormPriority] = useState<number>(1)
 
+  // Animated Media Fields
+  const [formMediaType, setFormMediaType] = useState<HeroMediaType>('image')
+  const [formVideoUrl, setFormVideoUrl] = useState('')
+  const [formMobileVideoUrl, setFormMobileVideoUrl] = useState('')
+  const [formPosterUrl, setFormPosterUrl] = useState('')
+
   // Upload state
   const desktopFileInputRef = useRef<HTMLInputElement>(null)
   const mobileFileInputRef = useRef<HTMLInputElement>(null)
+  const posterFileInputRef = useRef<HTMLInputElement>(null)
   const [isUploadingDesktop, setIsUploadingDesktop] = useState(false)
   const [isUploadingMobile, setIsUploadingMobile] = useState(false)
+  const [isUploadingPoster, setIsUploadingPoster] = useState(false)
 
   // Preview Mode inside editor
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop')
@@ -109,11 +119,16 @@ export function AdminHeroSlidesClient({ initialSlides }: AdminHeroSlidesClientPr
     setFormOverlayOpacity(25)
     setFormIsActive(true)
     setFormPriority(slides.length + 1)
+    setFormMediaType('image')
+    setFormVideoUrl('')
+    setFormMobileVideoUrl('')
+    setFormPosterUrl('')
     setFeedbackMsg(null)
     setIsEditorOpen(true)
   }
 
   const openEditSlideModal = (slide: HeroSlideRecord) => {
+    const mediaKind = resolveSlideMediaType(slide)
     setEditingSlide(slide)
     setFormTitle(slide.title || '')
     setFormEyebrow(slide.eyebrow || '')
@@ -130,33 +145,76 @@ export function AdminHeroSlidesClient({ initialSlides }: AdminHeroSlidesClientPr
     setFormOverlayOpacity(slide.overlay_opacity ?? 25)
     setFormIsActive(slide.is_active)
     setFormPriority(slide.display_priority)
+    setFormMediaType(mediaKind)
+    setFormVideoUrl(slide.video_url || (mediaKind === 'video' ? slide.image_url : '') || '')
+    setFormMobileVideoUrl(slide.mobile_video_url || '')
+    setFormPosterUrl(slide.poster_url || '')
     setFeedbackMsg(null)
     setIsEditorOpen(true)
   }
 
-  // Upload file handler
-  const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>, isMobile = false) => {
+  // Preset applicator for sample Diwali promotional video
+  const handleApplyDiwaliVideoPreset = () => {
+    setFormMediaType('video')
+    setFormTitle('Diwali Festive Capsule')
+    setFormEyebrow('FESTIVE LIGHTS CAPSULE')
+    setFormHeadline('DIWALI FESTIVE SALE\nCONSIDERED CELEBRATION.')
+    setFormSubheading('Celebrate with handcrafted silks and modern festive drapery.')
+    setFormCtaText('EXPLORE DIWALI EDIT')
+    setFormCtaLink('/collections/all')
+    setFormVideoUrl('/videos/diwali-promo.mp4')
+    setFormPosterUrl('/videos/diwali-promo-poster.jpg')
+    setFormImageUrl('/videos/diwali-promo-poster.jpg')
+    setFormOverlayOpacity(25)
+    setFeedbackMsg({ type: 'success', text: 'Sample Diwali promotional video and poster applied to editor!' })
+  }
+
+  // Upload file handler (supports both videos and images)
+  const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>, kind: 'desktop' | 'mobile' | 'poster' = 'desktop') => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (isMobile) setIsUploadingMobile(true)
+    if (kind === 'mobile') setIsUploadingMobile(true)
+    else if (kind === 'poster') setIsUploadingPoster(true)
     else setIsUploadingDesktop(true)
 
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const res = await fetch('/api/admin/upload-image', { method: 'POST', body: fd })
+      const res = await fetch('/api/admin/upload-hero-media', { method: 'POST', body: fd })
       const data = await res.json()
+
       if (data.url) {
-        if (isMobile) setFormMobileImageUrl(data.url)
-        else setFormImageUrl(data.url)
+        if (kind === 'poster') {
+          setFormPosterUrl(data.url)
+        } else if (kind === 'mobile') {
+          if (data.mediaType === 'video') {
+            setFormMobileVideoUrl(data.url)
+          } else {
+            setFormMobileImageUrl(data.url)
+          }
+        } else {
+          // Desktop upload
+          if (data.mediaType === 'video') {
+            setFormMediaType('video')
+            setFormVideoUrl(data.url)
+          } else if (data.mediaType === 'gif') {
+            setFormMediaType('gif')
+            setFormImageUrl(data.url)
+          } else {
+            setFormMediaType('image')
+            setFormImageUrl(data.url)
+          }
+        }
+        setFeedbackMsg({ type: 'success', text: `Media uploaded successfully (${data.mediaType || 'file'}).` })
       } else if (data.error) {
         setFeedbackMsg({ type: 'error', text: data.error })
       }
     } catch {
-      setFeedbackMsg({ type: 'error', text: 'Image upload failed. Please verify format (JPG, PNG, WebP) and size (<5MB).' })
+      setFeedbackMsg({ type: 'error', text: 'Media upload failed. Please verify format (MP4, WebM, JPG, PNG, GIF) and size limit.' })
     } finally {
-      if (isMobile) setIsUploadingMobile(false)
+      if (kind === 'mobile') setIsUploadingMobile(false)
+      else if (kind === 'poster') setIsUploadingPoster(false)
       else setIsUploadingDesktop(false)
       e.target.value = ''
     }
@@ -173,8 +231,14 @@ export function AdminHeroSlidesClient({ initialSlides }: AdminHeroSlidesClientPr
       setFeedbackMsg({ type: 'error', text: 'Headline is required.' })
       return
     }
-    if (!formImageUrl.trim()) {
-      setFeedbackMsg({ type: 'error', text: 'Desktop background image is required.' })
+
+    const isVideo = formMediaType === 'video'
+    if (isVideo && !formVideoUrl.trim() && !formImageUrl.trim()) {
+      setFeedbackMsg({ type: 'error', text: 'A video URL or uploaded MP4 file is required for video slides.' })
+      return
+    }
+    if (!isVideo && !formImageUrl.trim()) {
+      setFeedbackMsg({ type: 'error', text: 'Desktop background media URL is required.' })
       return
     }
 
@@ -190,7 +254,7 @@ export function AdminHeroSlidesClient({ initialSlides }: AdminHeroSlidesClientPr
         subheading: formSubheading.trim() || null,
         cta_text: formCtaText.trim() || 'SHOP NOW',
         cta_link: formCtaLink.trim() || '/collections/all',
-        image_url: formImageUrl.trim(),
+        image_url: formImageUrl.trim() || formPosterUrl.trim() || formVideoUrl.trim() || '',
         mobile_image_url: formMobileImageUrl.trim() || null,
         image_alt: formImageAlt.trim() || formTitle.trim(),
         image_focal_point: formFocalPoint,
@@ -198,7 +262,11 @@ export function AdminHeroSlidesClient({ initialSlides }: AdminHeroSlidesClientPr
         content_placement: formContentPlacement,
         overlay_opacity: formOverlayOpacity,
         is_active: formIsActive,
-        display_priority: Number(formPriority) || 1
+        display_priority: Number(formPriority) || 1,
+        media_type: formMediaType,
+        video_url: formVideoUrl.trim() || null,
+        mobile_video_url: formMobileVideoUrl.trim() || null,
+        poster_url: formPosterUrl.trim() || null
       }
 
       const res = await saveHeroSlideAction(payload)
@@ -217,12 +285,12 @@ export function AdminHeroSlidesClient({ initialSlides }: AdminHeroSlidesClientPr
         })
 
         setIsEditorOpen(false)
-        setFeedbackMsg({ type: 'success', text: `Slide "${saved.title}" saved successfully. Homepage updated.` })
+        setFeedbackMsg({ type: 'success', text: `Slide "${saved.title}" saved successfully. Storefront updated!` })
       } else {
-        setFeedbackMsg({ type: 'error', text: res.error || 'Failed to save slide.' })
+        setFeedbackMsg({ type: 'error', text: res.error || 'Failed to save hero slide.' })
       }
     } catch (err: any) {
-      setFeedbackMsg({ type: 'error', text: err?.message || 'Unexpected server error while saving slide.' })
+      setFeedbackMsg({ type: 'error', text: err?.message || 'Unexpected error while saving slide.' })
     } finally {
       setIsSubmitting(false)
     }
@@ -528,30 +596,92 @@ export function AdminHeroSlidesClient({ initialSlides }: AdminHeroSlidesClientPr
 
                       {/* Visual Thumbnail */}
                       <td style={{ padding: '16px' }}>
-                        <div style={{ width: '96px', height: '64px', borderRadius: '3px', overflow: 'hidden', background: 'var(--card-bg)', position: 'relative', border: '1px solid var(--border)' }}>
-                          <img
-                            src={slide.image_url}
-                            alt={slide.title}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: slide.image_focal_point || 'center' }}
-                          />
-                          {slide.mobile_image_url && (
-                            <span
-                              title="Has separate mobile image"
-                              style={{
-                                position: 'absolute',
-                                bottom: '2px',
-                                right: '2px',
-                                background: 'rgba(0,0,0,0.7)',
-                                color: '#fff',
-                                padding: '1px 3px',
-                                borderRadius: '2px',
-                                fontSize: '8px'
-                              }}
-                            >
-                              MOB
-                            </span>
-                          )}
-                        </div>
+                        {(() => {
+                          const slideMedia = resolveSlideMediaType(slide)
+                          return (
+                            <div style={{ width: '96px', height: '64px', borderRadius: '3px', overflow: 'hidden', background: 'var(--card-bg)', position: 'relative', border: '1px solid var(--border)' }}>
+                              {slideMedia === 'video' ? (
+                                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                                  {slide.poster_url || (slide.image_url && !slide.image_url.endsWith('.mp4')) ? (
+                                    <img
+                                      src={slide.poster_url || slide.image_url}
+                                      alt={slide.title}
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                  ) : (
+                                    <video
+                                      src={slide.video_url || slide.image_url}
+                                      muted
+                                      preload="metadata"
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                  )}
+                                  <span
+                                    style={{
+                                      position: 'absolute',
+                                      top: '3px',
+                                      left: '3px',
+                                      background: 'var(--terracotta)',
+                                      color: '#fff',
+                                      padding: '1px 5px',
+                                      borderRadius: '2px',
+                                      fontSize: '7.5px',
+                                      fontWeight: 700,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '2px',
+                                      letterSpacing: '0.4px'
+                                    }}
+                                  >
+                                    <Film size={8} /> MP4
+                                  </span>
+                                </div>
+                              ) : (
+                                <img
+                                  src={slide.image_url}
+                                  alt={slide.title}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: slide.image_focal_point || 'center' }}
+                                />
+                              )}
+
+                              {slideMedia === 'gif' && (
+                                <span
+                                  style={{
+                                    position: 'absolute',
+                                    top: '3px',
+                                    left: '3px',
+                                    background: 'var(--dusty-rose)',
+                                    color: '#fff',
+                                    padding: '1px 4px',
+                                    borderRadius: '2px',
+                                    fontSize: '7.5px',
+                                    fontWeight: 700
+                                  }}
+                                >
+                                  GIF
+                                </span>
+                              )}
+
+                              {(slide.mobile_image_url || slide.mobile_video_url) && (
+                                <span
+                                  title="Has separate mobile asset"
+                                  style={{
+                                    position: 'absolute',
+                                    bottom: '2px',
+                                    right: '2px',
+                                    background: 'rgba(0,0,0,0.7)',
+                                    color: '#fff',
+                                    padding: '1px 3px',
+                                    borderRadius: '2px',
+                                    fontSize: '8px'
+                                  }}
+                                >
+                                  MOB
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </td>
 
                       {/* Slide Content */}
@@ -811,98 +941,276 @@ export function AdminHeroSlidesClient({ initialSlides }: AdminHeroSlidesClientPr
                   </div>
                 </div>
 
-                {/* Desktop Background Image & Upload */}
+                {/* Media Type Selector */}
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '6px' }}>
-                    Desktop Background Image *
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    Media Kind *
                   </label>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input
-                      type="url"
-                      required
-                      value={formImageUrl}
-                      onChange={e => setFormImageUrl(e.target.value)}
-                      placeholder="https://..."
-                      style={{ flex: 1 }}
-                    />
-                    <input
-                      type="file"
-                      ref={desktopFileInputRef}
-                      style={{ display: 'none' }}
-                      accept="image/*"
-                      onChange={e => handleUploadFile(e, false)}
-                    />
-                    <button
-                      type="button"
-                      className="outline-btn"
-                      onClick={() => desktopFileInputRef.current?.click()}
-                      disabled={isUploadingDesktop}
-                      style={{ padding: '10px 14px', fontSize: '11px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      <Upload size={13} />
-                      <span>{isUploadingDesktop ? 'Uploading...' : 'Upload'}</span>
-                    </button>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                    {[
+                      { id: 'image', label: 'Static Image', icon: ImageIcon, desc: 'JPG, PNG, WebP banner' },
+                      { id: 'video', label: 'MP4 Video', icon: Film, desc: 'Autoplay, loop, muted' },
+                      { id: 'gif', label: 'Animated GIF', icon: Sparkles, desc: 'Looping lightweight GIF' }
+                    ].map(item => {
+                      const Icon = item.icon
+                      const isSelected = formMediaType === item.id
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setFormMediaType(item.id as HeroMediaType)}
+                          style={{
+                            padding: '10px 12px',
+                            borderRadius: '4px',
+                            border: isSelected ? '1.5px solid var(--ink)' : '1px solid var(--border)',
+                            background: isSelected ? 'var(--surface-subtle)' : '#fff',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: isSelected ? 'var(--ink)' : 'var(--muted)' }}>
+                            <Icon size={13} color={isSelected ? 'var(--terracotta)' : 'currentColor'} />
+                            <span>{item.label}</span>
+                          </div>
+                          <span style={{ fontSize: '9.5px', color: 'var(--muted)' }}>{item.desc}</span>
+                        </button>
+                      )
+                    })}
                   </div>
+                </div>
 
-                  {/* Preset quick selection */}
-                  <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '10px', color: 'var(--muted)', alignSelf: 'center' }}>Presets:</span>
-                    {PRESET_CAMPAIGN_IMAGES.map((preset, pIdx) => (
+                {/* Video Media Controls (When media_type === 'video') */}
+                {formMediaType === 'video' && (
+                  <div style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', borderRadius: '4px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--terracotta)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <Film size={12} /> Video Assets Configuration
+                      </span>
                       <button
-                        key={pIdx}
                         type="button"
-                        onClick={() => setFormImageUrl(preset.url)}
+                        onClick={handleApplyDiwaliVideoPreset}
                         style={{
                           fontSize: '10px',
-                          padding: '3px 8px',
-                          borderRadius: '2px',
-                          border: '1px solid var(--border)',
-                          background: formImageUrl === preset.url ? 'var(--ink)' : 'var(--surface)',
-                          color: formImageUrl === preset.url ? '#fff' : 'var(--muted)',
-                          cursor: 'pointer'
+                          padding: '4px 8px',
+                          borderRadius: '3px',
+                          border: '1px solid var(--champagne-gold)',
+                          background: 'var(--warm-ivory)',
+                          color: 'var(--ink)',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
                         }}
                       >
-                        {preset.label.split(' ')[0]}
+                        <Sparkles size={11} color="var(--terracotta)" /> Sample Diwali MP4
                       </button>
-                    ))}
-                  </div>
-                </div>
+                    </div>
 
-                {/* Mobile Background Image (Optional) */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '4px' }}>
-                    Mobile Background Image (Optional)
-                  </label>
-                  <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>
-                    Provide a portrait-oriented image optimized specifically for smartphones.
-                  </span>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input
-                      type="url"
-                      value={formMobileImageUrl}
-                      onChange={e => setFormMobileImageUrl(e.target.value)}
-                      placeholder="Optional separate mobile image URL"
-                      style={{ flex: 1 }}
-                    />
-                    <input
-                      type="file"
-                      ref={mobileFileInputRef}
-                      style={{ display: 'none' }}
-                      accept="image/*"
-                      onChange={e => handleUploadFile(e, true)}
-                    />
-                    <button
-                      type="button"
-                      className="outline-btn"
-                      onClick={() => mobileFileInputRef.current?.click()}
-                      disabled={isUploadingMobile}
-                      style={{ padding: '10px 14px', fontSize: '11px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      <Upload size={13} />
-                      <span>{isUploadingMobile ? 'Uploading...' : 'Upload'}</span>
-                    </button>
+                    {/* Desktop Video Source */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.6px', textTransform: 'uppercase', marginBottom: '4px' }}>
+                        Desktop Video URL (16:9 MP4 / WebM) *
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          required
+                          value={formVideoUrl}
+                          onChange={e => setFormVideoUrl(e.target.value)}
+                          placeholder="/videos/diwali-promo.mp4 or https://..."
+                          style={{ flex: 1 }}
+                        />
+                        <input
+                          type="file"
+                          ref={desktopFileInputRef}
+                          style={{ display: 'none' }}
+                          accept="video/mp4,video/webm,image/*"
+                          onChange={e => handleUploadFile(e, 'desktop')}
+                        />
+                        <button
+                          type="button"
+                          className="outline-btn"
+                          onClick={() => desktopFileInputRef.current?.click()}
+                          disabled={isUploadingDesktop}
+                          style={{ padding: '10px 14px', fontSize: '11px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <Upload size={13} />
+                          <span>{isUploadingDesktop ? 'Uploading...' : 'Upload MP4'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Mobile Video Source (Optional separate portrait video) */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.6px', textTransform: 'uppercase', marginBottom: '4px' }}>
+                        Mobile Video URL (Optional 9:16 Portrait / Square)
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          value={formMobileVideoUrl}
+                          onChange={e => setFormMobileVideoUrl(e.target.value)}
+                          placeholder="Optional separate mobile portrait video"
+                          style={{ flex: 1 }}
+                        />
+                        <input
+                          type="file"
+                          ref={mobileFileInputRef}
+                          style={{ display: 'none' }}
+                          accept="video/mp4,video/webm"
+                          onChange={e => handleUploadFile(e, 'mobile')}
+                        />
+                        <button
+                          type="button"
+                          className="outline-btn"
+                          onClick={() => mobileFileInputRef.current?.click()}
+                          disabled={isUploadingMobile}
+                          style={{ padding: '10px 14px', fontSize: '11px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <Upload size={13} />
+                          <span>{isUploadingMobile ? 'Uploading...' : 'Upload'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Video Poster Image */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.6px', textTransform: 'uppercase', marginBottom: '4px' }}>
+                        Poster Fallback Image (Shown while loading / if autoplay deferred)
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          value={formPosterUrl}
+                          onChange={e => setFormPosterUrl(e.target.value)}
+                          placeholder="/videos/diwali-promo-poster.jpg or https://..."
+                          style={{ flex: 1 }}
+                        />
+                        <input
+                          type="file"
+                          ref={posterFileInputRef}
+                          style={{ display: 'none' }}
+                          accept="image/*"
+                          onChange={e => handleUploadFile(e, 'poster')}
+                        />
+                        <button
+                          type="button"
+                          className="outline-btn"
+                          onClick={() => posterFileInputRef.current?.click()}
+                          disabled={isUploadingPoster}
+                          style={{ padding: '10px 14px', fontSize: '11px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <Upload size={13} />
+                          <span>{isUploadingPoster ? 'Uploading...' : 'Upload'}</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Static Image / GIF Controls */}
+                {formMediaType !== 'video' && (
+                  <>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '6px' }}>
+                        {formMediaType === 'gif' ? 'Desktop Animated GIF URL *' : 'Desktop Background Image *'}
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="url"
+                          required
+                          value={formImageUrl}
+                          onChange={e => setFormImageUrl(e.target.value)}
+                          placeholder={formMediaType === 'gif' ? 'https://...banner.gif' : 'https://...'}
+                          style={{ flex: 1 }}
+                        />
+                        <input
+                          type="file"
+                          ref={desktopFileInputRef}
+                          style={{ display: 'none' }}
+                          accept={formMediaType === 'gif' ? 'image/gif,image/*' : 'image/*'}
+                          onChange={e => handleUploadFile(e, 'desktop')}
+                        />
+                        <button
+                          type="button"
+                          className="outline-btn"
+                          onClick={() => desktopFileInputRef.current?.click()}
+                          disabled={isUploadingDesktop}
+                          style={{ padding: '10px 14px', fontSize: '11px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <Upload size={13} />
+                          <span>{isUploadingDesktop ? 'Uploading...' : 'Upload'}</span>
+                        </button>
+                      </div>
+
+                      {/* Preset quick selection */}
+                      {formMediaType === 'image' && (
+                        <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '10px', color: 'var(--muted)', alignSelf: 'center' }}>Presets:</span>
+                          {PRESET_CAMPAIGN_IMAGES.map((preset, pIdx) => (
+                            <button
+                              key={pIdx}
+                              type="button"
+                              onClick={() => setFormImageUrl(preset.url)}
+                              style={{
+                                fontSize: '10px',
+                                padding: '3px 8px',
+                                borderRadius: '2px',
+                                border: '1px solid var(--border)',
+                                background: formImageUrl === preset.url ? 'var(--ink)' : 'var(--surface)',
+                                color: formImageUrl === preset.url ? '#fff' : 'var(--muted)',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {preset.label.split(' ')[0]}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Mobile Background Image (Optional) */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '4px' }}>
+                        Mobile {formMediaType === 'gif' ? 'GIF' : 'Image'} (Optional Portrait Asset)
+                      </label>
+                      <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>
+                        Provide a portrait-oriented asset optimized specifically for mobile smartphones.
+                      </span>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="url"
+                          value={formMobileImageUrl}
+                          onChange={e => setFormMobileImageUrl(e.target.value)}
+                          placeholder="Optional separate mobile media URL"
+                          style={{ flex: 1 }}
+                        />
+                        <input
+                          type="file"
+                          ref={mobileFileInputRef}
+                          style={{ display: 'none' }}
+                          accept={formMediaType === 'gif' ? 'image/gif,image/*' : 'image/*'}
+                          onChange={e => handleUploadFile(e, 'mobile')}
+                        />
+                        <button
+                          type="button"
+                          className="outline-btn"
+                          onClick={() => mobileFileInputRef.current?.click()}
+                          disabled={isUploadingMobile}
+                          style={{ padding: '10px 14px', fontSize: '11px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <Upload size={13} />
+                          <span>{isUploadingMobile ? 'Uploading...' : 'Upload'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Focal Point, Alignment, Placement, and Overlay */}
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '14px' }}>
@@ -1081,17 +1389,35 @@ export function AdminHeroSlidesClient({ initialSlides }: AdminHeroSlidesClientPr
                     border: '1px solid var(--border)'
                   }}
                 >
-                  {/* Image */}
-                  <img
-                    src={(previewDevice === 'mobile' && formMobileImageUrl) ? formMobileImageUrl : formImageUrl}
-                    alt={formTitle}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      objectPosition: formFocalPoint || 'center'
-                    }}
-                  />
+                  {/* Media (Video or Image/GIF) */}
+                  {formMediaType === 'video' ? (
+                    <video
+                      key={(previewDevice === 'mobile' && formMobileVideoUrl) ? formMobileVideoUrl : (formVideoUrl || formImageUrl)}
+                      src={(previewDevice === 'mobile' && formMobileVideoUrl) ? formMobileVideoUrl : (formVideoUrl || formImageUrl)}
+                      poster={formPosterUrl || formImageUrl}
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        objectPosition: formFocalPoint || 'center'
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={(previewDevice === 'mobile' && formMobileImageUrl) ? formMobileImageUrl : formImageUrl}
+                      alt={formTitle}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        objectPosition: formFocalPoint || 'center'
+                      }}
+                    />
+                  )}
 
                   {/* Tint Overlay */}
                   <div

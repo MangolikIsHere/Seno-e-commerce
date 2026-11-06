@@ -8,7 +8,7 @@ import { supabase as publicSupabase } from '@/lib/supabase'
 import { getAdminSupabase } from '@/lib/supabaseAdmin'
 import { createClient as createServerSupabase } from '@/utils/supabase/server'
 import { checkIsAdmin } from '@/lib/admin'
-import { HeroSlideRecord, DEFAULT_HERO_SLIDE } from './hero-slides-shared'
+import { HeroSlideRecord, DEFAULT_HERO_SLIDE, resolveSlideMediaType } from './hero-slides-shared'
 
 export type { HeroSlideRecord }
 
@@ -125,6 +125,20 @@ export async function getAllHeroSlides(): Promise<HeroSlideRecord[]> {
   return readLocalHeroSlides()
 }
 
+function isSlideCurrentlyScheduled(slide: HeroSlideRecord): boolean {
+  if (!slide.is_active) return false
+  const now = Date.now()
+  if (slide.start_date) {
+    const start = new Date(slide.start_date).getTime()
+    if (!isNaN(start) && now < start) return false
+  }
+  if (slide.end_date) {
+    const end = new Date(slide.end_date).getTime()
+    if (!isNaN(end) && now > end) return false
+  }
+  return true
+}
+
 /**
  * Direct retriever for active hero slides.
  */
@@ -139,8 +153,9 @@ export async function getActiveHeroSlides(): Promise<HeroSlideRecord[]> {
       .order('created_at', { ascending: true })
 
     if (!error && Array.isArray(data)) {
-      if (data.length > 0) {
-        return data
+      const scheduled = data.filter(isSlideCurrentlyScheduled)
+      if (scheduled.length > 0) {
+        return scheduled
       }
       return [DEFAULT_HERO_SLIDE]
     }
@@ -152,7 +167,7 @@ export async function getActiveHeroSlides(): Promise<HeroSlideRecord[]> {
   }
 
   const local = readLocalHeroSlides()
-  const active = local.filter(s => s.is_active)
+  const active = local.filter(isSlideCurrentlyScheduled)
   return active.length > 0 ? active : [DEFAULT_HERO_SLIDE]
 }
 
@@ -191,8 +206,19 @@ export async function saveHeroSlideAction(
   if (!slideData.headline || slideData.headline.trim() === '') {
     return { success: false, error: 'Slide headline is required.' }
   }
-  if (!slideData.image_url || slideData.image_url.trim() === '') {
-    return { success: false, error: 'Desktop background image is required.' }
+
+  const mediaType = resolveSlideMediaType(slideData)
+  const isVideo = mediaType === 'video'
+
+  const desktopVideo = slideData.video_url?.trim() || (isVideo && slideData.image_url?.trim()) || null
+  const posterUrl = slideData.poster_url?.trim() || (!isVideo ? null : (slideData.image_url?.trim() && !slideData.image_url.toLowerCase().endsWith('.mp4') ? slideData.image_url.trim() : null))
+  const desktopImage = !isVideo ? (slideData.image_url?.trim() || '') : (posterUrl || desktopVideo || '')
+
+  if (!desktopImage && !desktopVideo) {
+    return {
+      success: false,
+      error: isVideo ? 'A video URL or poster image is required.' : 'Desktop background media is required.'
+    }
   }
 
   const id = normalizeSlideId(slideData.id)
@@ -206,7 +232,7 @@ export async function saveHeroSlideAction(
     subheading: slideData.subheading ? slideData.subheading.trim() : null,
     cta_text: slideData.cta_text && slideData.cta_text.trim() ? slideData.cta_text.trim() : 'SHOP NOW',
     cta_link: slideData.cta_link && slideData.cta_link.trim() ? slideData.cta_link.trim() : '/collections/all',
-    image_url: slideData.image_url.trim(),
+    image_url: desktopImage || desktopVideo || '',
     mobile_image_url: slideData.mobile_image_url && slideData.mobile_image_url.trim() ? slideData.mobile_image_url.trim() : null,
     image_alt: slideData.image_alt ? slideData.image_alt.trim() : slideData.title.trim(),
     image_focal_point: slideData.image_focal_point || 'center',
@@ -215,6 +241,12 @@ export async function saveHeroSlideAction(
     overlay_opacity: typeof slideData.overlay_opacity === 'number' ? slideData.overlay_opacity : 25,
     is_active: slideData.is_active ?? true,
     display_priority: typeof slideData.display_priority === 'number' ? slideData.display_priority : 1,
+    media_type: mediaType,
+    video_url: desktopVideo,
+    mobile_video_url: slideData.mobile_video_url && slideData.mobile_video_url.trim() ? slideData.mobile_video_url.trim() : null,
+    poster_url: posterUrl,
+    start_date: slideData.start_date || null,
+    end_date: slideData.end_date || null,
     created_at: slideData.created_at || now,
     updated_at: now
   }

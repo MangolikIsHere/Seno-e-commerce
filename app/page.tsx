@@ -1,7 +1,6 @@
 import React from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { AtelierTrustBar } from '@/components/AtelierTrustBar'
 import { ProductCard } from '@/components/ProductCard'
 import { ProductCarousel } from '@/components/ProductCarousel'
 import { SenoImage } from '@/components/SenoImage'
@@ -174,9 +173,6 @@ export default async function HomePage() {
       />
       {/* 1. HERO CAROUSEL */}
       <HeroCarousel slides={heroSlides} featuredPromotions={featuredPromotions} />
-
-      {/* 1b. ATELIER TRUST & CRAFT STRIP */}
-      <AtelierTrustBar />
 
       {/* 2. NEW ARRIVALS */}
       <section className="section-padding" id="new-arrivals">
