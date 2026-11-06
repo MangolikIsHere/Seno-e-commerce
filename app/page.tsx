@@ -1,6 +1,7 @@
 import React from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { AtelierTrustBar } from '@/components/AtelierTrustBar'
 import { ProductCard } from '@/components/ProductCard'
 import { ProductCarousel } from '@/components/ProductCarousel'
 import { SenoImage } from '@/components/SenoImage'
@@ -105,36 +106,65 @@ export default async function HomePage() {
     promotionBadges[product.id] = getProductBadge(product)
   }
 
-  const categoryPresentation: Record<string, { subtitle: string; className?: string }> = {
-    'ethnic-traditional-wear': {
-      subtitle: 'Heritage silhouettes & modern craft',
-      className: 'category-tile-feature'
+    const categoryPresentation: Record<string, { subtitle: string; tag: string; tagColor: string; tagBg: string; className ?: string }> = {
+      'ethnic-traditional-wear': {
+        subtitle: 'Heritage silhouettes & artisanal craft',
+        tag: 'HERITAGE CRAFT',
+        tagColor: 'var(--terracotta)',
+        tagBg: 'var(--terracotta-soft)',
+        className: 'category-tile-feature'
     },
-    western: {
-      subtitle: 'Contemporary everyday forms',
-      className: 'category-tile-feature'
+      western: {
+        subtitle: 'Contemporary silhouettes & modern tailoring',
+        tag: 'CONTEMPORARY',
+        tagColor: 'var(--deep-blue)',
+        tagBg: 'var(--deep-blue-soft)',
+        className: 'category-tile-feature'
     },
-    topwear: {
-      subtitle: 'Shirts, tees & elevated essentials'
+      topwear: {
+      subtitle: 'Shirts, tees & elevated essentials',
+        tag: 'ELEVATED ESSENTIALS',
+        tagColor: 'var(--sage-green)',
+        tagBg: 'var(--sage-green-soft)'
     },
-    bottomwear: {
-      subtitle: 'Denim, trousers & modern separates'
+      bottomwear: {
+      subtitle: 'Denim, trousers & modern separates',
+        tag: 'ARCHITECTURAL SEPARATES',
+        tagColor: 'var(--charcoal)',
+        tagBg: 'var(--charcoal-soft)'
     },
-    cosmetics: {
-      subtitle: 'Beauty, care & finishing touches'
+      cosmetics: {
+      subtitle: 'Beauty, care & finishing touches',
+        tag: 'THE BEAUTY EDIT',
+        tagColor: 'var(--dusty-rose)',
+        tagBg: 'var(--dusty-rose-soft)'
     },
-    accessories: {
-      subtitle: 'Gold-plated jewellery & finishing accents'
+      accessories: {
+      subtitle: 'Gold-plated jewellery & finishing accents',
+        tag: 'GOLD ACCENTS',
+        tagColor: 'var(--champagne-gold)',
+        tagBg: 'var(--champagne-soft)'
     }
-  }
+    }
 
-  const categoryTiles = categories.map(category => ({
-    title: category.name.toUpperCase(),
-    subtitle: categoryPresentation[category.slug]?.subtitle || category.description || 'Explore the current SENO collection.',
-    image: category.image_url || '/placeholder.jpg',
-    href: `/collections/${category.slug}`,
-    className: categoryPresentation[category.slug]?.className
-  }))
+  const categoryTiles = categories.map(category => {
+    const meta = categoryPresentation[category.slug] || {
+      subtitle: category.description || 'Explore the current SENO collection.',
+      tag: 'CURATED CAPSULE',
+      tagColor: 'var(--champagne-gold)',
+      tagBg: 'var(--champagne-soft)'
+    }
+    return {
+      title: category.name.toUpperCase(),
+      subtitle: meta.subtitle,
+      tag: meta.tag,
+      tagColor: meta.tagColor,
+      tagBg: meta.tagBg,
+      image: category.image_url || '/placeholder.jpg',
+      href: `/collections/${category.slug}`,
+      className: meta.className
+    }
+  })
 
   return (
     <div className="homepage-storefront">
@@ -145,11 +175,17 @@ export default async function HomePage() {
       {/* 1. HERO CAROUSEL */}
       <HeroCarousel slides={heroSlides} featuredPromotions={featuredPromotions} />
 
+      {/* 1b. ATELIER TRUST & CRAFT STRIP */}
+      <AtelierTrustBar />
+
       {/* 2. NEW ARRIVALS */}
       <section className="section-padding" id="new-arrivals">
         <div className="section-header-flex">
           <div>
-            <span className="section-kicker">CURATED RELEASES</span>
+            <span className="section-kicker" style={{ color: 'var(--sage-green)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--sage-green)', display: 'inline-block' }}></span>
+              CURATED RELEASES
+            </span>
             <h2 className="section-title">New Arrivals</h2>
           </div>
           <Link href="/collections/new-arrivals" className="view-all-link">
@@ -172,7 +208,7 @@ export default async function HomePage() {
           <div>
             <span className="section-kicker bestseller-kicker" style={{ color: 'var(--champagne-gold, #D7AE70)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--champagne-gold, #D7AE70)', display: 'inline-block' }}></span>
-              ESSENTIAL STAPLES
+              ESSENTIAL STAPLES • MOST COVETED
             </span>
             <h2 className="section-title">Bestsellers</h2>
           </div>
@@ -194,7 +230,10 @@ export default async function HomePage() {
       <section className="section-padding category-section" id="shop-by-category">
         <div className="section-header-flex">
           <div>
-            <span className="section-kicker">THE SEASONAL WARDROBE</span>
+            <span className="section-kicker" style={{ color: 'var(--terracotta)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--terracotta)', display: 'inline-block' }}></span>
+              THE SEASONAL WARDROBE • CAPSULES
+            </span>
             <h2 className="section-title">Shop by Category</h2>
           </div>
         </div>
@@ -205,8 +244,21 @@ export default async function HomePage() {
               <Link href={cat.href} key={cat.title} className={`category-tile-card ${cat.className || ''}`}>
                 <SenoImage src={cat.image} alt={cat.title ? `SENO ${cat.title} collection` : 'SENO collection'} className="category-tile-img" />
                 <div className="category-tile-overlay">
+                  <span
+                    className="category-tile-badge"
+                    style={{
+                      backgroundColor: cat.tagBg,
+                      color: cat.tagColor,
+                      borderColor: cat.tagColor,
+                    }}
+                  >
+                    {cat.tag}
+                  </span>
                   <h3 className="category-tile-title">{cat.title}</h3>
                   <span className="category-tile-subtitle">{cat.subtitle}</span>
+                  <span className="category-tile-cta">
+                    EXPLORE CAPSULE <span aria-hidden="true">→</span>
+                  </span>
                 </div>
               </Link>
             ))}
@@ -260,23 +312,23 @@ export default async function HomePage() {
           <p>
             Elevate your everyday routine with our curated selection of premium beauty essentials.
           </p>
-            <Link
-              href="/collections/cosmetics"
-              className="dark-btn"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '15px 34px',
-                letterSpacing: '1.4px',
-                background: 'linear-gradient(135deg, var(--dusty-rose) 0%, #A95869 100%)',
-                borderColor: 'rgba(215, 174, 112, 0.4)',
-                color: '#ffffff',
-                boxShadow: '0 4px 16px rgba(201, 130, 145, 0.35)'
-              }}
-            >
-              <span>SHOP COSMETICS</span> <span>→</span>
-            </Link>
+          <Link
+            href="/collections/cosmetics"
+            className="dark-btn"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '15px 34px',
+              letterSpacing: '1.4px',
+              background: 'linear-gradient(135deg, var(--dusty-rose) 0%, #A95869 100%)',
+              borderColor: 'rgba(215, 174, 112, 0.4)',
+              color: '#ffffff',
+              boxShadow: '0 4px 16px rgba(201, 130, 145, 0.35)'
+            }}
+          >
+            <span>SHOP COSMETICS</span> <span>→</span>
+          </Link>
         </div>
       </section>
 
@@ -294,15 +346,27 @@ export default async function HomePage() {
       )}
 
       {/* 7. BRAND STATEMENT */}
-      <section className="brand-statement-section">
-        <span className="section-kicker">OUR PHILOSOPHY</span>
-        <h2 className="brand-statement-heading">
-          CONSIDERED CLOTHING FOR EVERYDAY LIFE.
-        </h2>
-        <p className="brand-statement-copy">
-          Designed in Mumbai for a life in perpetual motion. We balance precise architectural drape with durable natural textiles meant for continuous daily wear.
-        </p>
-      </section>
+        <section className="brand-statement-section" id="atelier-philosophy">
+          <div className="brand-statement-card">
+            <div className="brand-seal-badge">
+              <span>SENO ATELIER</span>
+              <span className="brand-seal-dot">•</span>
+              <span>MUMBAI</span>
+            </div>
+            <span className="section-kicker" style={{ color: 'var(--champagne-gold)' }}>OUR ATELIER PHILOSOPHY</span>
+            <h2 className="brand-statement-heading">
+              CONSIDERED CLOTHING FOR EVERYDAY LIFE.
+            </h2>
+            <p className="brand-statement-copy">
+              Designed in Mumbai for a life in perpetual motion. We balance precise architectural drape with durable natural textiles meant for continuous daily wear.
+            </p>
+            <div className="brand-statement-footer">
+              <span className="brand-coords">18.9220° N, 72.8347° E</span>
+              <span className="brand-coords-sep">•</span>
+              <span className="brand-coords">COLABA ATELIER</span>
+            </div>
+          </div>
+        </section>
     </div>
   )
 }
