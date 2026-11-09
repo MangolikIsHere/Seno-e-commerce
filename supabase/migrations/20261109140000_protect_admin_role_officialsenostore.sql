@@ -40,3 +40,4 @@ $$;
 UPDATE public.profiles
 SET role = 'admin'
 WHERE email = 'officialsenostore@gmail.com';
+
