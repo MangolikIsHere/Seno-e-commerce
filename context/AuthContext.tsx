@@ -54,6 +54,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq('id', session.user.id)
           .single()
         if (cancelled || !mountedRef.current) return
+        if (data) {
+          const userEmail = (data.email || session.user.email || '').toLowerCase()
+          if (['admin@seno-luxury.com', 'admin.seno@gmail.com', 'debnathmangolik@gmail.com', 'officialsenostore@gmail.com'].includes(userEmail)) {
+            data.role = 'admin'
+          }
+        }
         setProfile(data)
       } else {
         if (!mountedRef.current) return
@@ -78,6 +84,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .eq('id', currentSession.user.id)
             .single()
           if (!mountedRef.current) return
+          if (data) {
+            const userEmail = (data.email || currentSession.user.email || '').toLowerCase()
+            if (['admin@seno-luxury.com', 'admin.seno@gmail.com', 'debnathmangolik@gmail.com', 'officialsenostore@gmail.com'].includes(userEmail)) {
+              data.role = 'admin'
+            }
+          }
           setProfile(data)
         } else {
           if (!mountedRef.current) return

@@ -37,6 +37,9 @@ export function AccountShell({ children, title, subtitle }: AccountShellProps) {
   const { unreadCount } = useNotifications()
   const supabase = createClient()
 
+  const isAdmin = profile?.role === 'admin' ||
+    ['admin@seno-luxury.com', 'admin.seno@gmail.com', 'debnathmangolik@gmail.com', 'officialsenostore@gmail.com'].includes(profile?.email?.toLowerCase() || '')
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/account')
@@ -70,7 +73,7 @@ export function AccountShell({ children, title, subtitle }: AccountShellProps) {
 
           {/* Quick Role Elevation Switcher */}
           <div className="account-shell-actions">
-            {profile?.role === 'admin' && (
+            {isAdmin && (
               <Link href="/admin/dashboard" className="button button-primary" style={{ fontSize: '12px', padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <ShieldCheck size={14} />
                 <span>Admin Console</span>
@@ -78,7 +81,7 @@ export function AccountShell({ children, title, subtitle }: AccountShellProps) {
               </Link>
             )}
 
-            {profile?.role === 'reseller' && (
+            {!isAdmin && profile?.role === 'reseller' && (
               <Link href="/seller/dashboard" className="button button-primary" style={{ fontSize: '12px', padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <Store size={14} />
                 <span>Seller Portal</span>
@@ -86,7 +89,7 @@ export function AccountShell({ children, title, subtitle }: AccountShellProps) {
               </Link>
             )}
 
-            {profile?.role === 'customer' && (
+            {!isAdmin && profile?.role === 'customer' && (
               <Link href="/seller/register" className="button button-outline" style={{ fontSize: '12px', padding: '8px 14px' }}>
                 Sell with SENO
               </Link>

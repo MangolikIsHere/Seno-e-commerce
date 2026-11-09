@@ -193,8 +193,15 @@ export async function acceptCommissionProposal(proposalId: string) {
 
   if (sellerError) throw new Error(sellerError.message)
 
-  // Elevate user role
-  await adminSupabase.from('profiles').update({ role: 'reseller' }).eq('id', seller.user_id)
+  // Elevate user role if not already an admin
+  if (seller.user_id) {
+    const { data: userProf } = await adminSupabase.from('profiles').select('role, email').eq('id', seller.user_id).single()
+    const isAdminUser = userProf?.role === 'admin' ||
+      ['admin@seno-luxury.com', 'admin.seno@gmail.com', 'debnathmangolik@gmail.com', 'officialsenostore@gmail.com'].includes(userProf?.email?.toLowerCase() || '')
+    if (!isAdminUser) {
+      await adminSupabase.from('profiles').update({ role: 'reseller' }).eq('id', seller.user_id)
+    }
+  }
 
   revalidatePath('/seller/dashboard')
   revalidatePath('/account')

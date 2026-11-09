@@ -262,8 +262,13 @@ export async function updateSellerStatus(sellerId: string, status: string, commi
 
   if (status === 'approved') {
     const { data: seller } = await supabase.from('sellers').select('user_id').eq('id', sellerId).single()
-    if (seller) {
-      await supabase.from('profiles').update({ role: 'reseller' }).eq('id', seller.user_id)
+    if (seller?.user_id) {
+      const { data: prof } = await supabase.from('profiles').select('role, email').eq('id', seller.user_id).single()
+      const isAdmin = prof?.role === 'admin' ||
+        ['admin@seno-luxury.com', 'admin.seno@gmail.com', 'debnathmangolik@gmail.com', 'officialsenostore@gmail.com'].includes(prof?.email?.toLowerCase() || '')
+      if (!isAdmin) {
+        await supabase.from('profiles').update({ role: 'reseller' }).eq('id', seller.user_id)
+      }
     }
   }
 
