@@ -105,60 +105,68 @@ export default async function HomePage() {
     promotionBadges[product.id] = getProductBadge(product)
   }
 
-    const categoryPresentation: Record<string, { subtitle: string; tag: string; tagColor: string; tagBg: string; className ?: string }> = {
+    const categoryPresentation: Record<
+      string,
+      {
+        eyebrow: string
+        title?: string
+        subtitle: string
+        eyebrowColor?: string
+        className?: string
+      }
+    > = {
       'ethnic-traditional-wear': {
-        subtitle: 'Heritage silhouettes & artisanal craft',
-        tag: 'HERITAGE CRAFT',
-        tagColor: 'var(--terracotta)',
-        tagBg: 'var(--terracotta-soft)',
+        eyebrow: 'HERITAGE CRAFT',
+        title: 'ETHNIC & TRADITIONAL WEAR',
+        subtitle: 'Heritage silhouettes and artisanal craftsmanship.',
+        eyebrowColor: 'var(--champagne-gold, #D7AE70)',
         className: 'category-tile-feature'
-    },
+      },
       western: {
-        subtitle: 'Contemporary silhouettes & modern tailoring',
-        tag: 'CONTEMPORARY',
-        tagColor: 'var(--deep-blue)',
-        tagBg: 'var(--deep-blue-soft)',
+        eyebrow: 'CONTEMPORARY',
+        title: 'WESTERN WEAR',
+        subtitle: 'Modern tailoring & contemporary silhouettes.',
+        eyebrowColor: 'var(--champagne-gold, #D7AE70)',
         className: 'category-tile-feature'
-    },
+      },
       topwear: {
-      subtitle: 'Shirts, tees & elevated essentials',
-        tag: 'ELEVATED ESSENTIALS',
-        tagColor: 'var(--sage-green)',
-        tagBg: 'var(--sage-green-soft)'
-    },
+        eyebrow: 'ELEVATED ESSENTIALS',
+        title: 'TOPWEAR',
+        subtitle: 'Shirts, tees and elevated essentials.',
+        eyebrowColor: 'var(--champagne-gold, #D7AE70)'
+      },
       bottomwear: {
-      subtitle: 'Denim, trousers & modern separates',
-        tag: 'ARCHITECTURAL SEPARATES',
-        tagColor: 'var(--charcoal)',
-        tagBg: 'var(--charcoal-soft)'
-    },
+        eyebrow: 'ARCHITECTURAL SEPARATES',
+        title: 'BOTTOMWEAR',
+        subtitle: 'Denim, trousers and modern separates.',
+        eyebrowColor: 'var(--champagne-gold, #D7AE70)'
+      },
       cosmetics: {
-      subtitle: 'Beauty, care & finishing touches',
-        tag: 'THE BEAUTY EDIT',
-        tagColor: 'var(--dusty-rose)',
-        tagBg: 'var(--dusty-rose-soft)'
-    },
+        eyebrow: 'THE BEAUTY EDIT',
+        title: 'COSMETICS',
+        subtitle: 'Curated skincare, beauty and essentials.',
+        eyebrowColor: 'var(--champagne-gold, #D7AE70)'
+      },
       accessories: {
-      subtitle: 'Gold-plated jewellery & finishing accents',
-        tag: 'GOLD ACCENTS',
-        tagColor: 'var(--champagne-gold)',
-        tagBg: 'var(--champagne-soft)'
-    }
+        eyebrow: 'GOLD ACCENTS',
+        title: 'ACCESSORIES',
+        subtitle: 'Handcrafted jewelry and statement accents.',
+        eyebrowColor: 'var(--champagne-gold, #D7AE70)'
+      }
     }
 
-  const categoryTiles = categories.map(category => {
+  const categoryTiles = categories.map((category) => {
     const meta = categoryPresentation[category.slug] || {
+      eyebrow: 'CURATED CAPSULE',
+      title: category.name.toUpperCase(),
       subtitle: category.description || 'Explore the current SENO collection.',
-      tag: 'CURATED CAPSULE',
-      tagColor: 'var(--champagne-gold)',
-      tagBg: 'var(--champagne-soft)'
+      eyebrowColor: 'var(--champagne-gold, #D7AE70)'
     }
     return {
-      title: category.name.toUpperCase(),
+      eyebrow: meta.eyebrow,
+      title: meta.title || category.name.toUpperCase(),
       subtitle: meta.subtitle,
-      tag: meta.tag,
-      tagColor: meta.tagColor,
-      tagBg: meta.tagBg,
+      eyebrowColor: meta.eyebrowColor || 'var(--champagne-gold, #D7AE70)',
       image: category.image_url || '/placeholder.jpg',
       href: `/collections/${category.slug}`,
       className: meta.className
@@ -240,21 +248,17 @@ export default async function HomePage() {
               <Link href={cat.href} key={cat.title} className={`category-tile-card ${cat.className || ''}`}>
                 <SenoImage src={cat.image} alt={cat.title ? `SENO ${cat.title} collection` : 'SENO collection'} className="category-tile-img" />
                 <div className="category-tile-overlay">
-                  <span
-                    className="category-tile-badge"
-                    style={{
-                      backgroundColor: cat.tagBg,
-                      color: cat.tagColor,
-                      borderColor: cat.tagColor,
-                    }}
-                  >
-                    {cat.tag}
-                  </span>
-                  <h3 className="category-tile-title">{cat.title}</h3>
-                  <span className="category-tile-subtitle">{cat.subtitle}</span>
-                  <span className="category-tile-cta">
-                    EXPLORE CAPSULE <span aria-hidden="true">→</span>
-                  </span>
+                  <div className="category-tile-content">
+                    <span className="category-tile-eyebrow" style={{ color: cat.eyebrowColor }}>
+                      {cat.eyebrow}
+                    </span>
+                    <h3 className="category-tile-title">{cat.title}</h3>
+                    <p className="category-tile-subtitle">{cat.subtitle}</p>
+                    <div className="category-tile-cta">
+                      <span>EXPLORE COLLECTION</span>
+                      <span className="category-tile-arrow" aria-hidden="true">→</span>
+                    </div>
+                  </div>
                 </div>
               </Link>
             ))}
