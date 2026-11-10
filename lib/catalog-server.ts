@@ -77,7 +77,7 @@ const fetchNewArrivalsCached = unstable_cache(
     return getNewArrivals(limit)
   },
   ['seno-new-arrivals-cache'],
-  { revalidate: 300, tags: ['products'] }
+  { revalidate: 60, tags: ['products', 'new-arrivals'] }
 )
 
 export const getCachedNewArrivals = cache(async (limit = 8): Promise<Product[]> => {
@@ -96,7 +96,7 @@ const fetchBestsellersCached = unstable_cache(
     return getBestsellers(limit)
   },
   ['seno-bestsellers-cache'],
-  { revalidate: 300, tags: ['products'] }
+  { revalidate: 60, tags: ['products', 'bestsellers'] }
 )
 
 export const getCachedBestsellers = cache(async (limit = 8): Promise<Product[]> => {
@@ -113,23 +113,31 @@ export const getCachedBestsellers = cache(async (limit = 8): Promise<Product[]> 
 export function invalidateProductCache(slug?: string) {
   try {
     updateTag('products')
+    updateTag('bestsellers')
+    updateTag('new-arrivals')
   } catch {
-    try {
-      revalidateTag('products', 'seconds')
-    } catch {
-      // outside request context
-    }
+    // outside Server Action context
+  }
+
+  try {
+    revalidateTag('products', 'seconds')
+    revalidateTag('bestsellers', 'seconds')
+    revalidateTag('new-arrivals', 'seconds')
+  } catch {
+    // outside request context
   }
 
   if (slug) {
     try {
       updateTag(`product-${slug}`)
     } catch {
-      try {
-        revalidateTag(`product-${slug}`, 'seconds')
-      } catch {
-        // outside request context
-      }
+      // outside Server Action context
+    }
+
+    try {
+      revalidateTag(`product-${slug}`, 'seconds')
+    } catch {
+      // outside request context
     }
   }
 }

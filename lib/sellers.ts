@@ -490,325 +490,352 @@ export async function getSellerEarningsData() {
   }
 }
 
-export async function submitSellerProduct(formData: FormData, images: any[], variants: any[], productId?: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('You must be logged in to create or edit a product.')
-  }
-
-  const seller = await getMySellerRecord()
-
-  if (!seller) {
-    throw new Error('No approved seller account is associated with your account.')
-  }
-
-  if (seller.seller_status !== 'approved') {
-    throw new Error('Your seller application must be approved before you can create products.')
-  }
-
-  if (seller.seller_type !== 'reseller') {
-    throw new Error('Only registered reseller accounts can create products via Seller Studio.')
-  }
-
-  // Reject any malicious client-supplied seller_id
-  const clientProvidedSellerId = formData.get('seller_id')
-  if (clientProvidedSellerId && clientProvidedSellerId !== seller.id) {
-    throw new Error('Unauthorized: You cannot specify or tamper with seller_id.')
-  }
-
-  const name = formData.get('name') as string
-  const slug = formData.get('slug') as string
-  const description = formData.get('description') as string
-  const price = parseFloat(formData.get('price') as string)
-  const compare_at_price = formData.get('compare_at_price') ? parseFloat(formData.get('compare_at_price') as string) : null
-  const default_weight_grams = parseFloat(formData.get('weight') as string) || 500
-  const shipping_method = formData.get('shipping_method') === 'custom' ? 'custom' : 'weight_based'
-  const custom_delivery_charge = formData.get('custom_delivery_charge') ? parseFloat(formData.get('custom_delivery_charge') as string) : null
-  const expected_delivery_days = normalizeDeliveryDays(formData.get('expected_delivery_days') as string | null)
-  const category_id = formData.get('category_id') as string
-  const collection_ids = JSON.parse(String(formData.get('collection_ids') || '[]')) as string[]
-
-  const is_returnable = formData.get('is_returnable') === 'false' ? false : true
-  const return_window_days = is_returnable ? (parseInt(formData.get('return_window_days') as string, 10) || 14) : 0
-  const return_policy_notes = (formData.get('return_policy_notes') as string) || ''
-
-  let baseDetails: any[] = []
+export async function submitSellerProduct(formData: FormData, images: any[], variants: any[], productId?: string): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
-    const rawDetails = formData.get('details') as string
-    if (rawDetails) {
-      baseDetails = JSON.parse(rawDetails)
-      if (!Array.isArray(baseDetails)) baseDetails = []
-    }
-  } catch {
-    baseDetails = []
-  }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  const cleanDetails = baseDetails.filter((d: any) => {
-    if (typeof d === 'string') {
-      return !d.toLowerCase().startsWith('return policy:')
+    if (!user) {
+      return { success: false, error: 'You must be logged in to create or edit a product.' }
     }
-    if (d && typeof d === 'object') {
-      if (d.__return_policy !== undefined) return false
-      if (d.__colour_images !== undefined || d.__colour_primaries !== undefined) return false
-      return true
-    }
-    return false
-  })
 
-  const colourImagesMap: Record<string, string[]> = {}
-  const colourPrimariesMap: Record<string, string> = {}
-  for (const img of images || []) {
-    if (img.colour && String(img.colour).trim()) {
-      const key = normalizeColourKey(img.colour)
-      if (!colourImagesMap[key]) colourImagesMap[key] = []
-      if (!colourImagesMap[key].includes(img.url)) {
-        colourImagesMap[key].push(img.url)
+    const seller = await getMySellerRecord()
+
+    if (!seller) {
+      return { success: false, error: 'No approved seller account is associated with your account.' }
+    }
+
+    if (seller.seller_status !== 'approved') {
+      return { success: false, error: 'Your seller application must be approved before you can create products.' }
+    }
+
+    if (seller.seller_type !== 'reseller') {
+      return { success: false, error: 'Only registered reseller accounts can create products via Seller Studio.' }
+    }
+
+    // Reject any malicious client-supplied seller_id
+    const clientProvidedSellerId = formData.get('seller_id')
+    if (clientProvidedSellerId && clientProvidedSellerId !== seller.id) {
+      return { success: false, error: 'Unauthorized: You cannot specify or tamper with seller_id.' }
+    }
+
+    const name = formData.get('name') as string
+    const slug = formData.get('slug') as string
+    const description = formData.get('description') as string
+    const price = parseFloat(formData.get('price') as string)
+    const compare_at_price = formData.get('compare_at_price') ? parseFloat(formData.get('compare_at_price') as string) : null
+    const default_weight_grams = parseFloat(formData.get('weight') as string) || 500
+    const shipping_method = formData.get('shipping_method') === 'custom' ? 'custom' : 'weight_based'
+    const custom_delivery_charge = formData.get('custom_delivery_charge') ? parseFloat(formData.get('custom_delivery_charge') as string) : null
+    const expected_delivery_days = normalizeDeliveryDays(formData.get('expected_delivery_days') as string | null)
+    const category_id = formData.get('category_id') as string
+    const collection_ids = JSON.parse(String(formData.get('collection_ids') || '[]')) as string[]
+
+    const is_returnable = formData.get('is_returnable') === 'false' ? false : true
+    const return_window_days = is_returnable ? (parseInt(formData.get('return_window_days') as string, 10) || 14) : 0
+    const return_policy_notes = (formData.get('return_policy_notes') as string) || ''
+
+    let baseDetails: any[] = []
+    try {
+      const rawDetails = formData.get('details') as string
+      if (rawDetails) {
+        baseDetails = JSON.parse(rawDetails)
+        if (!Array.isArray(baseDetails)) baseDetails = []
       }
-      if (img.is_colour_primary || !colourPrimariesMap[key]) {
-        colourPrimariesMap[key] = img.url
+    } catch {
+      baseDetails = []
+    }
+
+    const cleanDetails = baseDetails.filter((d: any) => {
+      if (typeof d === 'string') {
+        return !d.toLowerCase().startsWith('return policy:')
+      }
+      if (d && typeof d === 'object') {
+        if (d.__return_policy !== undefined) return false
+        if (d.__colour_images !== undefined || d.__colour_primaries !== undefined) return false
+        return true
+      }
+      return false
+    })
+
+    const colourImagesMap: Record<string, string[]> = {}
+    const colourPrimariesMap: Record<string, string> = {}
+    for (const img of images || []) {
+      if (img.colour && String(img.colour).trim()) {
+        const key = normalizeColourKey(img.colour)
+        if (!colourImagesMap[key]) colourImagesMap[key] = []
+        if (!colourImagesMap[key].includes(img.url)) {
+          colourImagesMap[key].push(img.url)
+        }
+        if (img.is_colour_primary || !colourPrimariesMap[key]) {
+          colourPrimariesMap[key] = img.url
+        }
       }
     }
-  }
 
-  let colourHexesMap: Record<string, string> = {}
-  try {
-    const rawHexes = formData.get('colour_hexes')
-    if (rawHexes && typeof rawHexes === 'string') {
-      colourHexesMap = JSON.parse(rawHexes)
-    }
-  } catch {
-    // Ignore invalid JSON
-  }
-
-  const detailsPayload = prepareColourDetailsPayload([
-    {
-      __return_policy: {
-        is_returnable,
-        return_window_days,
-        notes: return_policy_notes
+    let colourHexesMap: Record<string, string> = {}
+    try {
+      const rawHexes = formData.get('colour_hexes')
+      if (rawHexes && typeof rawHexes === 'string') {
+        colourHexesMap = JSON.parse(rawHexes)
       }
-    },
-    is_returnable
-      ? `Return Policy: ${return_window_days} Days Return & Exchange`
-      : 'Return Policy: Final Sale (Non-Returnable)',
-    ...cleanDetails
-  ], colourImagesMap, colourPrimariesMap, colourHexesMap)
+    } catch {
+      // Ignore invalid JSON
+    }
 
-  const rawApprovalStatus = formData.get('approval_status') as string
-  const approval_status: 'draft' | 'submitted' = rawApprovalStatus === 'submitted' ? 'submitted' : 'draft'
+    const detailsPayload = prepareColourDetailsPayload([
+      {
+        __return_policy: {
+          is_returnable,
+          return_window_days,
+          notes: return_policy_notes
+        }
+      },
+      is_returnable
+        ? `Return Policy: ${return_window_days} Days Return & Exchange`
+        : 'Return Policy: Final Sale (Non-Returnable)',
+      ...cleanDetails
+    ], colourImagesMap, colourPrimariesMap, colourHexesMap)
 
-  if (!name || !slug || isNaN(price) || price < 0 || (compare_at_price !== null && (isNaN(compare_at_price) || compare_at_price < 0))) throw new Error('Missing or invalid product information')
-  const { data: activeCategory, error: categoryError } = await supabase
-    .from('categories')
-    .select('id')
-    .eq('id', category_id)
-    .eq('is_active', true)
-    .maybeSingle()
-  if (categoryError || !activeCategory) throw new Error('Select one of the active storefront categories.')
-  if (shipping_method === 'custom' && (custom_delivery_charge === null || !Number.isFinite(custom_delivery_charge) || custom_delivery_charge < 0)) throw new Error('A non-negative custom delivery charge is required')
+    const rawApprovalStatus = formData.get('approval_status') as string
+    const approval_status: 'draft' | 'submitted' = rawApprovalStatus === 'submitted' ? 'submitted' : 'draft'
 
-  let finalProductId = productId
-
-  const { data: duplicateSlug } = await supabase.from('products').select('id').eq('slug', slug).neq('id', productId || '00000000-0000-0000-0000-000000000000').maybeSingle()
-  if (duplicateSlug) throw new Error('This URL slug is already in use.')
-
-  if (productId) {
-    const { data: existingProd } = await supabase
-      .from('products')
-      .select('approval_status, details')
-      .eq('id', productId)
-      .eq('seller_id', seller.id)
+    if (!name || !slug || isNaN(price) || price < 0 || (compare_at_price !== null && (isNaN(compare_at_price) || compare_at_price < 0))) {
+      return { success: false, error: 'Missing or invalid product information (name, slug, or price).' }
+    }
+    const { data: activeCategory, error: categoryError } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('id', category_id)
+      .eq('is_active', true)
       .maybeSingle()
-
-    let nextApprovalStatus: string | undefined = undefined
-    let finalDetails = detailsPayload
-
-    // Guarantee that authoritative revision history from existingProd is never dropped
-    const existingRevisionMeta = (existingProd?.details || []).find(
-      (d: any) => d && typeof d === 'object' && d.__revision_history
-    )
-    if (existingRevisionMeta) {
-      const alreadyHas = finalDetails.some((d: any) => d && typeof d === 'object' && d.__revision_history)
-      if (!alreadyHas) {
-        finalDetails = [existingRevisionMeta, ...finalDetails]
-      }
+    if (categoryError || !activeCategory) {
+      return { success: false, error: 'Select one of the active storefront categories.' }
+    }
+    if (shipping_method === 'custom' && (custom_delivery_charge === null || !Number.isFinite(custom_delivery_charge) || custom_delivery_charge < 0)) {
+      return { success: false, error: 'A non-negative custom delivery charge is required for custom shipping.' }
     }
 
-    if (rawApprovalStatus === 'submitted') {
-      nextApprovalStatus = 'submitted'
-      finalDetails = markLatestRevisionResubmitted(finalDetails)
-    } else if (rawApprovalStatus === 'draft') {
-      // If product was rejected and seller is saving draft edits without resubmitting,
-      // retain the requested-revision status until explicitly resubmitted
-      if (existingProd?.approval_status === 'rejected') {
-        nextApprovalStatus = 'rejected'
-      } else {
-        nextApprovalStatus = 'draft'
-      }
+    let finalProductId = productId
+
+    const { data: duplicateSlug } = await supabase.from('products').select('id').eq('slug', slug).neq('id', productId || '00000000-0000-0000-0000-000000000000').maybeSingle()
+    if (duplicateSlug) {
+      return { success: false, error: 'This URL slug is already in use. Please modify the product handle.' }
     }
 
-    // Update Product
-    const updatePayload: Record<string, any> = {
-      name,
-      slug,
-      description,
-      details: finalDetails,
-      price,
-      compare_at_price,
-      default_weight_grams,
-      category_id: category_id || null,
-      shipping_method,
-      custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null,
-      expected_delivery_days,
-      ...(nextApprovalStatus ? { approval_status: nextApprovalStatus } : {}),
-      ...(nextApprovalStatus === 'submitted' ? { rejection_reason: null } : {})
-    }
-
-    let { error: productError } = await supabase
-      .from('products')
-      .update(updatePayload)
-      .eq('id', productId)
-      .eq('seller_id', seller.id)
-
-    if (productError && (productError.code === '42703' || productError.message?.includes('expected_delivery_days'))) {
-      console.warn('[Sellers] expected_delivery_days column not in remote DB yet; retrying update without it')
-      const { expected_delivery_days: _discard, ...safePayload } = updatePayload
-      const retryRes = await supabase
+    if (productId) {
+      const { data: existingProd } = await supabase
         .from('products')
-        .update(safePayload)
+        .select('approval_status, details')
         .eq('id', productId)
         .eq('seller_id', seller.id)
-      productError = retryRes.error
-    }
+        .maybeSingle()
 
-    if (productError) {
-      const msg = productError.message
-      if (msg.includes('Administrators can only create products belonging to the SENO platform seller')) {
-        throw new Error('No approved seller account is associated with your account.')
+      let nextApprovalStatus: string | undefined = undefined
+      let finalDetails = detailsPayload
+
+      // Guarantee that authoritative revision history from existingProd is never dropped
+      const existingRevisionMeta = (existingProd?.details || []).find(
+        (d: any) => d && typeof d === 'object' && d.__revision_history
+      )
+      if (existingRevisionMeta) {
+        const alreadyHas = finalDetails.some((d: any) => d && typeof d === 'object' && d.__revision_history)
+        if (!alreadyHas) {
+          finalDetails = [existingRevisionMeta, ...finalDetails]
+        }
       }
-      if (msg.includes('Seller account is not approved to create products')) {
-        throw new Error('Your seller application must be approved before you can create products.')
+
+      if (rawApprovalStatus === 'submitted') {
+        nextApprovalStatus = 'submitted'
+        finalDetails = markLatestRevisionResubmitted(finalDetails)
+      } else if (rawApprovalStatus === 'draft') {
+        // If product was rejected and seller is saving draft edits without resubmitting,
+        // retain the requested-revision status until explicitly resubmitted
+        if (existingProd?.approval_status === 'rejected') {
+          nextApprovalStatus = 'rejected'
+        } else {
+          nextApprovalStatus = 'draft'
+        }
       }
-      throw new Error(productError.message)
-    }
 
-    // Handle images (delete old, insert new with colour assignment)
-    await supabase.from('product_images').delete().eq('product_id', productId)
-    if (images && images.length > 0) {
-      let primaryIndex = images.findIndex(img => img.is_primary)
-      if (primaryIndex < 0) primaryIndex = 0
-
-      const fullRows = images.map((img, i) => ({
-        product_id: productId,
-        url: img.url,
-        display_order: i,
-        is_primary: i === primaryIndex,
-        colour: img.colour?.trim() || null,
-        is_colour_primary: !!img.is_colour_primary
-      }))
-
-      const { error: imgErr } = await supabase.from('product_images').insert(fullRows)
-      if (imgErr) {
-        const baseRows = fullRows.map(({ colour, is_colour_primary, ...base }) => base)
-        await supabase.from('product_images').insert(baseRows)
+      // Update Product
+      const updatePayload: Record<string, any> = {
+        name,
+        slug,
+        description,
+        details: finalDetails,
+        price,
+        compare_at_price,
+        default_weight_grams,
+        category_id: category_id || null,
+        shipping_method,
+        custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null,
+        expected_delivery_days,
+        ...(nextApprovalStatus ? { approval_status: nextApprovalStatus } : {}),
+        ...(nextApprovalStatus === 'submitted' ? { rejection_reason: null } : {})
       }
-    }
 
-    await supabase.from('collection_products').delete().eq('product_id', productId)
-    if (collection_ids.length) await supabase.from('collection_products').insert(collection_ids.map((collection_id, display_order) => ({ collection_id, product_id: productId, display_order })))
-
-    // Reconcile variants and inventory authoritatively
-    await reconcileProductVariants(supabase, productId, variants, { productSlug: slug })
-  } else {
-    // Insert Product
-    const insertPayload: Record<string, any> = {
-      seller_id: seller.id,
-      name,
-      slug,
-      description,
-      details: detailsPayload,
-      price,
-      compare_at_price,
-      default_weight_grams,
-      category_id: category_id || null,
-      approval_status,
-      shipping_method,
-      custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null,
-      expected_delivery_days
-    }
-
-    let insertRes = await supabase
-      .from('products')
-      .insert(insertPayload)
-      .select()
-      .single()
-
-    if (insertRes.error && (insertRes.error.code === '42703' || insertRes.error.message?.includes('expected_delivery_days'))) {
-      console.warn('[Sellers] expected_delivery_days column not in remote DB yet; retrying insert without it')
-      const { expected_delivery_days: _discard, ...safePayload } = insertPayload
-      insertRes = await supabase
+      let { error: productError } = await supabase
         .from('products')
-        .insert(safePayload)
+        .update(updatePayload)
+        .eq('id', productId)
+        .eq('seller_id', seller.id)
+
+      if (productError && (productError.code === '42703' || productError.message?.includes('expected_delivery_days'))) {
+        console.warn('[Sellers] expected_delivery_days column not in remote DB yet; retrying update without it')
+        const { expected_delivery_days: _discard, ...safePayload } = updatePayload
+        const retryRes = await supabase
+          .from('products')
+          .update(safePayload)
+          .eq('id', productId)
+          .eq('seller_id', seller.id)
+        productError = retryRes.error
+      }
+
+      if (productError) {
+        const msg = productError.message
+        if (msg.includes('Administrators can only create products belonging to the SENO platform seller')) {
+          return { success: false, error: 'No approved seller account is associated with your account.' }
+        }
+        if (msg.includes('Seller account is not approved to create products')) {
+          return { success: false, error: 'Your seller application must be approved before you can create products.' }
+        }
+        return { success: false, error: productError.message }
+      }
+
+      // Handle images (delete old, insert new with colour assignment)
+      await supabase.from('product_images').delete().eq('product_id', productId)
+      if (images && images.length > 0) {
+        let primaryIndex = images.findIndex(img => img.is_primary)
+        if (primaryIndex < 0) primaryIndex = 0
+
+        const fullRows = images.map((img, i) => ({
+          product_id: productId,
+          url: img.url,
+          display_order: i,
+          is_primary: i === primaryIndex,
+          colour: img.colour?.trim() || null,
+          is_colour_primary: !!img.is_colour_primary
+        }))
+
+        const { error: imgErr } = await supabase.from('product_images').insert(fullRows)
+        if (imgErr) {
+          const baseRows = fullRows.map(({ colour, is_colour_primary, ...base }) => base)
+          await supabase.from('product_images').insert(baseRows)
+        }
+      }
+
+      await supabase.from('collection_products').delete().eq('product_id', productId)
+      if (collection_ids.length) {
+        const colRows = collection_ids.map((collection_id, display_order) => ({ collection_id, product_id: productId, display_order }))
+        const { error: colErr } = await supabase.from('collection_products').insert(colRows)
+        if (colErr) {
+          const adminSupabase = getAdminSupabase()
+          await adminSupabase.from('collection_products').insert(colRows)
+        }
+      }
+
+      // Reconcile variants and inventory authoritatively
+      await reconcileProductVariants(supabase, productId, variants, { productSlug: slug })
+    } else {
+      // Insert Product
+      const insertPayload: Record<string, any> = {
+        seller_id: seller.id,
+        name,
+        slug,
+        description,
+        details: detailsPayload,
+        price,
+        compare_at_price,
+        default_weight_grams,
+        category_id: category_id || null,
+        approval_status,
+        shipping_method,
+        custom_delivery_charge: shipping_method === 'custom' ? custom_delivery_charge : null,
+        expected_delivery_days
+      }
+
+      let insertRes = await supabase
+        .from('products')
+        .insert(insertPayload)
         .select()
         .single()
+
+      if (insertRes.error && (insertRes.error.code === '42703' || insertRes.error.message?.includes('expected_delivery_days'))) {
+        console.warn('[Sellers] expected_delivery_days column not in remote DB yet; retrying insert without it')
+        const { expected_delivery_days: _discard, ...safePayload } = insertPayload
+        insertRes = await supabase
+          .from('products')
+          .insert(safePayload)
+          .select()
+          .single()
+      }
+
+      const product = insertRes.data
+      const productError = insertRes.error
+
+      if (productError || !product) {
+        const msg = productError?.message || ''
+        if (msg.includes('Administrators can only create products belonging to the SENO platform seller')) {
+          return { success: false, error: 'No approved seller account is associated with your account.' }
+        }
+        if (msg.includes('Seller account is not approved to create products')) {
+          return { success: false, error: 'Your seller application must be approved before you can create products.' }
+        }
+        if (msg.includes('No seller record associated with current account')) {
+          return { success: false, error: 'No approved seller account is associated with your account.' }
+        }
+        return { success: false, error: productError?.message || 'Failed to create product' }
+      }
+      finalProductId = product.id
+
+      // Insert Images with colour assignment
+      if (images && images.length > 0) {
+        let primaryIndex = images.findIndex(img => img.is_primary)
+        if (primaryIndex < 0) primaryIndex = 0
+
+        const fullRows = images.map((img, i) => ({
+          product_id: product.id,
+          url: img.url,
+          display_order: i,
+          is_primary: i === primaryIndex,
+          colour: img.colour?.trim() || null,
+          is_colour_primary: !!img.is_colour_primary
+        }))
+
+        const { error: imgErr } = await supabase.from('product_images').insert(fullRows)
+        if (imgErr) {
+          const baseRows = fullRows.map(({ colour, is_colour_primary, ...base }) => base)
+          await supabase.from('product_images').insert(baseRows)
+        }
+      }
+
+      if (collection_ids.length && finalProductId) {
+        const colRows = collection_ids.map((collection_id, display_order) => ({ collection_id, product_id: finalProductId, display_order }))
+        const { error: colErr } = await supabase.from('collection_products').insert(colRows)
+        if (colErr) {
+          const adminSupabase = getAdminSupabase()
+          await adminSupabase.from('collection_products').insert(colRows)
+        }
+      }
+
+      // Insert Variants via authoritative reconciler
+      if (variants && variants.length > 0 && finalProductId) {
+        await reconcileProductVariants(supabase, finalProductId, variants, { productSlug: slug })
+      }
     }
 
-    const product = insertRes.data
-    const productError = insertRes.error
-
-    if (productError || !product) {
-      const msg = productError?.message || ''
-      if (msg.includes('Administrators can only create products belonging to the SENO platform seller')) {
-        throw new Error('No approved seller account is associated with your account.')
-      }
-      if (msg.includes('Seller account is not approved to create products')) {
-        throw new Error('Your seller application must be approved before you can create products.')
-      }
-      if (msg.includes('No seller record associated with current account')) {
-        throw new Error('No approved seller account is associated with your account.')
-      }
-      throw new Error(productError?.message || 'Failed to create product')
+    await revalidateCatalogPaths(slug)
+    revalidatePath('/seller/products')
+    if (finalProductId) {
+      revalidatePath(`/seller/products/${finalProductId}`)
+      revalidatePath(`/seller/products/${finalProductId}/edit`)
     }
-    finalProductId = product.id
-
-    // Insert Images with colour assignment
-    if (images && images.length > 0) {
-      let primaryIndex = images.findIndex(img => img.is_primary)
-      if (primaryIndex < 0) primaryIndex = 0
-
-      const fullRows = images.map((img, i) => ({
-        product_id: product.id,
-        url: img.url,
-        display_order: i,
-        is_primary: i === primaryIndex,
-        colour: img.colour?.trim() || null,
-        is_colour_primary: !!img.is_colour_primary
-      }))
-
-      const { error: imgErr } = await supabase.from('product_images').insert(fullRows)
-      if (imgErr) {
-        const baseRows = fullRows.map(({ colour, is_colour_primary, ...base }) => base)
-        await supabase.from('product_images').insert(baseRows)
-      }
-    }
-
-    if (collection_ids.length) await supabase.from('collection_products').insert(collection_ids.map((collection_id, display_order) => ({ collection_id, product_id: product.id, display_order })))
-
-    // Insert Variants via authoritative reconciler
-    if (variants && variants.length > 0) {
-      await reconcileProductVariants(supabase, product.id, variants, { productSlug: slug })
-    }
+    return { success: true, id: finalProductId }
+  } catch (err: any) {
+    console.error('[submitSellerProduct] caught exception:', err)
+    return { success: false, error: err?.message || 'An unexpected error occurred while saving the product.' }
   }
-
-  await revalidateCatalogPaths(slug)
-  revalidatePath('/seller/products')
-  if (finalProductId) {
-    revalidatePath(`/seller/products/${finalProductId}`)
-    revalidatePath(`/seller/products/${finalProductId}/edit`)
-  }
-  return { id: finalProductId }
 }
 
 /**

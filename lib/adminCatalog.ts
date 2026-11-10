@@ -81,6 +81,8 @@ export async function revalidateCatalogPaths(slug?: string) {
     revalidatePath('/products')
     revalidatePath('/collections/[category]', 'page')
     revalidatePath('/collections/all')
+    revalidatePath('/collections/bestsellers')
+    revalidatePath('/collections/new-arrivals')
     revalidatePath('/search')
     revalidatePath('/admin/products')
     revalidatePath('/seller/products')
@@ -90,6 +92,29 @@ export async function revalidateCatalogPaths(slug?: string) {
   } catch (err) {
     console.warn('Revalidation warning:', err)
   }
+}
+
+/**
+ * Toggle a product's bestseller status and revalidate all storefront channels.
+ */
+export async function toggleProductBestseller(productId: string, is_bestseller: boolean) {
+  const isAdmin = await checkIsAdmin()
+  if (!isAdmin) throw new Error('Unauthorized: Admin access required.')
+  const supabase = getAdminSupabase()
+
+  const { data: prod, error } = await supabase
+    .from('products')
+    .update({ is_bestseller, updated_at: new Date().toISOString() })
+    .eq('id', productId)
+    .select('id, slug, name, is_bestseller, is_active')
+    .single()
+
+  if (error || !prod) {
+    throw new Error(error?.message || 'Failed to update bestseller flag')
+  }
+
+  await revalidateCatalogPaths(prod.slug)
+  return { success: true, product: prod }
 }
 
 /**

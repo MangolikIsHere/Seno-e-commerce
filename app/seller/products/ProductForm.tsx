@@ -334,11 +334,15 @@ export function ProductForm({
           ['approval_status', submitForReview ? (initialData?.approval_status === 'approved' ? 'unchanged' : 'submitted') : 'draft']
         ].forEach(([key, value]) => formData.set(key, value))
 
-        await submitSellerProduct(formData, images, variants, initialData?.id)
+        const res = await submitSellerProduct(formData, images, variants, initialData?.id)
+        if (!res.success) {
+          setError(res.error || 'Unable to save product.')
+          return
+        }
         router.push('/seller/products')
         router.refresh()
-      } catch (submitError) {
-        setError(submitError instanceof Error ? submitError.message : 'Unable to save product.')
+      } catch (submitError: any) {
+        setError(submitError?.message || 'Unable to save product.')
       }
     })
   }

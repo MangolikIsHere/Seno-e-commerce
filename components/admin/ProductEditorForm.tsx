@@ -1020,6 +1020,46 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                 </ul>
               )}
             </div>
+
+            {/* Quick Merchandising Tags */}
+            <div style={{ marginTop: '24px', paddingTop: '18px', borderTop: '1px solid var(--border)' }}>
+              <label className="admin-form-label" style={{ display: 'block', marginBottom: '8px' }}>Storefront Merchandising Badges</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', padding: '12px', border: '1px solid var(--border)', borderRadius: '2px', background: isBestseller ? '#fffbf2' : 'transparent' }}>
+                  <input
+                    type="checkbox"
+                    checked={isBestseller}
+                    onChange={e => setIsBestseller(e.target.checked)}
+                  />
+                  <div>
+                    <span style={{ fontWeight: 600, display: 'block', color: isBestseller ? '#b45309' : 'inherit' }}>⭐ Bestseller</span>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Shows in Bestsellers slider & collection</span>
+                  </div>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', padding: '12px', border: '1px solid var(--border)', borderRadius: '2px' }}>
+                  <input
+                    type="checkbox"
+                    checked={isNew}
+                    onChange={e => setIsNew(e.target.checked)}
+                  />
+                  <div>
+                    <span style={{ fontWeight: 600, display: 'block' }}>New Arrival</span>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Shows "NEW" badge & in New Arrivals</span>
+                  </div>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', padding: '12px', border: '1px solid var(--border)', borderRadius: '2px' }}>
+                  <input
+                    type="checkbox"
+                    checked={isFeatured}
+                    onChange={e => setIsFeatured(e.target.checked)}
+                  />
+                  <div>
+                    <span style={{ fontWeight: 600, display: 'block' }}>Featured Piece</span>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Promoted on storefront collections</span>
+                  </div>
+                </label>
+              </div>
+            </div>
           </div>
         )}
 

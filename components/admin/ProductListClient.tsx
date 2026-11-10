@@ -15,10 +15,11 @@ import {
   Eye,
   ChevronRight,
   Filter,
-  X
+  X,
+  Star
 } from 'lucide-react'
 import { money } from '@/lib/catalog'
-import { toggleProductActive } from '@/lib/adminCatalog'
+import { toggleProductActive, toggleProductBestseller } from '@/lib/adminCatalog'
 import { ProductApprovalForm } from '@/app/admin/products/ProductApprovalForm'
 import { SenoImage } from '@/components/SenoImage'
 import { ProductActions } from '@/components/admin/ProductActions'
@@ -64,6 +65,7 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
       if (selectedStatus === 'low_stock' && !product.isLowStock) return false
       if (selectedStatus === 'approved' && product.approval_status !== 'approved') return false
       if (selectedStatus === 'submitted' && product.approval_status !== 'submitted') return false
+      if (selectedStatus === 'bestseller' && !product.is_bestseller) return false
     }
 
     return true
@@ -74,6 +76,7 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
   const activeCount = products.filter(p => p.is_active).length
   const lowStockCount = products.filter(p => p.isLowStock || p.isSoldOut).length
   const pendingCount = products.filter(p => p.approval_status === 'submitted').length
+  const bestsellerCount = products.filter(p => p.is_bestseller).length
 
   const handleToggleActive = (productId: string, currentActive: boolean) => {
     startTransition(async () => {
@@ -86,6 +89,21 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
       } catch (err: any) {
         setProducts(prev => prev.map(p => p.id === productId ? { ...p, is_active: currentActive } : p))
         alert(`Failed to update product state: ${err.message}`)
+      }
+    })
+  }
+
+  const handleToggleBestseller = (productId: string, currentBestseller: boolean) => {
+    startTransition(async () => {
+      try {
+        const nextState = !currentBestseller
+        setProducts(prev => prev.map(p => p.id === productId ? { ...p, is_bestseller: nextState } : p))
+        await toggleProductBestseller(productId, nextState)
+        setStatusMessage(`Product ${nextState ? 'marked as Bestseller (live on homepage & bestsellers collection)' : 'removed from Bestsellers'}`)
+        setTimeout(() => setStatusMessage(null), 3500)
+      } catch (err: any) {
+        setProducts(prev => prev.map(p => p.id === productId ? { ...p, is_bestseller: currentBestseller } : p))
+        alert(`Failed to update bestseller state: ${err.message}`)
       }
     })
   }
@@ -139,7 +157,7 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
 
       {/* KPI Overview Grid */}
       <div className="kpi-grid">
-        <div className="kpi-card">
+        <div className="kpi-card" onClick={() => setSelectedStatus('all')} style={{ cursor: 'pointer', border: selectedStatus === 'all' ? '1px solid var(--ink)' : undefined }}>
           <div>
             <div className="kpi-label">
               <span>Total Pieces</span>
@@ -150,7 +168,7 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
           <div className="kpi-meta">Catalog items in database</div>
         </div>
 
-        <div className="kpi-card">
+        <div className="kpi-card" onClick={() => setSelectedStatus('active')} style={{ cursor: 'pointer', border: selectedStatus === 'active' ? '1px solid var(--ink)' : undefined }}>
           <div>
             <div className="kpi-label">
               <span>Active Online</span>
@@ -161,28 +179,30 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
           <div className="kpi-meta">Visible to customers</div>
         </div>
 
-        <div className="kpi-card">
+        <div className="kpi-card" onClick={() => setSelectedStatus('bestseller')} style={{ cursor: 'pointer', border: selectedStatus === 'bestseller' ? '1px solid #D7AE70' : undefined }}>
           <div>
             <div className="kpi-label">
-              <span>Stock Alerts</span>
-              <AlertTriangle size={15} color={lowStockCount > 0 ? '#b45309' : 'var(--muted)'} />
+              <span>Bestsellers</span>
+              <Star size={15} color="#D7AE70" fill={bestsellerCount > 0 ? '#D7AE70' : 'none'} />
             </div>
-            <div className="kpi-value" style={{ color: lowStockCount > 0 ? '#b45309' : 'inherit' }}>
-              {lowStockCount}
+            <div className="kpi-value" style={{ color: bestsellerCount > 0 ? '#B4782A' : 'inherit' }}>
+              {bestsellerCount}
             </div>
           </div>
-          <div className="kpi-meta">Low stock or depleted</div>
+          <div className="kpi-meta">Featured in bestsellers row</div>
         </div>
 
-        <div className="kpi-card">
+        <div className="kpi-card" onClick={() => setSelectedStatus('submitted')} style={{ cursor: 'pointer', border: selectedStatus === 'submitted' ? '1px solid #2563eb' : undefined, background: pendingCount > 0 ? '#eff6ff' : undefined }}>
           <div>
             <div className="kpi-label">
-              <span>Awaiting Review</span>
-              <Filter size={15} color="var(--muted)" />
+              <span style={{ color: pendingCount > 0 ? '#1d4ed8' : 'inherit', fontWeight: pendingCount > 0 ? 600 : 'inherit' }}>Awaiting Review</span>
+              <Filter size={15} color={pendingCount > 0 ? '#1d4ed8' : 'var(--muted)'} />
             </div>
-            <div className="kpi-value">{pendingCount}</div>
+            <div className="kpi-value" style={{ color: pendingCount > 0 ? '#1d4ed8' : 'inherit' }}>
+              {pendingCount}
+            </div>
           </div>
-          <div className="kpi-meta">Submitted by partner sellers</div>
+          <div className="kpi-meta">{pendingCount > 0 ? 'Click to inspect pending seller products' : 'All seller submissions reviewed'}</div>
         </div>
       </div>
 
@@ -244,12 +264,13 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
               }}
             >
               <option value="all">All Statuses</option>
-              <option value="active">Active Online</option>
+              <option value="active">Active Online ({activeCount})</option>
               <option value="inactive">Inactive / Hidden</option>
+              <option value="bestseller">⭐ Bestsellers ({bestsellerCount})</option>
+              <option value="submitted">📝 Awaiting Review ({pendingCount})</option>
+              <option value="approved">Approved</option>
               <option value="low_stock">Low Stock (≤5)</option>
               <option value="sold_out">Sold Out (0)</option>
-              <option value="approved">Approved</option>
-              <option value="submitted">Submitted Review</option>
             </select>
           </div>
 
@@ -305,6 +326,7 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                     <th>Price</th>
                     <th>Inventory</th>
                     <th>Live Status</th>
+                    <th>Bestseller</th>
                     <th>Curation</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
@@ -411,6 +433,31 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                         </td>
 
                         <td>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleBestseller(product.id, !!product.is_bestseller)}
+                            disabled={isPending}
+                            title={product.is_bestseller ? 'Click to remove from Bestsellers' : 'Click to tag as Bestseller'}
+                            style={{
+                              border: product.is_bestseller ? '1px solid #D7AE70' : '1px solid var(--border)',
+                              background: product.is_bestseller ? '#fffbf2' : 'transparent',
+                              color: product.is_bestseller ? '#92400e' : 'var(--muted)',
+                              cursor: 'pointer',
+                              padding: '5px 10px',
+                              borderRadius: '14px',
+                              fontSize: '11px',
+                              fontWeight: product.is_bestseller ? 600 : 400,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px'
+                            }}
+                          >
+                            <Star size={12} fill={product.is_bestseller ? '#D7AE70' : 'none'} color={product.is_bestseller ? '#b45309' : 'currentColor'} />
+                            <span>{product.is_bestseller ? 'Bestseller' : 'Standard'}</span>
+                          </button>
+                        </td>
+
+                        <td>
                           <ProductApprovalForm
                             productId={product.id}
                             productName={product.name}
@@ -485,6 +532,29 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                         </div>
                         <div style={{ fontSize: '11px', color: isSoldOut ? '#ef4444' : 'var(--muted)', marginTop: '4px' }}>
                           {isSoldOut ? 'Out of Stock' : `${product.totalStock} in stock`} · {product.variants?.length || 0} variant(s) · 🚚 {product.expected_delivery_days ?? 7}d
+                        </div>
+                        <div style={{ marginTop: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleBestseller(product.id, !!product.is_bestseller)}
+                            disabled={isPending}
+                            style={{
+                              border: product.is_bestseller ? '1px solid #D7AE70' : '1px solid var(--border)',
+                              background: product.is_bestseller ? '#fffbf2' : '#fafaf9',
+                              color: product.is_bestseller ? '#92400e' : 'var(--muted)',
+                              cursor: 'pointer',
+                              padding: '3px 8px',
+                              borderRadius: '10px',
+                              fontSize: '10.5px',
+                              fontWeight: product.is_bestseller ? 600 : 400,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <Star size={11} fill={product.is_bestseller ? '#D7AE70' : 'none'} color={product.is_bestseller ? '#b45309' : 'currentColor'} />
+                            <span>{product.is_bestseller ? 'Bestseller' : 'Tag Bestseller'}</span>
+                          </button>
                         </div>
                       </div>
                     </div>
