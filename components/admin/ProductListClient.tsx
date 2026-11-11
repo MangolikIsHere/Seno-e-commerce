@@ -9,20 +9,25 @@ import {
   Search,
   ExternalLink,
   Edit3,
+  Check,
   CheckCircle2,
+  XCircle,
   AlertTriangle,
   EyeOff,
   Eye,
   ChevronRight,
   Filter,
   X,
-  Star
+  Star,
+  Loader2,
+  Clock
 } from 'lucide-react'
 import { money } from '@/lib/catalog'
 import { toggleProductActive, toggleProductBestseller } from '@/lib/adminCatalog'
-import { ProductApprovalForm } from '@/app/admin/products/ProductApprovalForm'
+import { updateProductApproval } from '@/lib/admin'
 import { SenoImage } from '@/components/SenoImage'
 import { ProductActions } from '@/components/admin/ProductActions'
+import { ProductApprovalForm } from '@/app/admin/products/ProductApprovalForm'
 
 interface ProductListClientProps {
   initialProducts: any[]
@@ -32,6 +37,7 @@ interface ProductListClientProps {
 export function ProductListClient({ initialProducts, categories }: ProductListClientProps) {
   const searchParams = useSearchParams()
   const initialStatus = searchParams?.get('status') || 'all'
+  const highlightId = searchParams?.get('highlight')
 
   const [products, setProducts] = useState(initialProducts)
   const [isPending, startTransition] = useTransition()
@@ -42,6 +48,12 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
 
   const [optimisticSoldOut, setOptimisticSoldOut] = useState<Record<string, boolean>>({})
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
+
+  // Direct Approval & Rejection Workflow State
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
+  const [rejectionModalProduct, setRejectionModalProduct] = useState<any | null>(null)
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [rejectionError, setRejectionError] = useState<string | null>(null)
 
   // Filter products locally
   const filteredProducts = products.filter(product => {
@@ -59,8 +71,8 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
     }
 
     if (selectedStatus !== 'all') {
-      if (selectedStatus === 'active' && !product.is_active) return false
-      if (selectedStatus === 'inactive' && product.is_active) return false
+      if (selectedStatus === 'active' && (!product.is_active || product.approval_status !== 'approved')) return false
+      if (selectedStatus === 'inactive' && (product.is_active && product.approval_status === 'approved')) return false
       if (selectedStatus === 'sold_out' && !product.isSoldOut) return false
       if (selectedStatus === 'low_stock' && !product.isLowStock) return false
       if (selectedStatus === 'approved' && product.approval_status !== 'approved') return false
@@ -73,12 +85,74 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
 
   // KPI Calculations
   const totalCount = products.length
-  const activeCount = products.filter(p => p.is_active).length
+  const activeCount = products.filter(p => p.is_active && p.approval_status === 'approved').length
   const lowStockCount = products.filter(p => p.isLowStock || p.isSoldOut).length
   const pendingCount = products.filter(p => p.approval_status === 'submitted').length
   const bestsellerCount = products.filter(p => p.is_bestseller).length
 
+  // Approve product handler
+  const handleApprove = async (product: any) => {
+    setActionLoadingId(product.id)
+    try {
+      await updateProductApproval(product.id, 'approved')
+      setProducts(prev => prev.map(p => p.id === product.id ? {
+        ...p,
+        approval_status: 'approved',
+        is_active: true,
+        rejection_reason: null,
+        published_at: new Date().toISOString()
+      } : p))
+      setStatusMessage(`✓ Product "${product.name}" approved and published to the live storefront! Seller notified.`)
+      setTimeout(() => setStatusMessage(null), 4000)
+    } catch (err: any) {
+      alert(err?.message || 'Failed to approve product')
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  // Open rejection modal
+  const openRejectModal = (product: any) => {
+    setRejectionModalProduct(product)
+    setRejectionReason('')
+    setRejectionError(null)
+  }
+
+  // Confirm rejection handler
+  const handleConfirmReject = async () => {
+    if (!rejectionModalProduct) return
+    const reasonTrimmed = rejectionReason.trim()
+    if (!reasonTrimmed) {
+      setRejectionError('A rejection reason is required so the seller knows what adjustments to make.')
+      return
+    }
+    setActionLoadingId(rejectionModalProduct.id)
+    setRejectionError(null)
+    try {
+      await updateProductApproval(rejectionModalProduct.id, 'rejected', reasonTrimmed)
+      setProducts(prev => prev.map(p => p.id === rejectionModalProduct.id ? {
+        ...p,
+        approval_status: 'rejected',
+        is_active: false,
+        rejection_reason: reasonTrimmed
+      } : p))
+      setStatusMessage(`Product "${rejectionModalProduct.name}" marked as rejected. Seller has been notified.`)
+      setTimeout(() => setStatusMessage(null), 4000)
+      setRejectionModalProduct(null)
+    } catch (err: any) {
+      setRejectionError(err?.message || 'Failed to reject product')
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
   const handleToggleActive = (productId: string, currentActive: boolean) => {
+    const targetProd = products.find(p => p.id === productId)
+    if (!currentActive && targetProd && targetProd.approval_status !== 'approved') {
+      alert('Only approved products can be published live. Please click APPROVE first.')
+      return
+    }
+
     startTransition(async () => {
       try {
         const nextState = !currentActive
@@ -414,22 +488,66 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                         </td>
 
                         <td>
-                          <button
-                            onClick={() => handleToggleActive(product.id, product.is_active)}
-                            disabled={isPending}
-                            title={product.is_active ? 'Click to deactivate' : 'Click to activate'}
-                            className={`status-pill ${product.is_active ? 'active' : 'draft'}`}
-                            style={{
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '4px 10px',
-                              borderRadius: '12px',
-                              fontSize: '11px'
-                            }}
-                          >
-                            {product.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
-                            <span>{product.is_active ? 'Active' : 'Hidden'}</span>
-                          </button>
+                          {product.approval_status === 'submitted' ? (
+                            <span
+                              className="status-pill submitted"
+                              style={{
+                                background: '#fef3c7',
+                                color: '#92400e',
+                                border: '1px solid #fde68a',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '4px 10px',
+                                borderRadius: '12px',
+                                fontSize: '11px',
+                                fontWeight: 600
+                              }}
+                            >
+                              <Clock size={11} />
+                              <span>Awaiting Review</span>
+                            </span>
+                          ) : product.approval_status === 'rejected' ? (
+                            <span
+                              className="status-pill rejected"
+                              style={{
+                                background: '#fee2e2',
+                                color: '#991b1b',
+                                border: '1px solid #fecaca',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '4px 10px',
+                                borderRadius: '12px',
+                                fontSize: '11px',
+                                fontWeight: 600
+                              }}
+                            >
+                              <XCircle size={11} />
+                              <span>Rejected</span>
+                            </span>
+                          ) : product.approval_status === 'approved' ? (
+                            <button
+                              onClick={() => handleToggleActive(product.id, product.is_active)}
+                              disabled={isPending}
+                              title={product.is_active ? 'Click to deactivate' : 'Click to activate'}
+                              className={`status-pill ${product.is_active ? 'active' : 'draft'}`}
+                              style={{
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '4px 10px',
+                                borderRadius: '12px',
+                                fontSize: '11px'
+                              }}
+                            >
+                              {product.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
+                              <span>{product.is_active ? 'Active' : 'Hidden'}</span>
+                            </button>
+                          ) : (
+                            <span className="status-pill draft" style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '11px' }}>
+                              Draft
+                            </span>
+                          )}
                         </td>
 
                         <td>
@@ -458,12 +576,62 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                         </td>
 
                         <td>
-                          <ProductApprovalForm
-                            productId={product.id}
-                            productName={product.name}
-                            currentStatus={product.approval_status}
-                            currentReason={product.rejection_reason}
-                          />
+                          {product.approval_status === 'submitted' ? (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <button
+                                type="button"
+                                disabled={actionLoadingId === product.id}
+                                onClick={() => handleApprove(product)}
+                                style={{
+                                  background: '#15803d',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  padding: '5px 10px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  boxShadow: '0 1px 2px rgba(0,0,0,0.06)'
+                                }}
+                                title="Approve this product and publish to storefront"
+                              >
+                                {actionLoadingId === product.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                                <span>APPROVE</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={actionLoadingId === product.id}
+                                onClick={() => openRejectModal(product)}
+                                style={{
+                                  background: '#fff',
+                                  color: '#b91c1c',
+                                  border: '1px solid #f87171',
+                                  borderRadius: '4px',
+                                  padding: '5px 10px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                                title="Reject this submission and provide feedback"
+                              >
+                                <X size={12} />
+                                <span>REJECT</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <ProductApprovalForm
+                              productId={product.id}
+                              productName={product.name}
+                              currentStatus={product.approval_status}
+                              currentReason={product.rejection_reason}
+                            />
+                          )}
                         </td>
 
                         <td style={{ textAlign: 'right' }}>
@@ -520,9 +688,53 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                           <span style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                             {product.categories?.name || 'Collection'}
                           </span>
-                          <span className={`status-pill ${product.is_active ? 'approved' : 'draft'}`} style={{ fontSize: '9px' }}>
-                            {product.is_active ? 'LIVE' : 'DRAFT'}
-                          </span>
+                          {product.approval_status === 'submitted' ? (
+                            <span
+                              style={{
+                                fontSize: '9px',
+                                background: '#fef3c7',
+                                color: '#92400e',
+                                border: '1px solid #fde68a',
+                                padding: '2px 7px',
+                                borderRadius: '10px',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}
+                            >
+                              <Clock size={9} /> AWAITING REVIEW
+                            </span>
+                          ) : product.approval_status === 'rejected' ? (
+                            <span
+                              style={{
+                                fontSize: '9px',
+                                background: '#fee2e2',
+                                color: '#991b1b',
+                                border: '1px solid #fecaca',
+                                padding: '2px 7px',
+                                borderRadius: '10px',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}
+                            >
+                              <XCircle size={9} /> REJECTED
+                            </span>
+                          ) : product.approval_status === 'approved' && product.is_active ? (
+                            <span className="status-pill approved" style={{ fontSize: '9px' }}>
+                              LIVE
+                            </span>
+                          ) : (
+                            <span className="status-pill draft" style={{ fontSize: '9px' }}>
+                              HIDDEN
+                            </span>
+                          )}
                         </div>
                         <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', margin: '2px 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {product.name}
@@ -559,22 +771,77 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '14px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
-                      <Link
-                        href={`/admin/products/${product.id}/edit`}
-                        className="button button-primary"
-                        style={{ fontSize: '12px', padding: '9px 0', textAlign: 'center', width: '100%' }}
-                      >
-                        Edit Piece
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleActive(product.id, product.is_active)}
-                        className="button button-outline"
-                        style={{ fontSize: '12px', padding: '9px 0', textAlign: 'center', width: '100%' }}
-                      >
-                        {product.is_active ? 'Hide Online' : 'Publish Live'}
-                      </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '14px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+                      {product.approval_status === 'submitted' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                          <button
+                            type="button"
+                            disabled={actionLoadingId === product.id}
+                            onClick={() => handleApprove(product)}
+                            style={{
+                              background: '#15803d',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: '4px',
+                              padding: '9px 0',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              textAlign: 'center',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px'
+                            }}
+                          >
+                            {actionLoadingId === product.id ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                            <span>APPROVE</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={actionLoadingId === product.id}
+                            onClick={() => openRejectModal(product)}
+                            style={{
+                              background: '#fff',
+                              color: '#b91c1c',
+                              border: '1px solid #f87171',
+                              borderRadius: '4px',
+                              padding: '9px 0',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              textAlign: 'center',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px'
+                            }}
+                          >
+                            <X size={13} />
+                            <span>REJECT</span>
+                          </button>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'grid', gridTemplateColumns: product.approval_status === 'approved' ? '1fr 1fr' : '1fr', gap: '8px' }}>
+                        <Link
+                          href={`/admin/products/${product.id}/edit`}
+                          className="button button-primary"
+                          style={{ fontSize: '12px', padding: '9px 0', textAlign: 'center', width: '100%' }}
+                        >
+                          Edit Piece
+                        </Link>
+                        {product.approval_status === 'approved' && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleActive(product.id, product.is_active)}
+                            className="button button-outline"
+                            style={{ fontSize: '12px', padding: '9px 0', textAlign: 'center', width: '100%' }}
+                          >
+                            {product.is_active ? 'Hide Online' : 'Publish Live'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )
@@ -583,6 +850,132 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
           </>
         )}
       </div>
+
+      {/* Rejection Confirmation Modal */}
+      {rejectionModalProduct && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px'
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: '8px',
+              maxWidth: '520px',
+              width: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08)',
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--ink)' }}>
+                  Reject Product Submission
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
+                  {rejectionModalProduct.name} · {rejectionModalProduct.sellers?.store_name || 'Seller submission'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (actionLoadingId) return
+                  setRejectionModalProduct(null)
+                }}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: '4px' }}
+                aria-label="Close dialog"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px' }}>
+              {rejectionError && (
+                <div style={{ padding: '10px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '4px', color: '#991b1b', fontSize: '12px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <AlertTriangle size={14} />
+                  <span>{rejectionError}</span>
+                </div>
+              )}
+
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--ink)', marginBottom: '6px' }}>
+                Rejection Reason <span style={{ color: '#b91c1c' }}>*</span>
+              </label>
+              <p style={{ margin: '0 0 8px', fontSize: '11px', color: 'var(--muted)' }}>
+                Please explain what the seller needs to correct or why this piece cannot be approved. This feedback is sent directly to the seller so they can revise and resubmit.
+              </p>
+              <textarea
+                rows={4}
+                value={rejectionReason}
+                onChange={e => setRejectionReason(e.target.value)}
+                placeholder="e.g. Please upload higher-resolution studio images without watermarks and specify fabric composition in the description."
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  fontSize: '13px',
+                  lineHeight: '1.5',
+                  border: '1px solid var(--border)',
+                  borderRadius: '4px',
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
+            <div style={{ padding: '14px 24px', background: '#fafaf9', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                disabled={actionLoadingId === rejectionModalProduct.id}
+                onClick={() => setRejectionModalProduct(null)}
+                className="button button-outline"
+                style={{ fontSize: '12px', padding: '8px 16px' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={actionLoadingId === rejectionModalProduct.id}
+                onClick={handleConfirmReject}
+                style={{
+                  background: '#b91c1c',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '8px 18px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                {actionLoadingId === rejectionModalProduct.id ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" />
+                    <span>Rejecting...</span>
+                  </>
+                ) : (
+                  <span>Confirm Rejection</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

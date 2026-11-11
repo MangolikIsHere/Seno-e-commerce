@@ -26,6 +26,7 @@ export type NotificationType =
   | 'admin_payment_failed'
   | 'admin_refund_requested'
   | 'admin_low_stock'
+  | 'admin_product_submitted'
 
 export interface NotificationRecord {
   id: string
@@ -120,6 +121,10 @@ export function buildNotificationDeepLink(type: NotificationType, data: Record<s
 
   if (type === 'admin_low_stock') {
     return '/admin/products'
+  }
+
+  if (type === 'admin_product_submitted') {
+    return data?.deep_link || (data?.product_id ? `/admin/products?status=submitted&highlight=${data.product_id}` : '/admin/products?status=submitted')
   }
 
   if (type.startsWith('seller_')) {

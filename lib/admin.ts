@@ -3,6 +3,8 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getAdminSupabase } from '@/lib/supabaseAdmin'
+import { invalidateProductCache } from '@/lib/catalog-server'
+import { revalidateCatalogPaths } from '@/lib/adminCatalog'
 import {
   notifyOrderItemFulfillmentChanged,
   notifyRefundEvent,
@@ -469,9 +471,12 @@ export async function updateProductApproval(
 
   if (status === 'rejected') {
     const rawReason = (reason || '').trim()
+    if (!rawReason) {
+      throw new Error('A rejection reason is required to notify the seller of necessary adjustments.')
+    }
     const baseParsed = parseRevisionFeedback(rawReason)
 
-    const finalInstructions = (baseParsed?.instructions || rawReason || 'Changes requested by SENO admin.').trim()
+    const finalInstructions = (baseParsed?.instructions || rawReason).trim()
     const finalFields = (affectedFields && affectedFields.length > 0)
       ? affectedFields
       : (baseParsed?.affected_fields && baseParsed.affected_fields.length > 0)
@@ -502,8 +507,15 @@ export async function updateProductApproval(
     updated_at: new Date().toISOString()
   }
 
-  if (status === 'approved' && !existing.published_at) {
-    updatePayload.published_at = new Date().toISOString()
+  if (status === 'approved') {
+    updatePayload.is_active = true
+    updatePayload.rejection_reason = null
+    if (!existing.published_at) {
+      updatePayload.published_at = new Date().toISOString()
+    }
+  } else if (status === 'rejected') {
+    updatePayload.is_active = false
+    updatePayload.published_at = null
   }
 
   const { data: updatedProduct, error: updateError } = await supabase
@@ -533,6 +545,7 @@ export async function updateProductApproval(
     console.warn('Failed to send seller notification:', notifErr)
   }
 
+  await revalidateCatalogPaths(existing.slug)
   revalidatePath('/admin/products')
   revalidatePath('/seller/products')
   revalidatePath(`/seller/products/${existing.id}/revisions`)

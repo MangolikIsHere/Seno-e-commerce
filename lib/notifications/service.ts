@@ -983,3 +983,65 @@ export async function notifyLowStockAlert(
     console.error('[NotificationService] notifyLowStockAlert failed:', err)
   }
 }
+
+/**
+ * Authoritatively notifies all platform administrators when a partner seller
+ * submits a new product or resubmits a revised product for review.
+ */
+export async function notifyAdminProductSubmitted(productId: string) {
+  try {
+    const admin = getAdminClient()
+    const { data: product, error: prodErr } = await admin
+      .from('products')
+      .select('id, name, slug, created_at, seller_id, sellers(id, store_name, user_id)')
+      .eq('id', productId)
+      .maybeSingle()
+
+    if (prodErr || !product) {
+      console.warn('[NotificationService] notifyAdminProductSubmitted product not found:', prodErr?.message)
+      return
+    }
+
+    const sellerName = (product as any).sellers?.store_name || 'Partner Seller'
+    const submissionTime = new Date().toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+
+    // Fetch all administrator accounts
+    const { data: adminProfiles, error: adminErr } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('role', 'admin')
+
+    if (adminErr || !adminProfiles || adminProfiles.length === 0) {
+      console.warn('[NotificationService] No administrators found to notify')
+      return
+    }
+
+    const deepLink = `/admin/products?status=submitted`
+    const submissionBucket = new Date().toISOString().slice(0, 16) // 1-minute bucket for idempotency
+
+    for (const adm of adminProfiles) {
+      await createNotification({
+        userId: adm.id,
+        type: 'admin_product_submitted',
+        title: 'New Product Submitted',
+        message: `${sellerName} submitted "${product.name}" for review on ${submissionTime}.`,
+        data: {
+          product_id: product.id,
+          product_name: product.name,
+          seller_name: sellerName,
+          submission_time: submissionTime,
+          deep_link: deepLink
+        },
+        idempotencyKey: `admin_product_submitted_${product.id}_${adm.id}_${submissionBucket}`
+      })
+    }
+  } catch (err) {
+    console.error('[NotificationService] notifyAdminProductSubmitted failed:', err)
+  }
+}

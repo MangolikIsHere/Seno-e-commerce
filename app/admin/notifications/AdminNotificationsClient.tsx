@@ -80,6 +80,8 @@ export function AdminNotificationsClient({ initialNotifications }: { initialNoti
       case 'admin_low_stock':
       case 'seller_low_stock':
         return <AlertCircle size={18} color="#b45309" />
+      case 'admin_product_submitted':
+        return <Package size={18} color="#2563eb" />
       default:
         return <Bell size={18} color="var(--muted)" />
     }

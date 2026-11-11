@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { invalidateProductCache } from '@/lib/catalog-server'
-import { notifyOrderItemFulfillmentChanged, getUserNotifications, notifyRefundEvent } from '@/lib/notifications/service'
+import { notifyOrderItemFulfillmentChanged, getUserNotifications, notifyRefundEvent, notifyAdminProductSubmitted } from '@/lib/notifications/service'
 import { checkIsAdmin } from '@/lib/admin'
 import { reconcileProductVariants, ReconcileVariantInput } from '@/lib/variantReconciliation'
 import { revalidateCatalogPaths } from '@/lib/adminCatalog'
@@ -831,6 +831,15 @@ export async function submitSellerProduct(formData: FormData, images: any[], var
       revalidatePath(`/seller/products/${finalProductId}`)
       revalidatePath(`/seller/products/${finalProductId}/edit`)
     }
+
+    if (approval_status === 'submitted' && finalProductId) {
+      try {
+        await notifyAdminProductSubmitted(finalProductId)
+      } catch (notifErr) {
+        console.warn('[submitSellerProduct] Admin notification warning:', notifErr)
+      }
+    }
+
     return { success: true, id: finalProductId }
   } catch (err: any) {
     console.error('[submitSellerProduct] caught exception:', err)

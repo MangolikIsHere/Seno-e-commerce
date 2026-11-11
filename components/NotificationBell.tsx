@@ -60,6 +60,8 @@ function getNotificationIcon(type: NotificationType, data?: any) {
       return <CheckCircle2 size={16} className="notif-icon notif-icon-info" />
     case 'admin_new_order':
       return <ShieldAlert size={16} className="notif-icon notif-icon-neutral" />
+    case 'admin_product_submitted':
+      return <Package size={16} className="notif-icon notif-icon-info" />
     default:
       return <Bell size={16} className="notif-icon notif-icon-neutral" />
   }

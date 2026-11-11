@@ -3,23 +3,23 @@
 import React, { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Check, 
-  ChevronLeft, 
-  ChevronRight, 
-  ImagePlus, 
-  Loader2, 
-  Plus, 
-  Star, 
-  Trash2, 
-  X, 
-  Sparkles, 
-  AlertCircle, 
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ImagePlus,
+  Loader2,
+  Plus,
+  Star,
+  Trash2,
+  X,
+  Sparkles,
+  AlertCircle,
   AlertTriangle,
-  Package, 
-  Tag, 
+  Package,
+  Tag,
   Truck,
   ShieldCheck,
   CheckCircle2,
@@ -38,7 +38,7 @@ type Step = 1 | 2 | 3 | 4 | 5
 type ImageItem = { url: string; display_order?: number; is_primary?: boolean; colour?: string | null; is_colour_primary?: boolean }
 type VariantItem = { size: string; colour: string; sku: string; quantity: string | number; id?: string; price_override?: number | null; is_active?: boolean }
 
-const slugify = (value: string) => 
+const slugify = (value: string) =>
   value
     .toLowerCase()
     .trim()
@@ -46,13 +46,13 @@ const slugify = (value: string) =>
     .replace(/[\s_-]+/g, '-')
     .replace(/^-+|-+$/g, '')
 
-export function ProductForm({ 
-  categories, 
-  collections = [], 
+export function ProductForm({
+  categories,
+  collections = [],
   initialData = null,
   initialStep,
   initialFocus
-}: { 
+}: {
   categories: any[]
   collections?: any[]
   initialData?: any
@@ -79,7 +79,7 @@ export function ProductForm({
       }, 250)
     }
   }, [initialFocus])
-  
+
   // Basic Info
   const [name, setName] = useState(initialData?.name || '')
   const [slug, setSlug] = useState(initialData?.slug || '')
@@ -89,7 +89,7 @@ export function ProductForm({
     ? [...categories, { ...initialData.categories, isLegacy: true }]
     : categories
   const [collectionIds, setCollectionIds] = useState<string[]>(initialData?.collection_ids || [])
-  
+
   // Pricing & Logistics
   const [price, setPrice] = useState(String(initialData?.price || ''))
   const [compareAtPrice, setCompareAtPrice] = useState(String(initialData?.compare_at_price || ''))
@@ -101,7 +101,7 @@ export function ProductForm({
   const [expectedDeliveryDays, setExpectedDeliveryDays] = useState<string>(
     String(initialData?.expected_delivery_days ?? '7')
   )
-  
+
   // Return & Exchange Policy
   const initialRp = parseReturnPolicy(initialData?.details)
   const [isReturnable, setIsReturnable] = useState<boolean>(initialRp.isReturnable)
@@ -110,7 +110,7 @@ export function ProductForm({
 
   // Dynamic Image Ratio State
   const [previewRatio, setPreviewRatio] = useState<number | null>(null)
-  
+
   // Media & Variants
   const initialColourHexes = extractColourHexesFromDetails(initialData?.details)
   const [colourHexes, setColourHexes] = useState<Record<string, string>>(initialColourHexes)
@@ -126,13 +126,13 @@ export function ProductForm({
 
   const selectedCategory = categories.find(c => c.id === categoryId)
   const totalStock = variants.reduce((sum, v) => sum + Math.max(0, Number(v.quantity || 0)), 0)
-  
-  const duplicateSku = variants.some((v, idx) => 
+
+  const duplicateSku = variants.some((v, idx) =>
     v.sku.trim() && variants.findIndex(other => other.sku.trim().toLowerCase() === v.sku.trim().toLowerCase()) !== idx
   )
-  const duplicateCombination = variants.some((v, idx) => 
-    variants.findIndex(other => 
-      other.size.trim().toLowerCase() === v.size.trim().toLowerCase() && 
+  const duplicateCombination = variants.some((v, idx) =>
+    variants.findIndex(other =>
+      other.size.trim().toLowerCase() === v.size.trim().toLowerCase() &&
       other.colour.trim().toLowerCase() === v.colour.trim().toLowerCase()
     ) !== idx
   )
@@ -267,7 +267,7 @@ export function ProductForm({
     const target = index + delta
     if (target < 0 || target >= images.length) return
     const next = [...images]
-    ;[next[index], next[target]] = [next[target], next[index]]
+      ;[next[index], next[target]] = [next[target], next[index]]
     setImages(next.map((img, display_order) => ({ ...img, display_order })))
   }
 
@@ -314,25 +314,25 @@ export function ProductForm({
     startTransition(async () => {
       try {
         const formData = new FormData()
-        ;[
-          ['name', name.trim()],
-          ['slug', slug.trim()],
-          ['description', description],
-          ['category_id', categoryId],
-          ['collection_ids', JSON.stringify(collectionIds)],
-          ['price', price],
-          ['compare_at_price', compareAtPrice],
-          ['weight', weight],
-          ['shipping_method', shippingMethod],
-          ['custom_delivery_charge', customDeliveryCharge],
-          ['expected_delivery_days', expectedDeliveryDays],
-          ['is_returnable', isReturnable ? 'true' : 'false'],
-          ['return_window_days', isReturnable ? returnWindowDays : '0'],
-          ['return_policy_notes', returnPolicyNotes],
-          ['details', JSON.stringify(initialData?.details || [])],
-          ['colour_hexes', JSON.stringify(colourHexes)],
-          ['approval_status', submitForReview ? (initialData?.approval_status === 'approved' ? 'unchanged' : 'submitted') : 'draft']
-        ].forEach(([key, value]) => formData.set(key, value))
+          ;[
+            ['name', name.trim()],
+            ['slug', slug.trim()],
+            ['description', description],
+            ['category_id', categoryId],
+            ['collection_ids', JSON.stringify(collectionIds)],
+            ['price', price],
+            ['compare_at_price', compareAtPrice],
+            ['weight', weight],
+            ['shipping_method', shippingMethod],
+            ['custom_delivery_charge', customDeliveryCharge],
+            ['expected_delivery_days', expectedDeliveryDays],
+            ['is_returnable', isReturnable ? 'true' : 'false'],
+            ['return_window_days', isReturnable ? returnWindowDays : '0'],
+            ['return_policy_notes', returnPolicyNotes],
+            ['details', JSON.stringify(initialData?.details || [])],
+            ['colour_hexes', JSON.stringify(colourHexes)],
+            ['approval_status', submitForReview ? (initialData?.approval_status === 'approved' ? 'unchanged' : 'submitted') : 'draft']
+          ].forEach(([key, value]) => formData.set(key, value))
 
         const res = await submitSellerProduct(formData, images, variants, initialData?.id)
         if (!res.success) {
@@ -358,8 +358,8 @@ export function ProductForm({
   // Calculate discount percentage if compareAtPrice is provided
   const numPrice = Number(price || 0)
   const numCompare = Number(compareAtPrice || 0)
-  const discountPercent = numCompare > numPrice && numPrice > 0 
-    ? Math.round(((numCompare - numPrice) / numCompare) * 100) 
+  const discountPercent = numCompare > numPrice && numPrice > 0
+    ? Math.round(((numCompare - numPrice) / numCompare) * 100)
     : 0
 
   return (
@@ -367,8 +367,8 @@ export function ProductForm({
       {/* Top Breadcrumb & Studio Header */}
       <div>
         <div style={{ marginBottom: '16px' }}>
-          <Link 
-            href="/seller/products" 
+          <Link
+            href="/seller/products"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -395,9 +395,9 @@ export function ProductForm({
             </p>
           </div>
 
-          <button 
-            type="button" 
-            className="button button-outline" 
+          <button
+            type="button"
+            className="button button-outline"
             onClick={() => router.back()}
             style={{ fontSize: '11px', padding: '9px 16px', gap: '6px' }}
           >
@@ -545,13 +545,13 @@ export function ProductForm({
 
       {/* Global Error Banner */}
       {error && (
-        <div 
-          role="alert" 
-          style={{ 
-            padding: '14px 18px', 
-            background: '#fff7ed', 
-            border: '1px solid #fed7aa', 
-            color: '#9a3412', 
+        <div
+          role="alert"
+          style={{
+            padding: '14px 18px',
+            background: '#fff7ed',
+            border: '1px solid #fed7aa',
+            color: '#9a3412',
             fontSize: '13px',
             borderRadius: '2px',
             display: 'flex',
@@ -815,13 +815,13 @@ export function ProductForm({
 
             {/* Live Discount Callout */}
             {discountPercent > 0 && (
-              <div 
-                style={{ 
-                  padding: '12px 16px', 
-                  background: '#f0fdf4', 
-                  border: '1px solid #bbf7d0', 
-                  borderRadius: '2px', 
-                  fontSize: '12px', 
+              <div
+                style={{
+                  padding: '12px 16px',
+                  background: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  borderRadius: '2px',
+                  fontSize: '12px',
                   color: '#15803d',
                   display: 'flex',
                   alignItems: 'center',
@@ -891,7 +891,7 @@ export function ProductForm({
                     grams
                   </span>
                 </div>
-                
+
                 {/* Weight Presets Chips */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
                   <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Presets:</span>
@@ -1592,27 +1592,27 @@ export function ProductForm({
       )}
 
       {/* Sticky Bottom Navigation Footer */}
-      <div 
+      <div
         className="seller-form-sticky-footer"
-        style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          gap: '12px', 
-          flexWrap: 'wrap', 
-          position: 'sticky', 
-          bottom: 0, 
-          padding: '16px 20px', 
-          background: 'var(--surface)', 
+          gap: '12px',
+          flexWrap: 'wrap',
+          position: 'sticky',
+          bottom: 0,
+          padding: '16px 20px',
+          background: 'var(--surface)',
           borderTop: '1px solid var(--border)',
           boxShadow: '0 -4px 12px rgba(0,0,0,0.03)',
           zIndex: 10
         }}
       >
-        <button 
-          type="button" 
-          className="button button-outline" 
-          disabled={step === 1} 
+        <button
+          type="button"
+          className="button button-outline"
+          disabled={step === 1}
           onClick={() => setStep((step - 1) as Step)}
           style={{ padding: '10px 18px', fontSize: '11px', opacity: step === 1 ? 0.4 : 1 }}
         >
@@ -1625,9 +1625,9 @@ export function ProductForm({
 
         <div style={{ display: 'flex', gap: '10px' }}>
           {step < 5 ? (
-            <button 
-              type="button" 
-              className="button button-primary" 
+            <button
+              type="button"
+              className="button button-primary"
               onClick={() => goTo((step + 1) as Step)}
               style={{ padding: '10px 22px', fontSize: '11px' }}
             >
@@ -1635,20 +1635,20 @@ export function ProductForm({
             </button>
           ) : (
             <>
-              <button 
-                type="button" 
-                className="button button-outline" 
-                disabled={pending} 
+              <button
+                type="button"
+                className="button button-outline"
+                disabled={pending}
                 onClick={() => submit(false)}
                 style={{ padding: '10px 20px', fontSize: '11px' }}
               >
                 {pending ? <Loader2 size={13} className="spin" /> : isRejected ? 'Save Draft Edits' : 'Save as Draft'}
               </button>
-              
-              <button 
-                type="button" 
-                className="button button-primary" 
-                disabled={pending} 
+
+              <button
+                type="button"
+                className="button button-primary"
+                disabled={pending}
                 onClick={() => submit(true)}
                 style={{ padding: '10px 24px', fontSize: '11px' }}
               >
