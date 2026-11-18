@@ -62,6 +62,12 @@ export interface CreateProductInput {
   is_new?: boolean
   is_bestseller?: boolean
   is_active?: boolean
+  availability_mode?: 'available_now' | 'coming_soon' | 'pre_order'
+  release_date?: string | null
+  preorder_start_date?: string | null
+  preorder_end_date?: string | null
+  expected_dispatch_date?: string | null
+  notify_subscribers?: boolean
   colour_hexes?: Record<string, string>
   images: AdminProductImage[]
   variants: AdminProductVariant[]
@@ -86,6 +92,7 @@ export async function revalidateCatalogPaths(slug?: string) {
     revalidatePath('/search')
     revalidatePath('/admin/products')
     revalidatePath('/seller/products')
+    revalidatePath('/products/[slug]', 'page')
     if (slug) {
       revalidatePath(`/products/${slug}`)
     }
@@ -507,6 +514,12 @@ export async function createAdminProduct(input: CreateProductInput) {
     is_new: input.is_new !== undefined ? !!input.is_new : true,
     is_bestseller: !!input.is_bestseller,
     is_active: input.is_active !== undefined ? !!input.is_active : true,
+    availability_mode: input.availability_mode || 'available_now',
+    release_date: input.release_date || null,
+    preorder_start_date: input.preorder_start_date || null,
+    preorder_end_date: input.preorder_end_date || null,
+    expected_dispatch_date: input.expected_dispatch_date || null,
+    notify_subscribers: input.notify_subscribers !== undefined ? !!input.notify_subscribers : true,
     approval_status: 'approved',
     published_at: new Date().toISOString()
   }
@@ -668,6 +681,12 @@ export async function updateAdminProduct(id: string, input: UpdateProductInput) 
     is_new: !!input.is_new,
     is_bestseller: !!input.is_bestseller,
     is_active: input.is_active !== undefined ? !!input.is_active : true,
+    availability_mode: input.availability_mode || 'available_now',
+    release_date: input.release_date || null,
+    preorder_start_date: input.preorder_start_date || null,
+    preorder_end_date: input.preorder_end_date || null,
+    expected_dispatch_date: input.expected_dispatch_date || null,
+    notify_subscribers: input.notify_subscribers !== undefined ? !!input.notify_subscribers : true,
     updated_at: new Date().toISOString()
   }
 

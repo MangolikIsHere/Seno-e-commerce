@@ -3,15 +3,15 @@
 import React, { useState, useTransition, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { 
-  ArrowLeft, 
+import {
+  ArrowLeft,
   ArrowRight,
-  Plus, 
-  Trash2, 
-  Upload, 
-  Star, 
-  Check, 
-  AlertCircle, 
+  Plus,
+  Trash2,
+  Upload,
+  Star,
+  Check,
+  AlertCircle,
   AlertTriangle,
   ExternalLink,
   ChevronUp,
@@ -27,25 +27,27 @@ import {
   ShieldCheck,
   CheckCircle2,
   Truck,
-  X
+  X,
+  Clock,
+  Calendar
 } from 'lucide-react'
-import { 
-  createAdminProduct, 
-  updateAdminProduct, 
+import {
+  createAdminProduct,
+  updateAdminProduct,
   generateUniqueSlug,
   AdminProductImage,
-  AdminProductVariant 
+  AdminProductVariant
 } from '@/lib/adminCatalog'
 import { money, parseReturnPolicy } from '@/lib/catalog'
 import { extractColourImagesFromDetails } from '@/lib/colours'
 import { ProductColoursManager } from '@/components/ProductColoursManager'
-import { 
-  FREE_SIZE_CANONICAL, 
-  FREE_SIZE_UPPER, 
-  STANDARD_SIZES, 
-  isFreeSize, 
-  formatSizeDisplay, 
-  getSizeSkuSegment 
+import {
+  FREE_SIZE_CANONICAL,
+  FREE_SIZE_UPPER,
+  STANDARD_SIZES,
+  isFreeSize,
+  formatSizeDisplay,
+  getSizeSkuSegment
 } from '@/lib/variants-shared'
 import { normalizeDeliveryDays, calculateExpectedDeliveryDate, formatDeliveryByDate } from '@/lib/deliveryDate'
 
@@ -98,7 +100,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   const [slug, setSlug] = useState(initialData?.slug || '')
   const [description, setDescription] = useState(initialData?.description || '')
   const [details, setDetails] = useState<string[]>(
-    Array.isArray(initialData?.details) && initialData.details.length > 0 
+    Array.isArray(initialData?.details) && initialData.details.length > 0
       ? initialData.details.filter((d: any) => typeof d === 'string' && !d.toLowerCase().startsWith('return policy:'))
       : ['100% Premium Cotton', 'Pre-shrunk finish', 'Dry clean or gentle hand wash']
   )
@@ -110,8 +112,8 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
 
   // Step 2: Media
   const [images, setImages] = useState<AdminProductImage[]>(
-    initialData?.images && initialData.images.length > 0 
-      ? initialData.images 
+    initialData?.images && initialData.images.length > 0
+      ? initialData.images
       : []
   )
   const [imageUrlInput, setImageUrlInput] = useState('')
@@ -150,6 +152,26 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
   const [isNew, setIsNew] = useState<boolean>(initialData?.is_new !== undefined ? initialData.is_new : true)
   const [isBestseller, setIsBestseller] = useState<boolean>(initialData?.is_bestseller || false)
   const [isFeatured, setIsFeatured] = useState<boolean>(initialData?.is_featured || false)
+
+  // Product Availability & Scheduling State
+  const [availabilityMode, setAvailabilityMode] = useState<'available_now' | 'coming_soon' | 'pre_order'>(
+    initialData?.availability_mode || 'available_now'
+  )
+  const [releaseDate, setReleaseDate] = useState<string>(
+    initialData?.release_date ? new Date(initialData.release_date).toISOString().slice(0, 16) : ''
+  )
+  const [preorderStartDate, setPreorderStartDate] = useState<string>(
+    initialData?.preorder_start_date ? new Date(initialData.preorder_start_date).toISOString().slice(0, 16) : ''
+  )
+  const [preorderEndDate, setPreorderEndDate] = useState<string>(
+    initialData?.preorder_end_date ? new Date(initialData.preorder_end_date).toISOString().slice(0, 16) : ''
+  )
+  const [expectedDispatchDate, setExpectedDispatchDate] = useState<string>(
+    initialData?.expected_dispatch_date || ''
+  )
+  const [notifySubscribers, setNotifySubscribers] = useState<boolean>(
+    initialData?.notify_subscribers !== undefined ? !!initialData.notify_subscribers : true
+  )
 
   // Derived Calculations
   const numPrice = Number(price) || 0
@@ -570,6 +592,14 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
       return
     }
 
+    if (availabilityMode === 'coming_soon' && !releaseDate) {
+      setActiveTab('delivery')
+      setError('Please set a release date and time for scheduled coming soon products.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      isSubmittingRef.current = false
+      return
+    }
+
     const effectiveActive = overrideActive !== undefined ? overrideActive : isActive
 
     startTransition(async () => {
@@ -596,6 +626,12 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
           is_new: isNew,
           is_bestseller: isBestseller,
           is_active: effectiveActive,
+          availability_mode: availabilityMode,
+          release_date: availabilityMode === 'coming_soon' && releaseDate ? new Date(releaseDate).toISOString() : null,
+          preorder_start_date: availabilityMode === 'pre_order' && preorderStartDate ? new Date(preorderStartDate).toISOString() : null,
+          preorder_end_date: availabilityMode === 'pre_order' && preorderEndDate ? new Date(preorderEndDate).toISOString() : null,
+          expected_dispatch_date: availabilityMode === 'pre_order' && expectedDispatchDate.trim() ? expectedDispatchDate.trim() : null,
+          notify_subscribers: notifySubscribers,
           colour_hexes: colourHexes,
           images,
           variants
@@ -678,16 +714,16 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
       {/* Top Header */}
       <div className="admin-editor-top-bar">
         <div className="admin-editor-top-bar-info">
-          <Link 
-            href="/admin/products" 
-            style={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              gap: '6px', 
-              fontSize: '12px', 
-              color: 'var(--muted)', 
+          <Link
+            href="/admin/products"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              color: 'var(--muted)',
               textDecoration: 'none',
-              marginBottom: '12px' 
+              marginBottom: '12px'
             }}
           >
             <ArrowLeft size={14} /> Back to Catalog
@@ -744,13 +780,13 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
       </div>
 
       {error && (
-        <div style={{ 
-          padding: '14px 18px', 
-          background: '#fef2f2', 
-          border: '1px solid #fecaca', 
+        <div style={{
+          padding: '14px 18px',
+          background: '#fef2f2',
+          border: '1px solid #fecaca',
           borderRadius: '4px',
-          color: '#991b1b', 
-          fontSize: '13px', 
+          color: '#991b1b',
+          fontSize: '13px',
           marginBottom: '20px',
           display: 'flex',
           alignItems: 'center',
@@ -762,13 +798,13 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
       )}
 
       {success && (
-        <div style={{ 
-          padding: '14px 18px', 
-          background: '#ecfdf5', 
-          border: '1px solid #a7f3d0', 
+        <div style={{
+          padding: '14px 18px',
+          background: '#ecfdf5',
+          border: '1px solid #a7f3d0',
           borderRadius: '4px',
-          color: '#065f46', 
-          fontSize: '13px', 
+          color: '#065f46',
+          fontSize: '13px',
           marginBottom: '20px',
           display: 'flex',
           alignItems: 'center',
@@ -866,7 +902,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                 Required Fields *
               </span>
             </div>
-            
+
             <div className="admin-form-two-col">
               <div className="admin-form-field">
                 <label className="admin-form-label">
@@ -1244,7 +1280,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
         {activeTab === 'pricing' && (
           <div className="admin-form-card">
             <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Step 3: Pricing, Markdown & Customer Return Policy</h3>
-            
+
             <div className="admin-form-two-col">
               <div className="admin-form-field">
                 <label className="admin-form-label">
@@ -1312,7 +1348,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                   </div>
                 ) : (
                   <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>
-                    {numPrice > 0 
+                    {numPrice > 0
                       ? `Standard price: ${money(numPrice)}. Add an MRP higher than retail price to show a strikethrough markdown & discount badge.`
                       : 'Set a retail price above to preview customer pricing.'}
                   </div>
@@ -1714,7 +1750,7 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
         {activeTab === 'delivery' && (
           <div className="admin-form-card">
             <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Step 5: Shipping, Weight & Merchandising Flags</h3>
-            
+
             <div className="admin-form-two-col">
               <div className="admin-form-field">
                 <label className="admin-form-label">
@@ -1744,14 +1780,14 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                     <input type="radio" name="shipping-method" checked={shippingMethod === 'custom'} onChange={() => setShippingMethod('custom')} /> Custom flat delivery charge
                   </label>
                   {shippingMethod === 'custom' && (
-                    <input 
-                      type="number" 
-                      min="0" 
-                      step="0.01" 
-                      value={customDeliveryCharge} 
-                      onChange={e => setCustomDeliveryCharge(e.target.value)} 
-                      placeholder="Delivery charge in ₹" 
-                      required 
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={customDeliveryCharge}
+                      onChange={e => setCustomDeliveryCharge(e.target.value)}
+                      placeholder="Delivery charge in ₹"
+                      required
                       className="admin-form-input"
                       style={{ maxWidth: '240px', marginTop: '4px' }}
                     />
@@ -1846,6 +1882,189 @@ export function ProductEditorForm({ initialData, categories, collections, mode }
                   </div>
                 </label>
               </div>
+            </div>
+
+            {/* Product Availability & Release Scheduling */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '24px', marginTop: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <Clock size={16} color="#B87858" />
+                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>
+                  Product Availability & Release Scheduling
+                </h4>
+              </div>
+              <p style={{ margin: '0 0 16px', fontSize: '12px', color: 'var(--muted)', lineHeight: 1.5 }}>
+                Configure whether this piece is immediately purchasable, scheduled for a future launch date with a live countdown timer, or available for customer pre-order reservations.
+              </p>
+
+              {/* Mode Selector */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  padding: '14px',
+                  border: availabilityMode === 'available_now' ? '1.5px solid var(--ink)' : '1px solid var(--border)',
+                  background: availabilityMode === 'available_now' ? 'var(--surface-subtle)' : '#fff',
+                  borderRadius: '2px',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="radio"
+                    name="availability_mode"
+                    value="available_now"
+                    checked={availabilityMode === 'available_now'}
+                    onChange={() => setAvailabilityMode('available_now')}
+                    style={{ marginTop: '2px' }}
+                  />
+                  <div>
+                    <strong style={{ display: 'block', fontSize: '13px', color: 'var(--ink)' }}>Available Now</strong>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginTop: '2px' }}>
+                      Immediate purchase and standard order dispatch flow.
+                    </span>
+                  </div>
+                </label>
+
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  padding: '14px',
+                  border: availabilityMode === 'coming_soon' ? '1.5px solid #285EA8' : '1px solid var(--border)',
+                  background: availabilityMode === 'coming_soon' ? '#F0F6FF' : '#fff',
+                  borderRadius: '2px',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="radio"
+                    name="availability_mode"
+                    value="coming_soon"
+                    checked={availabilityMode === 'coming_soon'}
+                    onChange={() => setAvailabilityMode('coming_soon')}
+                    style={{ marginTop: '2px' }}
+                  />
+                  <div>
+                    <strong style={{ display: 'block', fontSize: '13px', color: '#1E40AF' }}>Coming Soon / Scheduled</strong>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginTop: '2px' }}>
+                      Displays live countdown timer on storefront. Purchases enable automatically at release time.
+                    </span>
+                  </div>
+                </label>
+
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  padding: '14px',
+                  border: availabilityMode === 'pre_order' ? '1.5px solid #C2410C' : '1px solid var(--border)',
+                  background: availabilityMode === 'pre_order' ? '#FFF7ED' : '#fff',
+                  borderRadius: '2px',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="radio"
+                    name="availability_mode"
+                    value="pre_order"
+                    checked={availabilityMode === 'pre_order'}
+                    onChange={() => setAvailabilityMode('pre_order')}
+                    style={{ marginTop: '2px' }}
+                  />
+                  <div>
+                    <strong style={{ display: 'block', fontSize: '13px', color: '#C2410C' }}>Pre-Order</strong>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginTop: '2px' }}>
+                      Accepts paid orders through Razorpay ahead of release, tagged as non-immediate dispatch.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Coming Soon Settings */}
+              {availabilityMode === 'coming_soon' && (
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '16px 18px', borderRadius: '3px', marginBottom: '18px' }}>
+                  <div className="admin-form-two-col">
+                    <div className="admin-form-field">
+                      <label className="admin-form-label" htmlFor="admin-release-date">
+                        Scheduled Release Date & Time (Asia/Kolkata) <span className="admin-required-badge">*</span>
+                      </label>
+                      <input
+                        id="admin-release-date"
+                        type="datetime-local"
+                        value={releaseDate}
+                        onChange={e => setReleaseDate(e.target.value)}
+                        required={availabilityMode === 'coming_soon'}
+                        className="admin-form-input"
+                        style={{ maxWidth: '320px' }}
+                      />
+                      <span style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px', display: 'block' }}>
+                        Customer countdown timer will count down to this exact minute and enable Add to Cart automatically.
+                      </span>
+                    </div>
+
+                    <div className="admin-form-field" style={{ justifyContent: 'center' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', marginTop: '14px' }}>
+                        <input
+                          type="checkbox"
+                          checked={notifySubscribers}
+                          onChange={e => setNotifySubscribers(e.target.checked)}
+                        />
+                        <span>Notify email subscribers when product is released</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Pre-Order Settings */}
+              {availabilityMode === 'pre_order' && (
+                <div style={{ background: '#FFFDF9', border: '1px solid #FED7AA', padding: '16px 18px', borderRadius: '3px', marginBottom: '18px' }}>
+                  <div className="admin-form-two-col">
+                    <div className="admin-form-field">
+                      <label className="admin-form-label" htmlFor="admin-preorder-dispatch">
+                        Expected Dispatch Date / Window <span className="admin-required-badge">*</span>
+                      </label>
+                      <input
+                        id="admin-preorder-dispatch"
+                        type="text"
+                        value={expectedDispatchDate}
+                        onChange={e => setExpectedDispatchDate(e.target.value)}
+                        placeholder="e.g. Dispatches by Dec 15, 2026 or 2–3 weeks"
+                        className="admin-form-input"
+                        style={{ maxWidth: '360px' }}
+                      />
+                      <span style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px', display: 'block' }}>
+                        Prominently shown on the product page and checkout confirmation.
+                      </span>
+                    </div>
+
+                    <div className="admin-form-field">
+                      <label className="admin-form-label">
+                        Pre-Order Window Dates (Optional)
+                      </label>
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: '150px' }}>
+                          <span style={{ fontSize: '10.5px', color: 'var(--muted)', display: 'block', marginBottom: '2px' }}>Opens</span>
+                          <input
+                            type="datetime-local"
+                            value={preorderStartDate}
+                            onChange={e => setPreorderStartDate(e.target.value)}
+                            className="admin-form-input"
+                            style={{ fontSize: '11.5px' }}
+                          />
+                        </div>
+                        <div style={{ flex: 1, minWidth: '150px' }}>
+                          <span style={{ fontSize: '10.5px', color: 'var(--muted)', display: 'block', marginBottom: '2px' }}>Closes</span>
+                          <input
+                            type="datetime-local"
+                            value={preorderEndDate}
+                            onChange={e => setPreorderEndDate(e.target.value)}
+                            className="admin-form-input"
+                            style={{ fontSize: '11.5px' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

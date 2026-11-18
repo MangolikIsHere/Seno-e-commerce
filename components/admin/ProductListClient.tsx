@@ -20,7 +20,8 @@ import {
   X,
   Star,
   Loader2,
-  Clock
+  Clock,
+  Sparkles
 } from 'lucide-react'
 import { money } from '@/lib/catalog'
 import { toggleProductActive, toggleProductBestseller } from '@/lib/adminCatalog'
@@ -499,7 +500,7 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                                 alignItems: 'center',
                                 gap: '4px',
                                 padding: '4px 10px',
-                                borderRadius: '12px',
+                                borderRadius: '2px',
                                 fontSize: '11px',
                                 fontWeight: 600
                               }}
@@ -518,7 +519,7 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                                 alignItems: 'center',
                                 gap: '4px',
                                 padding: '4px 10px',
-                                borderRadius: '12px',
+                                borderRadius: '2px',
                                 fontSize: '11px',
                                 fontWeight: 600
                               }}
@@ -527,25 +528,84 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                               <span>Rejected</span>
                             </span>
                           ) : product.approval_status === 'approved' ? (
-                            <button
-                              onClick={() => handleToggleActive(product.id, product.is_active)}
-                              disabled={isPending}
-                              title={product.is_active ? 'Click to deactivate' : 'Click to activate'}
-                              className={`status-pill ${product.is_active ? 'active' : 'draft'}`}
-                              style={{
-                                border: 'none',
-                                cursor: 'pointer',
-                                padding: '4px 10px',
-                                borderRadius: '12px',
-                                fontSize: '11px'
-                              }}
-                            >
-                              {product.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
-                              <span>{product.is_active ? 'Active' : 'Hidden'}</span>
-                            </button>
+                            !product.is_active ? (
+                          <button
+                            onClick={() => handleToggleActive(product.id, false)}
+                            disabled={isPending}
+                            title="Click to publish piece live"
+                            className="status-pill draft"
+                            style={{
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '4px 10px',
+                              borderRadius: '2px',
+                              fontSize: '11px'
+                            }}
+                          >
+                            <EyeOff size={12} />
+                            <span>HIDDEN</span>
+                          </button>
+                            ) : product.availability_mode === 'coming_soon' && product.release_date && new Date(product.release_date).getTime() > Date.now() ? (
+                          <span
+                            className="status-pill coming-soon"
+                            style={{
+                              background: '#EFF6FF',
+                              color: '#1E40AF',
+                              border: '1px solid #BFDBFE',
+                              borderRadius: '2px',
+                              padding: '4px 10px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            title={`Scheduled for release on ${new Date(product.release_date).toLocaleString()}`}
+                          >
+                            <Clock size={11} />
+                            <span>COMING SOON</span>
+                          </span>
+                          ) : product.availability_mode === 'pre_order' ? (
+                          <span
+                            className="status-pill preorder"
+                            style={{
+                              background: '#FFF7ED',
+                              color: '#C2410C',
+                              border: '1px solid #FED7AA',
+                              borderRadius: '2px',
+                              padding: '4px 10px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            title={product.expected_dispatch_date ? `Dispatches: ${product.expected_dispatch_date}` : 'Pre-order active'}
+                          >
+                            <Sparkles size={11} />
+                            <span>PRE-ORDER</span>
+                          </span>
                           ) : (
-                            <span className="status-pill draft" style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '11px' }}>
-                              Draft
+                          <button
+                            onClick={() => handleToggleActive(product.id, true)}
+                            disabled={isPending}
+                            title="Click to deactivate and hide from public"
+                            className="status-pill active"
+                            style={{
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '4px 10px',
+                              borderRadius: '2px',
+                              fontSize: '11px'
+                            }}
+                          >
+                            <Eye size={12} />
+                            <span>LIVE</span>
+                          </button>
+                          )
+                          ) : (
+                            <span className="status-pill draft" style={{ padding: '4px 10px', borderRadius: '2px', fontSize: '11px' }}>
+                              DRAFT
                             </span>
                           )}
                         </td>
@@ -715,7 +775,7 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                                 color: '#991b1b',
                                 border: '1px solid #fecaca',
                                 padding: '2px 7px',
-                                borderRadius: '10px',
+                                borderRadius: '2px',
                                 fontWeight: 700,
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.5px',
@@ -727,11 +787,21 @@ export function ProductListClient({ initialProducts, categories }: ProductListCl
                               <XCircle size={9} /> REJECTED
                             </span>
                           ) : product.approval_status === 'approved' && product.is_active ? (
-                            <span className="status-pill approved" style={{ fontSize: '9px' }}>
-                              LIVE
-                            </span>
+                            product.availability_mode === 'coming_soon' && product.release_date && new Date(product.release_date).getTime() > Date.now() ? (
+                          <span style={{ fontSize: '9px', background: '#EFF6FF', color: '#1E40AF', border: '1px solid #BFDBFE', padding: '2px 7px', borderRadius: '2px', fontWeight: 700, textTransform: 'uppercase' }}>
+                            COMING SOON
+                          </span>
+                          ) : product.availability_mode === 'pre_order' ? (
+                          <span style={{ fontSize: '9px', background: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA', padding: '2px 7px', borderRadius: '2px', fontWeight: 700, textTransform: 'uppercase' }}>
+                            PRE-ORDER
+                          </span>
                           ) : (
-                            <span className="status-pill draft" style={{ fontSize: '9px' }}>
+                          <span className="status-pill approved" style={{ fontSize: '9px', borderRadius: '2px' }}>
+                            LIVE
+                          </span>
+                          )
+                          ) : (
+                            <span className="status-pill draft" style={{ fontSize: '9px', borderRadius: '2px' }}>
                               HIDDEN
                             </span>
                           )}

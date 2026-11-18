@@ -64,6 +64,8 @@ export interface OrderItem {
   carrier?: string | null
   estimated_delivery_date?: string | null
   expected_delivery_days?: number | null
+  is_preorder?: boolean
+  expected_dispatch_date?: string | null
   created_at: string
   fulfillment_events?: FulfillmentEvent[]
   sellers?: {
@@ -104,6 +106,7 @@ export interface Order {
   promotion_snapshot?: any
   expected_delivery_date?: string | null
   expected_delivery_days?: number | null
+  is_preorder?: boolean
   created_at: string
   order_items?: OrderItem[]
 }
@@ -133,6 +136,7 @@ export interface CreateOrderResult {
   total_weight_grams?: number
   expected_delivery_date?: string | null
   expected_delivery_days?: number | null
+  is_preorder?: boolean
   is_duplicate?: boolean
   error?: string
 }
@@ -185,7 +189,7 @@ export async function placeOrderAction(
     const variantIds = input.items.map(item => item.variant_id)
     const { data: dbVariants } = await supabase
       .from('product_variants')
-      .select('id, is_active, sku, products!inner(name, is_active, approval_status, is_sold_out)')
+      .select('id, is_active, sku, products!inner(name, is_active, approval_status, is_sold_out, availability_mode, release_date, preorder_start_date, preorder_end_date)')
       .in('id', variantIds)
 
     for (const item of input.items) {
@@ -196,151 +200,168 @@ export async function placeOrderAction(
       if (!match.is_active) {
         return { success: false, error: `The selected piece (${match.sku}) is no longer available. Please remove it from your bag.` }
       }
-      if (!(match.products as any)?.is_active || (match.products as any)?.approval_status !== 'approved' || (match.products as any)?.is_sold_out) {
-        return { success: false, error: `Product "${(match.products as any)?.name}" is currently unavailable.` }
-      }
-    }
-
-    let verifiedShippingAddress: OrderAddress | null = null
-
-    // 1. If saved address selected, verify it belongs strictly to this user
-    if (input.address_id) {
-      const { data: addrData, error: addrError } = await supabase
-        .from('addresses')
-        .select('*')
-        .eq('id', input.address_id)
-        .eq('user_id', user.id)
-        .single()
-
-      if (addrError || !addrData) {
-        return {
-          success: false,
-          error: 'The selected delivery address is invalid or does not belong to your account.'
+        const prod = match.products as any
+        if (!prod?.is_active || prod?.approval_status !== 'approved' || prod?.is_sold_out) {
+          return { success: false, error: `Product "${prod?.name}" is currently unavailable.` }
+        }
+        if (prod?.availability_mode === 'coming_soon' && prod?.release_date) {
+          if (new Date(prod.release_date).getTime() > Date.now()) {
+            return {
+              success: false,
+              error: `"${prod.name}" is scheduled for release on ${new Date(prod.release_date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} IST and cannot be purchased early.`
+            }
+          }
+        }
+        if (prod?.availability_mode === 'pre_order') {
+          if (prod?.preorder_start_date && new Date(prod.preorder_start_date).getTime() > Date.now()) {
+            return { success: false, error: `Pre-orders for "${prod.name}" have not opened yet.` }
+          }
+          if (prod?.preorder_end_date && new Date(prod.preorder_end_date).getTime() <= Date.now()) {
+            return { success: false, error: `The pre-order window for "${prod.name}" has closed.` }
+          }
         }
       }
 
-      // Check for landmark (required for delivery). If saved address lacks landmark,
-      // allow customer to provide it in input.shipping_address without blocking checkout
-      const resolvedLandmark = (addrData.landmark || input.shipping_address?.landmark || '').trim()
-      if (!resolvedLandmark) {
-        return {
-          success: false,
-          error: 'Please enter a nearby landmark to help locate your address.'
-        }
-      }
+      let verifiedShippingAddress: OrderAddress | null = null
 
-      // If address didn't have a landmark in DB, proactively save it to their address book
-      if (!addrData.landmark?.trim() && resolvedLandmark) {
-        try {
-          await supabase
-            .from('addresses')
-            .update({ landmark: resolvedLandmark })
-            .eq('id', input.address_id)
-            .eq('user_id', user.id)
-        } catch {
-          // Non-fatal if column migration pending
-        }
-      }
+      // 1. If saved address selected, verify it belongs strictly to this user
+      if (input.address_id) {
+        const { data: addrData, error: addrError } = await supabase
+          .from('addresses')
+          .select('*')
+          .eq('id', input.address_id)
+          .eq('user_id', user.id)
+          .single()
 
-      verifiedShippingAddress = {
-        recipient_name: addrData.recipient_name,
-        phone: addrData.phone,
-        address_line1: addrData.address_line1,
-        address_line2: addrData.address_line2 || null,
-        landmark: resolvedLandmark,
-        city: addrData.city,
-        state: addrData.state,
-        postal_code: addrData.postal_code,
-        country: addrData.country || 'India'
-      }
-    } else if (input.shipping_address) {
-      // 2. Validate new manual address input server-side
-      const addr = input.shipping_address
-      if (
-        !addr.recipient_name?.trim() ||
-        !addr.phone?.trim() ||
-        !addr.address_line1?.trim() ||
-        !addr.landmark?.trim() ||
-        !addr.city?.trim() ||
-        !addr.state?.trim() ||
-        !addr.postal_code?.trim()
-      ) {
-        if (!addr.landmark?.trim()) {
+        if (addrError || !addrData) {
+          return {
+            success: false,
+            error: 'The selected delivery address is invalid or does not belong to your account.'
+          }
+        }
+
+        // Check for landmark (required for delivery). If saved address lacks landmark,
+        // allow customer to provide it in input.shipping_address without blocking checkout
+        const resolvedLandmark = (addrData.landmark || input.shipping_address?.landmark || '').trim()
+        if (!resolvedLandmark) {
           return {
             success: false,
             error: 'Please enter a nearby landmark to help locate your address.'
           }
         }
+
+        // If address didn't have a landmark in DB, proactively save it to their address book
+        if (!addrData.landmark?.trim() && resolvedLandmark) {
+          try {
+            await supabase
+              .from('addresses')
+              .update({ landmark: resolvedLandmark })
+              .eq('id', input.address_id)
+              .eq('user_id', user.id)
+          } catch {
+            // Non-fatal if column migration pending
+          }
+        }
+
+        verifiedShippingAddress = {
+          recipient_name: addrData.recipient_name,
+          phone: addrData.phone,
+          address_line1: addrData.address_line1,
+          address_line2: addrData.address_line2 || null,
+          landmark: resolvedLandmark,
+          city: addrData.city,
+          state: addrData.state,
+          postal_code: addrData.postal_code,
+          country: addrData.country || 'India'
+        }
+      } else if (input.shipping_address) {
+        // 2. Validate new manual address input server-side
+        const addr = input.shipping_address
+        if (
+          !addr.recipient_name?.trim() ||
+          !addr.phone?.trim() ||
+          !addr.address_line1?.trim() ||
+          !addr.landmark?.trim() ||
+          !addr.city?.trim() ||
+          !addr.state?.trim() ||
+          !addr.postal_code?.trim()
+        ) {
+          if (!addr.landmark?.trim()) {
+            return {
+              success: false,
+              error: 'Please enter a nearby landmark to help locate your address.'
+            }
+          }
+          return {
+            success: false,
+            error: 'Please fill in all required shipping address fields.'
+          }
+        }
+        verifiedShippingAddress = {
+          recipient_name: addr.recipient_name.trim(),
+          phone: addr.phone.trim(),
+          address_line1: addr.address_line1.trim(),
+          address_line2: addr.address_line2?.trim() || null,
+          landmark: addr.landmark.trim(),
+          city: addr.city.trim(),
+          state: addr.state.trim(),
+          postal_code: addr.postal_code.trim(),
+          country: addr.country?.trim() || 'India'
+        }
+      } else {
         return {
           success: false,
-          error: 'Please fill in all required shipping address fields.'
+          error: 'A delivery address is required to complete your order.'
         }
       }
-      verifiedShippingAddress = {
-        recipient_name: addr.recipient_name.trim(),
-        phone: addr.phone.trim(),
-        address_line1: addr.address_line1.trim(),
-        address_line2: addr.address_line2?.trim() || null,
-        landmark: addr.landmark.trim(),
-        city: addr.city.trim(),
-        state: addr.state.trim(),
-        postal_code: addr.postal_code.trim(),
-        country: addr.country?.trim() || 'India'
+
+      // 3. Call database-authoritative transactional RPC
+      const { data: rpcResult, error: rpcError } = await supabase.rpc(
+        'create_order',
+        {
+          p_items: input.items,
+          p_shipping_address: verifiedShippingAddress,
+          p_billing_address: input.billing_address || verifiedShippingAddress,
+          p_notes: input.notes || null,
+          p_address_id: input.address_id || null,
+          p_idempotency_key: input.idempotency_key || null
+        }
+      )
+
+      if (rpcError) {
+        // Return clear error message directly from database validation
+        return {
+          success: false,
+          error: rpcError.message || 'Failed to place order. Please try again.'
+        }
       }
-    } else {
-      return {
-        success: false,
-        error: 'A delivery address is required to complete your order.'
+
+      const result = rpcResult as {
+        success: boolean
+        order_id: string
+        order_number: string
+        subtotal_amount: number
+        shipping_amount: number
+        total_amount: number
+        total_weight_grams: number
+        is_duplicate: boolean
       }
-    }
 
-    // 3. Call database-authoritative transactional RPC
-    const { data: rpcResult, error: rpcError } = await supabase.rpc(
-      'create_order',
-      {
-        p_items: input.items,
-        p_shipping_address: verifiedShippingAddress,
-        p_billing_address: input.billing_address || verifiedShippingAddress,
-        p_notes: input.notes || null,
-        p_address_id: input.address_id || null,
-        p_idempotency_key: input.idempotency_key || null
-      }
-    )
+      let finalDiscount = 0
+      let finalShipping = Number(result.shipping_amount)
+      let finalTotal = Number(result.total_amount)
+      let overallOrderDeliveryDate = calculateExpectedDeliveryDate(7).toISOString()
+      let calculatedMaxDays = 7
 
-    if (rpcError) {
-      // Return clear error message directly from database validation
-      return {
-        success: false,
-        error: rpcError.message || 'Failed to place order. Please try again.'
-      }
-    }
-
-    const result = rpcResult as {
-      success: boolean
-      order_id: string
-      order_number: string
-      subtotal_amount: number
-      shipping_amount: number
-      total_amount: number
-      total_weight_grams: number
-      is_duplicate: boolean
-    }
-
-    let finalDiscount = 0
-    let finalShipping = Number(result.shipping_amount)
-    let finalTotal = Number(result.total_amount)
-    let overallOrderDeliveryDate = calculateExpectedDeliveryDate(7).toISOString()
-    let calculatedMaxDays = 7
-
-    if (result.success && result.order_id) {
-      // 4. Server-Authoritative Delivery Snapshot & Promotion Calculation
-      try {
-        let orderItemRows: any[] | null = null
-        // First try selecting with expected_delivery_days
-        const { data: itemRowsWithDelivery, error: itemsQueryError } = await supabase
-          .from('order_items')
-          .select('id, variant_id, quantity, unit_price, unit_weight_grams, product_id, products(id, name, slug, category_id, categories(name, slug), default_weight_grams, shipping_method, custom_delivery_charge, expected_delivery_days)')
-          .eq('order_id', result.order_id)
+      if (result.success && result.order_id) {
+        // 4. Server-Authoritative Delivery Snapshot & Promotion Calculation
+        try {
+          let orderItemRows: any[] | null = null
+          // First try selecting with expected_delivery_days
+          const { data: itemRowsWithDelivery, error: itemsQueryError } = await supabase
+            .from('order_items')
+            .select('id, variant_id, quantity, unit_price, unit_weight_grams, product_id, products(id, name, slug, category_id, categories(name, slug), default_weight_grams, shipping_method, custom_delivery_charge, expected_delivery_days)')
+            .eq('order_id', result.order_id)
 
           if (!itemsQueryError && itemRowsWithDelivery) {
             orderItemRows = itemRowsWithDelivery
@@ -485,7 +506,7 @@ export async function placeOrderAction(
         await revalidateStorefrontForOrder(result.order_id, supabase)
       }
 
-    return {
+      return {
         success: true,
         order_id: result.order_id,
         order_number: result.order_number,
@@ -496,6 +517,7 @@ export async function placeOrderAction(
         total_weight_grams: Number(result.total_weight_grams),
         expected_delivery_date: overallOrderDeliveryDate,
         expected_delivery_days: calculatedMaxDays,
+        is_preorder: (result as any).is_preorder ?? false,
         is_duplicate: result.is_duplicate
       }
     } catch (err: unknown) {

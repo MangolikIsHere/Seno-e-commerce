@@ -40,9 +40,10 @@ const fetchProductCached = unstable_cache(
 export const getCachedProduct = cache(async (slug: string): Promise<Product | undefined> => {
   if (!slug) return undefined
   try {
-    return await fetchProductCached(slug)
-  } catch {
-    return getProduct(slug)
+    return await getProduct(slug)
+  } catch (err) {
+    console.error('Error in getCachedProduct:', err)
+    return undefined
   }
 })
 

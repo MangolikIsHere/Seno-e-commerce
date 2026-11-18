@@ -94,6 +94,12 @@ export interface Product {
   isNew?: boolean
   isBestseller?: boolean
   isSale?: boolean
+  availabilityMode?: 'available_now' | 'coming_soon' | 'pre_order'
+  releaseDate?: string | null
+  preorderStartDate?: string | null
+  preorderEndDate?: string | null
+  expectedDispatchDate?: string | null
+  notifySubscribers?: boolean
   seller?: {
     store_name?: string
     slug?: string
@@ -226,6 +232,12 @@ function mapProductRow(row: any): Product {
     isNew: row.is_new,
     isBestseller: row.is_bestseller,
     isSale: !!row.compare_at_price && Number(row.compare_at_price) > Number(row.price),
+    availabilityMode: row.availability_mode || 'available_now',
+    releaseDate: row.release_date || null,
+    preorderStartDate: row.preorder_start_date || null,
+    preorderEndDate: row.preorder_end_date || null,
+    expectedDispatchDate: row.expected_dispatch_date || null,
+    notifySubscribers: row.notify_subscribers !== undefined ? !!row.notify_subscribers : true,
     seller: row.sellers ? {
       store_name: row.sellers.store_name,
       slug: row.sellers.slug
@@ -249,6 +261,12 @@ const selectQuery = `
   custom_delivery_charge,
   is_new,
   is_bestseller,
+  availability_mode,
+  release_date,
+  preorder_start_date,
+  preorder_end_date,
+  expected_dispatch_date,
+  notify_subscribers,
   created_at,
   categories!inner(name, slug, is_active),
   sellers(store_name, slug),

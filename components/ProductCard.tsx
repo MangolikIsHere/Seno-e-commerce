@@ -83,6 +83,9 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
   const activePromoBadge = promotionBadge || (product as any).promotionBadge
   const catTheme = getCategoryTheme(product.category)
 
+  const isComingSoon = product.availabilityMode === 'coming_soon' && !!product.releaseDate && new Date(product.releaseDate).getTime() > Date.now()
+  const isPreOrder = product.availabilityMode === 'pre_order'
+
   const handleWishlistClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -130,144 +133,152 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
   }
 
   return (
-      <article
-        className="product-card group"
-        style={{
-          position: 'relative',
-          '--cat-accent': catTheme.accent,
-          '--cat-soft': catTheme.soft,
-          '--cat-border': catTheme.border
-        } as React.CSSProperties}
-      >
-        {/* Visual media container: navigates to product */}
-        <div className="product-visual-wrapper" style={{ display: 'block', position: 'relative' }}>
-          <Link
-            href={productHref}
-            style={{ display: 'block' }}
-            data-return-context={returnContext || undefined}
-            onClick={handleProductLinkClick}
-            aria-label={product.name ? `${product.name}${activeColour ? ` in ${activeColour}` : ''}` : 'SENO garment'}
-          >
-            <div className="product-visual">
+    <article
+      className="product-card group"
+      style={{
+        position: 'relative',
+        '--cat-accent': catTheme.accent,
+        '--cat-soft': catTheme.soft,
+        '--cat-border': catTheme.border
+      } as React.CSSProperties}
+    >
+      {/* Visual media container: navigates to product */}
+      <div className="product-visual-wrapper" style={{ display: 'block', position: 'relative' }}>
+        <Link
+          href={productHref}
+          style={{ display: 'block' }}
+          data-return-context={returnContext || undefined}
+          onClick={handleProductLinkClick}
+          aria-label={product.name ? `${product.name}${activeColour ? ` in ${activeColour}` : ''}` : 'SENO garment'}
+        >
+          <div className="product-visual">
+            <SenoImage
+              src={primaryImg}
+              alt={product.name ? `${product.name}${activeColour ? ` in ${activeColour}` : ''}` : 'SENO garment'}
+              className="product-primary-img"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+
+            {secondaryImg && !activeColour && (
               <SenoImage
-                src={primaryImg}
-                alt={product.name ? `${product.name}${activeColour ? ` in ${activeColour}` : ''}` : 'SENO garment'}
-                className="product-primary-img"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                src={secondaryImg}
+                alt={product.name ? `${product.name} — alternate view` : 'SENO garment — alternate view'}
+                className="product-secondary-img"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }}
               />
+            )}
 
-              {secondaryImg && !activeColour && (
-                <SenoImage
-                  src={secondaryImg}
-                  alt={product.name ? `${product.name} — alternate view` : 'SENO garment — alternate view'}
-                  className="product-secondary-img"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }}
-                />
-              )}
-
-              {/* Editorial Badges */}
-              <div className="product-card-badges-container" style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', flexDirection: 'column', gap: '5px', zIndex: 2 }}>
-                {product.soldOut ? (
-                  <span className="badge sold-out-badge">
-                    Sold Out
-                  </span>
-                ) : activePromoBadge ? (
-                  <span className="badge promo-offer-badge">
-                    {activePromoBadge}
-                  </span>
-                ) : product.isBestseller ? (
-                  <span className="badge bestseller-badge">
-                    Bestseller
-                  </span>
-                ) : product.isNew ? (
-                  <span className="badge new-badge">
-                    New Arrival
-                  </span>
-                ) : product.isSale ? (
-                  <span className="badge sale-badge">
-                    Sale
-                  </span>
-                ) : null}
-              </div>
+            {/* Editorial Badges */}
+            <div className="product-card-badges-container" style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', flexDirection: 'column', gap: '5px', zIndex: 2 }}>
+              {product.soldOut ? (
+                <span className="badge sold-out-badge">
+                  Sold Out
+                </span>
+              ) : isComingSoon ? (
+                <span className="badge coming-soon-badge">
+                  Coming Soon
+                </span>
+              ) : isPreOrder ? (
+                <span className="badge preorder-badge">
+                  Pre-Order
+                </span>
+              ) : activePromoBadge ? (
+                <span className="badge promo-offer-badge">
+                  {activePromoBadge}
+                </span>
+              ) : product.isBestseller ? (
+                <span className="badge bestseller-badge">
+                  Bestseller
+                </span>
+              ) : product.isNew ? (
+                <span className="badge new-badge">
+                  New Arrival
+                </span>
+              ) : product.isSale ? (
+                <span className="badge sale-badge">
+                  Sale
+                </span>
+              ) : null}
             </div>
-          </Link>
+          </div>
+        </Link>
 
-          {/* Quick Add Button — Elevated pill on bottom of visual */}
-          {!product.soldOut && (
-            <button
-              className="quick-add-btn"
-              onClick={handleQuickAdd}
-              aria-label={`Quick add ${product.name} to cart`}
-              type="button"
-              data-no-navigation="true"
+          {/* Quick Action Button */ }
+          {!product.soldOut && !isComingSoon && (
+          <button
+            className="quick-add-btn"
+            onClick={handleQuickAdd}
+            aria-label={isPreOrder ? `Pre-order ${product.name}` : `Quick add ${product.name} to cart`}
+            type="button"
+            data-no-navigation="true"
+          >
+            {added ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <Check size={12} strokeWidth={2.5} /> {isPreOrder ? 'PRE-ORDERED' : 'ADDED'}
+              </span>
+            ) : (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <span>{isPreOrder ? '+ PRE-ORDER' : '+ QUICK ADD'}</span>
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* Wishlist Button — Top Right */}
+        <button
+          className={`wishlist-btn ${wishlisted ? 'liked' : ''}`}
+          aria-label={wishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
+          onClick={handleWishlistClick}
+          type="button"
+          data-no-navigation="true"
+        >
+          <Heart size={15} fill={wishlisted ? 'currentColor' : 'none'} strokeWidth={1.8} />
+        </button>
+
+        {/* Share Button — Top Right underneath Wishlist */}
+        <button
+          className="wishlist-btn share-btn"
+          style={{ top: '48px' }}
+          aria-label={`Share ${product.name}`}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setShareModalOpen(true)
+          }}
+          type="button"
+          data-no-navigation="true"
+        >
+          <Share2 size={13} strokeWidth={1.8} />
+        </button>
+      </div>
+
+      {/* Information Area: Category, Title, Swatches, Pricing */}
+      <div className="product-details-info">
+        <Link
+          href={productHref}
+          style={{ display: 'block', textDecoration: 'none' }}
+          data-return-context={returnContext || undefined}
+          onClick={handleProductLinkClick}
+        >
+          {product.category && (
+            <span
+              className="product-category-label product-category-pill"
+              style={{
+                backgroundColor: catTheme.soft,
+                color: catTheme.text,
+                borderColor: catTheme.border,
+              }}
             >
-              {added ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <Check size={12} strokeWidth={2.5} /> ADDED
-                </span>
-              ) : (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <span>+ QUICK ADD</span>
-                </span>
-              )}
-            </button>
+              {product.category}
+            </span>
           )}
-
-          {/* Wishlist Button — Top Right */}
-          <button
-            className={`wishlist-btn ${wishlisted ? 'liked' : ''}`}
-            aria-label={wishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
-            onClick={handleWishlistClick}
-            type="button"
-            data-no-navigation="true"
-          >
-            <Heart size={15} fill={wishlisted ? 'currentColor' : 'none'} strokeWidth={1.8} />
-          </button>
-
-          {/* Share Button — Top Right underneath Wishlist */}
-          <button
-            className="wishlist-btn share-btn"
-            style={{ top: '48px' }}
-            aria-label={`Share ${product.name}`}
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setShareModalOpen(true)
-            }}
-            type="button"
-            data-no-navigation="true"
-          >
-            <Share2 size={13} strokeWidth={1.8} />
-          </button>
-        </div>
-
-        {/* Information Area: Category, Title, Swatches, Pricing */}
-        <div className="product-details-info">
-          <Link
-            href={productHref}
-            style={{ display: 'block', textDecoration: 'none' }}
-            data-return-context={returnContext || undefined}
-            onClick={handleProductLinkClick}
-          >
-            {product.category && (
-                <span
-                  className="product-category-label product-category-pill"
-                  style={{
-                    backgroundColor: catTheme.soft,
-                    color: catTheme.text,
-                    borderColor: catTheme.border,
-                  }}
-                >
-                  {product.category}
-                </span>
-          )}
-                <h3 className="product-name-heading">
-                  {product.name}
-                </h3>
-              </Link>
+          <h3 className="product-name-heading">
+            {product.name}
+          </h3>
+        </Link>
 
         {/* Colour Swatches Indicator */}
-            {product.colors && product.colors.length > 1 && product.colors[0] !== 'Default' && (
+        {product.colors && product.colors.length > 1 && product.colors[0] !== 'Default' && (
           <div
             className="product-card-swatches"
             style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '5px 0 6px' }}
@@ -355,5 +366,5 @@ export function ProductCard({ product, returnContext, promotionBadge }: ProductC
         }}
       />
     </article>
-          )
+  )
 }

@@ -22,7 +22,8 @@ import {
   Copy,
   Sparkles,
   Share2,
-  Zap
+  Zap,
+  Clock
 } from 'lucide-react'
 import { money, Product } from '@/lib/catalog'
 import { getColourSwatchHex, normalizeColourKey } from '@/lib/colours'
@@ -437,7 +438,46 @@ export function ProductDetailClient({
     return !!(v && v.inventoryQuantity > 0)
   }
 
-  const canAddToCart = !product.soldOut && product.variants.length > 0 && !!selectedVariant && selectedVariant.inventoryQuantity > 0
+  // Live Scheduling & Pre-Order Availability State
+  const initialReleaseTime = product.releaseDate ? new Date(product.releaseDate).getTime() : 0
+  const [timeRemaining, setTimeRemaining] = useState<number>(() => {
+    if (product.availabilityMode === 'coming_soon' && initialReleaseTime > 0) {
+      return Math.max(0, initialReleaseTime - Date.now())
+    }
+    return 0
+  })
+
+  useEffect(() => {
+    if (product.availabilityMode !== 'coming_soon' || initialReleaseTime <= 0) return
+
+    const tick = () => {
+      const rem = Math.max(0, initialReleaseTime - Date.now())
+      setTimeRemaining(rem)
+    }
+
+    tick()
+    const timer = setInterval(tick, 1000)
+    return () => clearInterval(timer)
+  }, [product.availabilityMode, initialReleaseTime])
+
+  const isComingSoonActive = product.availabilityMode === 'coming_soon' && timeRemaining > 0
+  const isPreOrderMode = product.availabilityMode === 'pre_order'
+
+  const countdownParts = useMemo(() => {
+    if (timeRemaining <= 0) return null
+    const seconds = Math.floor((timeRemaining / 1000) % 60)
+    const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60)
+    const hours = Math.floor((timeRemaining / (1000 * 60 * 60)) % 24)
+    const days = Math.floor(timeRemaining / (1000 * 60 * 60 * 24))
+    return {
+      days: String(days).padStart(2, '0'),
+      hours: String(hours).padStart(2, '0'),
+      minutes: String(minutes).padStart(2, '0'),
+      seconds: String(seconds).padStart(2, '0')
+    }
+  }, [timeRemaining])
+
+  const canAddToCart = !isComingSoonActive && !product.soldOut && product.variants.length > 0 && !!selectedVariant && selectedVariant.inventoryQuantity > 0
 
   const categorySlug = (product as any).categorySlug ||
     (product.category ? product.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : '')
@@ -866,12 +906,104 @@ export function ProductDetailClient({
 
           {/* 6 & 7. Quantity Selector, Add to Bag, Wishlist Actions & Buy Now */}
           <div className="product-action-panel" ref={actionPanelRef}>
+            {/* Live Scheduled Release Countdown Card */}
+            {isComingSoonActive && countdownParts && (
+              <div
+                style={{
+                  background: 'linear-gradient(180deg, #FAF8F5 0%, #F5EFE6 100%)',
+                  border: '1px solid #D7AE70',
+                  borderRadius: '4px',
+                  padding: '16px 18px',
+                  marginBottom: '16px',
+                  boxShadow: '0 2px 8px rgba(41, 39, 36, 0.04)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase', color: '#8A6834' }}>
+                    <Clock size={13} />
+                    <span>SCHEDULED RELEASE</span>
+                  </div>
+                  <span style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 500, letterSpacing: '0.5px' }}>
+                    Asia/Kolkata
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', textAlign: 'center' }}>
+                  <div style={{ background: '#FFFFFF', border: '1px solid #E8E3DA', borderRadius: '2px', padding: '8px 4px' }}>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--ink)', fontFamily: 'monospace', lineHeight: 1 }}>{countdownParts.days}</div>
+                    <div style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--muted)', marginTop: '4px' }}>Days</div>
+                  </div>
+                  <div style={{ background: '#FFFFFF', border: '1px solid #E8E3DA', borderRadius: '2px', padding: '8px 4px' }}>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--ink)', fontFamily: 'monospace', lineHeight: 1 }}>{countdownParts.hours}</div>
+                    <div style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--muted)', marginTop: '4px' }}>Hours</div>
+                  </div>
+                  <div style={{ background: '#FFFFFF', border: '1px solid #E8E3DA', borderRadius: '2px', padding: '8px 4px' }}>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--ink)', fontFamily: 'monospace', lineHeight: 1 }}>{countdownParts.minutes}</div>
+                    <div style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--muted)', marginTop: '4px' }}>Mins</div>
+                  </div>
+                  <div style={{ background: '#FFFFFF', border: '1px solid #E8E3DA', borderRadius: '2px', padding: '8px 4px' }}>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: '#B87858', fontFamily: 'monospace', lineHeight: 1 }}>{countdownParts.seconds}</div>
+                    <div style={{ fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--muted)', marginTop: '4px' }}>Secs</div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '12px', fontSize: '11.5px', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                  <span>
+                    Available for purchase in: <strong>{countdownParts.days}d {countdownParts.hours}h {countdownParts.minutes}m {countdownParts.seconds}s</strong>
+                  </span>
+                  {product.releaseDate && (
+                    <span style={{ fontSize: '10.5px', color: '#8A6834' }}>
+                      Releases: {new Date(product.releaseDate).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })} IST
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Pre-Order Banner */}
+            {isPreOrderMode && (
+              <div
+                style={{
+                  background: '#FFFBF5',
+                  border: '1px solid #E5C9BA',
+                  borderRadius: '4px',
+                  padding: '14px 16px',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px'
+                }}
+              >
+                <div style={{ width: '28px', height: '28px', borderRadius: '2px', background: '#F5EFE6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#B87858', flexShrink: 0, marginTop: '1px' }}>
+                  <Sparkles size={15} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                    <strong style={{ fontSize: '11px', letterSpacing: '1.2px', textTransform: 'uppercase', color: '#94583A' }}>
+                      PRE-ORDER RESERVATION
+                    </strong>
+                    <span style={{ fontSize: '9px', background: '#B87858', color: '#fff', padding: '1px 5px', borderRadius: '2px', fontWeight: 700 }}>
+                      LIMITED RUN
+                    </span>
+                  </div>
+                  <p style={{ margin: '0 0 4px', fontSize: '12px', color: 'var(--ink)', lineHeight: 1.4 }}>
+                    Secure your piece ahead of release. Immediate checkout through Razorpay guarantees your reservation.
+                  </p>
+                  {product.expectedDispatchDate && (
+                    <span style={{ fontSize: '11px', color: '#7E3E4E', fontWeight: 600 }}>
+                      Expected dispatch: {product.expectedDispatchDate}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="purchase-primary-row">
               <div className="quantity-stepper" aria-label="Quantity Selector">
                 <button
                   type="button"
                   onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                  disabled={quantity <= 1}
+                  disabled={quantity <= 1 || isComingSoonActive}
                   aria-label="Decrease quantity"
                 >
                   <Minus size={13} />
@@ -880,7 +1012,7 @@ export function ProductDetailClient({
                 <button
                   type="button"
                   onClick={() => setQuantity(q => Math.min(selectedVariant?.inventoryQuantity || 1, q + 1))}
-                  disabled={!selectedVariant || quantity >= selectedVariant.inventoryQuantity}
+                  disabled={!selectedVariant || quantity >= selectedVariant.inventoryQuantity || isComingSoonActive}
                   aria-label="Increase quantity"
                 >
                   <Plus size={13} />
@@ -892,21 +1024,28 @@ export function ProductDetailClient({
                 className="add-to-cart-btn"
                 disabled={!canAddToCart || isSubmittingCart}
                 onClick={handleAddToCart}
+                style={isComingSoonActive ? { background: '#242e3d', borderColor: '#344b68', color: '#93a7c1', cursor: 'not-allowed' } : undefined}
               >
                 {addedNotice ? (
                   <>
-                    <Check size={14} /> ADDED TO BAG
+                    <Check size={14} /> {isPreOrderMode ? 'PRE-ORDER RESERVED' : 'ADDED TO BAG'}
+                  </>
+                ) : isComingSoonActive ? (
+                  <>
+                    <Clock size={14} /> COMING SOON
                   </>
                 ) : (
                   <>
                     <ShoppingBag size={14} />
                     {canAddToCart
-                      ? (isSubmittingCart ? 'ADDING...' : 'ADD TO BAG')
-                      : (product.soldOut || product.variants.length === 0
-                        ? 'OUT OF STOCK'
-                        : selectedVariant
+                        ? (isSubmittingCart
+                          ? (isPreOrderMode ? 'RESERVING PRE-ORDER...' : 'ADDING...')
+                          : (isPreOrderMode ? 'PRE-ORDER — ADD TO BAG' : 'ADD TO BAG'))
+                        : (product.soldOut || product.variants.length === 0
                           ? 'OUT OF STOCK'
-                          : 'SELECT SIZE')}
+                          : selectedVariant
+                            ? 'OUT OF STOCK'
+                            : 'SELECT SIZE')}
                   </>
                 )}
               </button>
@@ -929,16 +1068,18 @@ export function ProductDetailClient({
                 className="buy-now-btn"
                 disabled={isSubmittingBuyNow}
                 onClick={handleBuyNow}
-                aria-label="Buy now with direct checkout"
+                aria-label={isPreOrderMode ? "Pre-order with direct checkout" : "Buy now with direct checkout"}
               >
                 <span className="buy-now-content">
                   <Zap size={14} className="buy-now-icon" fill="currentColor" />
                   <span className="buy-now-label">
-                    {isSubmittingBuyNow ? 'OPENING INSTANT CHECKOUT...' : 'BUY NOW — DIRECT CHECKOUT'}
+                    {isSubmittingBuyNow
+                      ? (isPreOrderMode ? 'OPENING PRE-ORDER CHECKOUT...' : 'OPENING INSTANT CHECKOUT...')
+                      : (isPreOrderMode ? 'PRE-ORDER NOW — DIRECT CHECKOUT' : 'BUY NOW — DIRECT CHECKOUT')}
                   </span>
                 </span>
                 <span className="buy-now-badge" aria-hidden="true">
-                  INSTANT
+                  {isPreOrderMode ? 'PRE-ORDER' : 'INSTANT'}
                 </span>
               </button>
             )}
@@ -1277,15 +1418,22 @@ export function ProductDetailClient({
               className="sticky-bar-add-btn"
               disabled={!canAddToCart || isSubmittingCart}
               onClick={handleAddToCart}
+              style={isComingSoonActive ? { background: '#242e3d', borderColor: '#344b68', color: '#93a7c1', cursor: 'not-allowed' } : undefined}
             >
               {addedNotice ? (
                 <>
-                  <Check size={13} /> ADDED
+                  <Check size={13} /> {isPreOrderMode ? 'RESERVED' : 'ADDED'}
+                </>
+              ) : isComingSoonActive ? (
+                <>
+                  <Clock size={13} /> COMING SOON
                 </>
               ) : (
                 <>
                   <ShoppingBag size={13} />
-                  {canAddToCart ? 'ADD TO BAG' : 'OUT OF STOCK'}
+                  {canAddToCart
+                    ? (isPreOrderMode ? 'PRE-ORDER' : 'ADD TO BAG')
+                    : 'OUT OF STOCK'}
                 </>
               )}
             </button>
@@ -1296,10 +1444,10 @@ export function ProductDetailClient({
                 className="sticky-bar-buy-btn"
                 disabled={isSubmittingBuyNow}
                 onClick={handleBuyNow}
-                aria-label="Direct checkout"
+                aria-label={isPreOrderMode ? "Pre-order direct checkout" : "Direct checkout"}
               >
                 <Zap size={12} fill="currentColor" />
-                <span>BUY NOW</span>
+                <span>{isPreOrderMode ? 'PRE-ORDER NOW' : 'BUY NOW'}</span>
               </button>
             )}
           </div>
