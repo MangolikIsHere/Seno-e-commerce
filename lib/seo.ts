@@ -25,5 +25,53 @@ export const websiteJsonLd = {
   '@type': 'WebSite',
   name: 'SENO',
   url: 'https://www.seno.co.in/',
-  alternateName: ['SENO'],
+  alternateName: ['SENO', 'SENO Studio', 'SENO India'],
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: 'https://www.seno.co.in/search?q={search_term_string}',
+    },
+    'query-input': 'required name=search_term_string',
+  },
+}
+
+/**
+ * Schema.org Organization structured data for brand knowledge graph
+ */
+export const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'SENO',
+  legalName: 'SENO',
+  url: 'https://www.seno.co.in',
+  logo: `${SITE_URL}/brand/seno-mark-512.png`,
+  description: 'Considered clothing and objects for everyday life in motion. Modern silhouettes, elevated craft, and sustainable textiles.',
+  sameAs: [
+    'https://www.instagram.com/souravsaha887/',
+    'https://www.facebook.com/sourav.saha.585585',
+  ],
+  contactPoint: {
+    '@type': 'ContactPoint',
+    telephone: '+91-8617648031',
+    contactType: 'customer support',
+    areaServed: 'IN',
+    availableLanguage: ['en', 'hi'],
+  },
+}
+
+/**
+ * Generates Schema.org BreadcrumbList structured data
+ */
+export function buildBreadcrumbJsonLd(items: { name: string; url: string }[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      item: item.url.startsWith('http') ? item.url : `${SITE_URL}${item.url.startsWith('/') ? item.url : `/${item.url}`}`,
+    })),
+  }
 }

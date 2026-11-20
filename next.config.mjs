@@ -16,6 +16,20 @@ const nextConfig = {
     buildActivity: false,
     appIsrStatus: false,
   },
+  async redirects() {
+    return [
+      {
+        source: '/refund-policy',
+        destination: '/return-refund-policy',
+        permanent: true,
+      },
+      {
+        source: '/shipping-returns',
+        destination: '/return-refund-policy',
+        permanent: true,
+      },
+    ]
+  },
   async headers() {
     return [
       {

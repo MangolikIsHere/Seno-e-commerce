@@ -26,6 +26,8 @@ import {
   DEFAULT_DESCRIPTION,
   DEFAULT_OG_IMAGE,
   GOOGLE_SITE_VERIFICATION,
+  websiteJsonLd,
+  organizationJsonLd,
 } from '@/lib/seo'
 import { headers } from 'next/headers'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
@@ -134,6 +136,14 @@ export default async function RootLayout({
   return (
     <html lang="en" className={`bg-background ${isAndroid ? 'seno-android-app' : ''}`} suppressHydrationWarning>
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
         <Script
           id="google-tag-manager"
           strategy="afterInteractive"

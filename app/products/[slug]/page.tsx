@@ -5,7 +5,7 @@ import { getCachedProduct, getCachedRelatedProducts, getAllProductSlugs } from '
 import { ProductDetailClient } from '@/components/ProductDetailClient'
 import { getActivePromotions } from '@/lib/promotions'
 import { isProductEligibleForPromotion } from '@/lib/promotions-shared'
-import { SITE_URL, SITE_NAME } from '@/lib/seo'
+import { SITE_URL, SITE_NAME, buildBreadcrumbJsonLd } from '@/lib/seo'
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>
@@ -47,10 +47,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const product = await getCachedProduct(slug)
 
   if (!product) {
-    return {
-      title: 'Product Not Found — SENO',
-      description: 'The requested piece was not found in the SENO luxury catalog.',
-    }
+    notFound()
   }
 
   const productUrl = `${SITE_URL}/products/${product.slug}`
@@ -66,6 +63,17 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     description: shortDesc,
     alternates: {
       canonical: productUrl,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     },
     openGraph: {
       title: metaTitle,
@@ -113,13 +121,26 @@ export default async function ProductPage({ params }: ProductPageProps) {
   ])
   const applicablePromotion = activePromotions.find(promo => isProductEligibleForPromotion(product, promo)) || null
 
+  const cleanDesc = cleanProductDescription(product.description)
+  const allImages = (product.images && product.images.length > 0)
+    ? product.images.map(toAbsoluteUrl)
+    : [toAbsoluteUrl(product.image)]
+
+  const availabilitySchema = product.availabilityMode === 'pre_order'
+    ? 'https://schema.org/PreOrder'
+    : product.soldOut
+    ? 'https://schema.org/OutOfStock'
+    : 'https://schema.org/InStock'
+
+  const priceValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
   // Schema.org Product Structured Data
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
-    description: product.description,
-    image: product.images,
+    description: cleanDesc,
+    image: allImages,
     sku: product.variants[0]?.sku || product.slug,
     brand: {
       '@type': 'Brand',
@@ -130,10 +151,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
       url: `${SITE_URL}/products/${product.slug}`,
       priceCurrency: 'INR',
       price: product.price,
+      priceValidUntil,
       itemCondition: 'https://schema.org/NewCondition',
-      availability: product.soldOut
-        ? 'https://schema.org/OutOfStock'
-        : 'https://schema.org/InStock',
+      availability: availabilitySchema,
       seller: {
         '@type': 'Organization',
         name: 'SENO',
@@ -141,11 +161,24 @@ export default async function ProductPage({ params }: ProductPageProps) {
     },
   }
 
+  // Schema.org BreadcrumbList Structured Data
+  const categorySlug = product.categorySlug || 'all'
+  const categoryTitle = product.category || 'All Products'
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: 'Home', url: '/' },
+    { name: categoryTitle, url: `/collections/${categorySlug}` },
+    { name: product.name, url: `/products/${product.slug}` },
+  ])
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <ProductDetailClient
         product={product}

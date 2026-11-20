@@ -2,6 +2,15 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
+  // 0. Enforce canonical www domain (seno.co.in -> www.seno.co.in with 301)
+  const host = request.headers.get('host') || ''
+  if (host === 'seno.co.in') {
+    const url = request.nextUrl.clone()
+    url.host = 'www.seno.co.in'
+    url.protocol = 'https:'
+    return NextResponse.redirect(url, { status: 301 })
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })
